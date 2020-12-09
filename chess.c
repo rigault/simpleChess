@@ -769,10 +769,10 @@ void cgi () { /* */
    fprintf (flog, "%s; ", buffer);            // log de la date et du temps
    env = buffer;
    env = getenv ("REMOTE_ADDR");
-   fprintf (flog, "%17s; ", env);             // log de l'address IP distante
+   fprintf (flog, "%s; ", env);             // log de l'address IP distante
    env = getenv ("HTTP_USER_AGENT");
-   if (strlen (env) > 10) *(env + 10) = '\0'; // tronque a 10 caracteres
-   fprintf (flog, "%10s;", env);              // log du user agent distant
+   if (strlen (env) > 8) *(env + 8) = '\0'; // tronque a 10 caracteres
+   fprintf (flog, "%s; ", env);              // log du user agent distant
 
    // Lecture de la chaine de caractere representant le jeu via la methode post
 
@@ -786,12 +786,11 @@ void cgi () { /* */
    if ((str = strstr (env, "reqType=")) != NULL)
       sscanf (str, "reqType=%d", &getInfo.reqType);
 
-   fprintf (flog, "%3d;", getInfo.reqType);
    if (getInfo.reqType != 0) {
        fenToGame (getInfo.fenString, sq64, &getInfo.activeColor);
        computerPlay(sq64);
        sendGame(sq64, info, getInfo.reqType);
-       fprintf (flog, "%3d;  %-60s;%8s;%10d", getInfo.level, getInfo.fenString, info.computerPlay, info.note);
+       fprintf (flog, "%2d; %s; %s; %d", getInfo.level, getInfo.fenString, info.computerPlay, info.note);
    }
    else sendGame(sq64, info, getInfo.reqType);
    fprintf (flog, "\n");

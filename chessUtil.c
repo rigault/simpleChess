@@ -228,7 +228,6 @@ void sendGame (TGAME sq64, struct sinfo info, int reqType) { /* */
    printf ("\"version\" : \"%s\"", VERSION);
    if (reqType > 0) {
       gameToFen (sq64, fen, info.gamerColor, '+', true);
-      fprintf (flog, "Fen: %s\n", fen);
       printf (",\n");
       printf ("\"clockTime\": \"%lf\",\n", (double) info.nClock/CLOCKS_PER_SEC);
       printf ("\"time\" : \"%d\",\n", info.computeTime);
