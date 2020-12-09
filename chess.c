@@ -190,6 +190,8 @@ int buildList (TGAME refJeu, register int who, TLIST list) { /* */
    if (who == 1) {
       if (refJeu [7][4] == KING) {
          if (refJeu [7][0] == ROOK && 0 == refJeu [7][1] && 0 == refJeu [7][2] && 0 == refJeu [7][3]) {
+            // dans l'ideal, le roi ne devrait pas être echec au roi et les cases qu'il traverse non plus
+            // utiliser LCkingInCheck (sq64, who, l, c) 
             memcpy (pl, refJeu, GAMESIZE);
             list [nListe][7][0] = 0;
             list [nListe][7][2] = CASTLEKING;
@@ -199,6 +201,8 @@ int buildList (TGAME refJeu, register int who, TLIST list) { /* */
          }
          // Roque ordi droit
          if (refJeu [7][7] == ROOK && 0 == refJeu [7][5] && 0  == refJeu [7][6]) {
+            // dans l'ideal, le roi ne devrait pas être echec au roi et les cases qu'il traverse non plus
+            // utiliser LCkingInCheck (sq64, who, l, c) 
             memcpy (pl, refJeu, GAMESIZE);
             list [nListe][7][4] = 0;
             list [nListe][7][5] = ROOK;
@@ -212,6 +216,8 @@ int buildList (TGAME refJeu, register int who, TLIST list) { /* */
    else { // who == -1
       if (refJeu [0][4] == -KING) {
          if (refJeu [0][0] == -ROOK && 0 == refJeu [0][1] && 0 == refJeu [0][2] && 0 == refJeu [0][3]) {
+            // dans l'ideal, le roi ne devrait pas être echec au roi et les cases qu'il traverse non plus
+            // utiliser LCkingInCheck (sq64, who, l, c) 
             memcpy (pl, refJeu, GAMESIZE);
             list [nListe][0][0] = 0;
             list [nListe][0][2] = -CASTLEKING;
@@ -221,6 +227,8 @@ int buildList (TGAME refJeu, register int who, TLIST list) { /* */
          }
          // Roque opposant droit
          if (refJeu [0][7] == -ROOK && 0 == refJeu [0][5] && 0 == refJeu [0][6]) {
+            // dans l'ideal, le roi ne devrait pas être echec au roi et les cases qu'il traverse non plus
+            // utiliser LCkingInCheck (sq64, who, l, c) 
             memcpy (pl, refJeu, GAMESIZE);
             list [nListe][0][4] = 0;
             list [nListe][0][5] = -ROOK;
@@ -800,6 +808,7 @@ int main (int argc, char *argv[]) { /* */
    char fen [MAXLENGTH];
    // preparation du fichier log 
    flog = fopen (F_LOG, "a");
+   info.nClock = clock ();
    
    srand (time (NULL)); // initialise le generateur aleatoire
    if (argc >= 2) {

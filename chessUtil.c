@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <ctype.h>
 #include <stdbool.h>
 
@@ -218,7 +219,7 @@ void sendGame (TGAME sq64, struct sinfo info, int reqType) { /* */
    char fen [MAXLEN];
    char dump [MAXLENBIG];
    char temp [MAXLENBIG];
-
+   info.nClock = clock () - info.nClock;
    printf ("Access-Control-Allow-Origin: *\n");
    printf ("Content-Type: text/html\n\n");
    printf ("{\n");
@@ -229,6 +230,7 @@ void sendGame (TGAME sq64, struct sinfo info, int reqType) { /* */
       gameToFen (sq64, fen, info.gamerColor, '+', true);
       fprintf (flog, "Fen: %s\n", fen);
       printf (",\n");
+      printf ("\"clockTime\": \"%lf\",\n", (double) info.nClock/CLOCKS_PER_SEC);
       printf ("\"time\" : \"%d\",\n", info.computeTime);
       printf ("\"note\" : \"%d\",\n", info.note);
       printf ("\"eval\" : \"%d\",\n", info.evaluation);

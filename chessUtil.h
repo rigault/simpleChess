@@ -47,6 +47,7 @@ struct sinfo {
    char comment [MAXLEN];        // nom de l'ouverture si trouvee ou fin de partie
    char endName [MAXLEN];        // nom de la database de fermeture si trouvee
    int computeTime;
+   clock_t nClock;
    char move [15];               // deplacement donne par fonction ouverture
 } info;
 
