@@ -1,6 +1,6 @@
 #define VERSION "2.1"
 #define DESCRIPTION "Chess Rene Rigault 2020"
-#define PATHTABLE "/var/www/html/chessdata345" // table de fin de jeux SYZYGY.
+#define PATHTABLE "/var/www/html/chessdata"    // table de fin de jeux SYZYGY.
 #define F_OUVB "../chessopenings/chessB.fen"   // fichier des ouvertures (openings)
 #define F_OUVW "../chessopenings/chessW.fen"   // fichier des ouvertures (openings)
 #define N 8
