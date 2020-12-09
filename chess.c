@@ -25,7 +25,7 @@
 
 #define HELP "Syntax; sudo ./chess.cgi -i|-r|-h|-t [<jeu au format FEN>]"
 
-#define MAXPIECESSYZYGY 5
+#define MAXPIECESSYZYGY 6
 #define MAXTHREADS 128             // nombre max de thread
 #define KINGINCHECKEVAL 1          // evaluation du gain d'un echec au roi..
 #define MATE 1000000
