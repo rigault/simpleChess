@@ -186,12 +186,11 @@ int buildList (TGAME refJeu, register int who, TLIST list) { /* */
    char *pl = &list [0][0][0];
    info.nBuildListCall += 1;
 
-   // Roque ordi gauche
    if (who == 1) {
       if (refJeu [7][4] == KING) {
-         if (refJeu [7][0] == ROOK && 0 == refJeu [7][1] && 0 == refJeu [7][2] && 0 == refJeu [7][3]) {
-            // dans l'ideal, le roi ne devrait pas être echec au roi et les cases qu'il traverse non plus
-            // utiliser LCkingInCheck (sq64, who, l, c) 
+         if (refJeu [7][0] == ROOK && 0 == refJeu [7][1] && 0 == refJeu [7][2] && 0 == refJeu [7][3] &&
+            ! LCkingInCheck (refJeu, who, 7, 1) &&  ! LCkingInCheck (refJeu, who, 7, 2) &&! LCkingInCheck (refJeu, who, 7, 3)) {
+            // les cases traversees par le roi ne sont pas echec au roi
             memcpy (pl, refJeu, GAMESIZE);
             list [nListe][7][0] = 0;
             list [nListe][7][2] = CASTLEKING;
@@ -200,9 +199,9 @@ int buildList (TGAME refJeu, register int who, TLIST list) { /* */
             pl += GAMESIZE;
          }
          // Roque ordi droit
-         if (refJeu [7][7] == ROOK && 0 == refJeu [7][5] && 0  == refJeu [7][6]) {
-            // dans l'ideal, le roi ne devrait pas être echec au roi et les cases qu'il traverse non plus
-            // utiliser LCkingInCheck (sq64, who, l, c) 
+         if (refJeu [7][7] == ROOK && 0 == refJeu [7][5] && 0  == refJeu [7][6] &&
+            ! LCkingInCheck (refJeu, who, 7, 5) &&  ! LCkingInCheck (refJeu, who, 7, 6)) {
+            // les cases traversees par le roi ne sont pas echec au roi
             memcpy (pl, refJeu, GAMESIZE);
             list [nListe][7][4] = 0;
             list [nListe][7][5] = ROOK;
@@ -215,9 +214,9 @@ int buildList (TGAME refJeu, register int who, TLIST list) { /* */
    // Roque opposant gauche
    else { // who == -1
       if (refJeu [0][4] == -KING) {
-         if (refJeu [0][0] == -ROOK && 0 == refJeu [0][1] && 0 == refJeu [0][2] && 0 == refJeu [0][3]) {
-            // dans l'ideal, le roi ne devrait pas être echec au roi et les cases qu'il traverse non plus
-            // utiliser LCkingInCheck (sq64, who, l, c) 
+         if (refJeu [0][0] == -ROOK && 0 == refJeu [0][1] && 0 == refJeu [0][2] && 0 == refJeu [0][3] &&
+            ! LCkingInCheck (refJeu, who, 0, 1) &&  ! LCkingInCheck (refJeu, who, 0, 2) &&! LCkingInCheck (refJeu, who, 0, 3)) {
+            // les cases traversees par le roi ne sont pas echec au roi
             memcpy (pl, refJeu, GAMESIZE);
             list [nListe][0][0] = 0;
             list [nListe][0][2] = -CASTLEKING;
@@ -226,9 +225,9 @@ int buildList (TGAME refJeu, register int who, TLIST list) { /* */
             pl += GAMESIZE;
          }
          // Roque opposant droit
-         if (refJeu [0][7] == -ROOK && 0 == refJeu [0][5] && 0 == refJeu [0][6]) {
-            // dans l'ideal, le roi ne devrait pas être echec au roi et les cases qu'il traverse non plus
-            // utiliser LCkingInCheck (sq64, who, l, c) 
+         if (refJeu [0][7] == -ROOK && 0 == refJeu [0][5] && 0 == refJeu [0][6] &&
+            ! LCkingInCheck (refJeu, who, 0, 5) &&  ! LCkingInCheck (refJeu, who, 0, 6)) {
+            // les cases traversees par le roi ne sont pas echec au roi
             memcpy (pl, refJeu, GAMESIZE);
             list [nListe][0][4] = 0;
             list [nListe][0][5] = -ROOK;
@@ -334,7 +333,7 @@ int buildList (TGAME refJeu, register int who, TLIST list) { /* */
                 list [nListe][l-1][c-1] = u;
                 list [nListe++][l][c] = 0;
                 pl += GAMESIZE;
-           }
+            }
             break;
 
          case KNIGHT:
@@ -480,7 +479,7 @@ int buildList (TGAME refJeu, register int who, TLIST list) { /* */
 }
 
 bool kingCannotMove (TGAME sq64, register int who) { /* */
-   /* vrai si le roi du joueur 'who' est ne peut plus bouger sans se mettre echec au roi */
+   /* vrai si le roi du joueur 'who' ne peut plus bouger sans se mettre echec au roi */
    /* 'who' est la couleur du roi who est attaque */
    /* on essaye tous les jeux possibles. Si dans tous les cas on est echec au roi */
    /* c'est perdu. Noter que si le roi a le trait et qu'il n'est pas echec au roi il est Pat */
