@@ -13,7 +13,7 @@ syzygy.o: syzygy.c syzygy.h
 tbprobe.o: tbprobe.c
 	gcc -c -std=gnu99 -O2 -Wall -D TB_NO_THREADS -D TB_NO_HW_POP_COUNT -I.. tbprobe.c
 
-release:
+clean:
 	rm -f *.o
 	cp chess.cgi /var/www/html/cgi-bin/.
 

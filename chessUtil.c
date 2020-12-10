@@ -174,11 +174,13 @@ char *difference (TGAME sq64_1, TGAME sq64_2, int color, int *prise, char* temp)
    sprintf (temp, "%s", "");
    l1 = c1 = l2 = c2 = NIL;
    lCastling = (color == -1) ? 0 : 7;
-   if (sq64_1[lCastling][4] == color*KING && sq64_2[lCastling][4] == VOID && sq64_1[lCastling][0] == color*ROOK && sq64_2 [lCastling][0] == VOID) {
+   if (sq64_1[lCastling][4] == color*KING && sq64_2[lCastling][4] == VOID && 
+      sq64_1[lCastling][0] == color*ROOK && sq64_2 [lCastling][0] == VOID) {
       sprintf (temp, "%s", "0-0-0");
       return temp;
    }
-   if (sq64_1[lCastling][4] == color*KING && sq64_2[lCastling][4] == VOID && sq64_1[lCastling][7] == color*ROOK && sq64_2 [lCastling][7] == VOID) {
+   if (sq64_1[lCastling][4] == color*KING && sq64_2[lCastling][4] == VOID && 
+      sq64_1[lCastling][7] == color*ROOK && sq64_2 [lCastling][7] == VOID) {
       sprintf (temp, "%s", "0-0");
       return temp;
    }
@@ -206,7 +208,8 @@ char *difference (TGAME sq64_1, TGAME sq64_2, int color, int *prise, char* temp)
    else cCharPiece = '?';
    cCharPiece = toupper (cCharPiece);
    if (color == 1) {
-      if (((sq64_1 [l1][c1] == PAWN) && (l2 == 0)) || (sq64_1 [l1][c1] == -PAWN && (l2 == 7)))
+      if (((sq64_1 [l1][c1] == PAWN) && (l2 == 0)) || 
+         (sq64_1 [l1][c1] == -PAWN && (l2 == 7)))
          sprintf (promotion, "=%c", dict [abs (sq64_2 [l2][c2])]);
    }
    // promotion non implementee pour les noirs : Bug 

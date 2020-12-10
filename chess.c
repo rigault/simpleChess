@@ -96,10 +96,10 @@ bool LCkingInCheck (TGAME sq64, register int who, register int l, register int c
    w1 = -who * KING;
    w2 = -who * CASTLEKING;
    // roi adverse  menace
-   if (l < 7 &&(sq64 [l+1][c] == w1 || sq64 [l+1][c] == w2)) return true;
-   if (l > 0 &&(sq64 [l-1][c] == w1 || sq64 [l-1][c] == w2)) return true;
-   if (c < 7 &&(sq64 [l][c+1] == w1 || sq64 [l][c+1] == w2)) return true;
-   if (c > 0 &&(sq64 [l][c-1] == w1 || sq64 [l][c-1] == w2)) return true;
+   if (l < 7 && (sq64 [l+1][c] == w1 || sq64 [l+1][c] == w2)) return true;
+   if (l > 0 && (sq64 [l-1][c] == w1 || sq64 [l-1][c] == w2)) return true;
+   if (c < 7 && (sq64 [l][c+1] == w1 || sq64 [l][c+1] == w2)) return true;
+   if (c > 0 && (sq64 [l][c-1] == w1 || sq64 [l][c-1] == w2)) return true;
    if (l < 7 && c < 7 &&(sq64 [l+1][c+1] == w1 || sq64 [l+1][c+1] == w2)) return true;
    if (l < 7 && c > 0 &&(sq64 [l+1][c-1] == w1 || sq64 [l+1][c-1] == w2)) return true;
    if (l > 0 && c < 7 &&(sq64 [l-1][c+1] == w1 || sq64 [l-1][c+1] == w2)) return true;
@@ -691,6 +691,9 @@ int find (TGAME sq64, TGAME bestSq64, int *bestNote, int color) { /* */
           perror ("pthread_join");
           return EXIT_FAILURE;
       }
+
+   // tEval contient les écaluations de toutes les possibilites
+   // recherche de la meilleure note
    for (k = 0; k < nextL; k++) {
       if (kingCannotMove (list [k], -color) && tEval [k] != color*MATE) tEval [k] = 0;
       if (color == 1 && tEval [k] > *bestNote)
@@ -699,7 +702,7 @@ int find (TGAME sq64, TGAME bestSq64, int *bestNote, int color) { /* */
          *bestNote = tEval [k];
    }
  
-   // choix aleatoire d'un des jeux ayant la meilleure note
+   // construction de la liste des jeux aiallant la meilleure note
    i = 0;
    for (k = 0; k < nextL; k++)
       if (tEval [k] == *bestNote)
@@ -737,10 +740,13 @@ void computerPlay (TGAME sq64) { /* */
    if (info.gamerKingState == ISINCHECK) {
       info.gamerKingState = UNVALIDINCHECK; // le joueur n'a pas le droit d'etre en echec
    }
-   if (info.computerKingState != ISMATE && info.computerKingState != ISPAT && info.computerKingState != NOEXIST && info.gamerKingState != UNVALIDINCHECK) {
+   if (info.computerKingState != ISMATE && info.computerKingState != ISPAT && 
+      info.computerKingState != NOEXIST && info.gamerKingState != UNVALIDINCHECK) {
       info.maxDepth = fMaxDepth (getInfo.level, info);
       chrono = time (NULL);
-      if ((info.nValidComputerPos = find(sq64, bestSq64, &info.evaluation, -info.gamerColor)) > 0) {  // lancement de la recherche par l'ordi
+
+      // lancement de la recherche par l'ordi
+      if ((info.nValidComputerPos = find(sq64, bestSq64, &info.evaluation, -info.gamerColor)) > 0) {  
          info.computeTime = (int) difftime (time (NULL), chrono);
          difference(sq64, bestSq64, -info.gamerColor, &info.lastCapturedByComputer, info.computerPlay);
          memcpy(sq64, bestSq64, GAMESIZE);
