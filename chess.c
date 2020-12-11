@@ -3,8 +3,8 @@
 /*   Noirs : 1 (Minuscules) */
 /*   Blancs : -1 (Majuscules) */
 /*   case libre 0 */
-/*   mode CLI API : chess -i [FENgame] */
-/*   mode CLI Raw : chess -r [FENgame] */
+/*   mode CLI API : chess -i [FENgame] [profondeur] */
+/*   mode CLI Raw : chess -r [FENgame] [profondeur] */
 /*   mode CLI Test : chess -t */
 /*   script CGI gérant une API restful (GET) avec les réponses au format JSON */
 /*   fichiers associes : chess.log, chessB.fen, chessW.fen, chessUtil.c, syzygy.c, tbprobes.c tbcore.c et .h associes  */
@@ -62,21 +62,16 @@ TGAME sq64 = {
    {ROOK, KNIGHT, BISHOP, QUEEN, KING, BISHOP, KNIGHT, ROOK}
 };
 
-int fMaxDepth (int level, struct sinfo info) { /* */
+int fMaxDepth (int lev, struct sinfo info) { /* */
    /* renvoie la profondeur du jeu en fonction du niveau choisi et */
    /* de l'etat du jeu */
-   int x = level;
-   int product = info.nValidComputerPos * info.nValidGamerPos;
-   if (400 < product && product <= 800)
-      x = level + 1;
-   else if (product <= 400)
-      x = level + 2;
-   return x;
+   int prod = info.nValidComputerPos * info.nValidGamerPos;
+   return  (prod < 400) ? lev + 2 : ((prod < 800) ? lev + 1 : lev); 
 }
 
 bool LCkingInCheck (TGAME sq64, register int who, register int l, register int c) { /* */
    /* vrai si le roi situe case l, c est echec au roi */
-   /*'who' est la couleur du roi who est attaque */
+   /*'who' est la couleur du roi qui est attaque */
    register int w, w1, w2, i, j, k;
    info.nLCKingInCheckCall += 1;
 
@@ -121,6 +116,7 @@ bool LCkingInCheck (TGAME sq64, register int who, register int l, register int c
    // tour ou reine menace
    for (i = l+1; i < N; i++) {
       w = sq64 [i][c];
+// printf ("Tour u Reine i=%d l=%d w %d w1 %d\n", i, l, w, w1); 
       if (w == w1 || w == w2) return true;
       if (w != 0) break;
    }
@@ -178,10 +174,30 @@ bool fKingInCheck (TGAME sq64, int who) { /* */
    return false;
 }
 
+bool findKing (TGAME refJeu, int who, int *lKing, int *cKing) { /* */
+   /* recherche du roi */
+   *lKing = -1;
+   *cKing = -1;
+   for (int l = 0; l < N; l++) {
+      for (int c = 0; c < N; c++) {
+         int sign = (refJeu [l][c] >= 0) ? 1 : -1;
+         if (abs (refJeu [l][c]) >= KING && sign == who) {
+            *lKing = l;
+            *cKing = c;
+            break;
+         }
+      if (*lKing != -1) break;
+      }
+   }
+// printf ("Who lKing, cKing %d %d %d\n", who, *lKing, *cKing);
+  return *lKing != -1;
+}
+
 int buildList (TGAME refJeu, register int who, TLIST list) { /* */
    /* construit la liste des jeux possibles a partir de jeu. */
    /* 'who' joue */
    register int u, v, i, j, k, l, c;
+   int lKing, cKing;
    register int nListe = 0;
    char *pl = &list [0][0][0];
    info.nBuildListCall += 1;
@@ -238,7 +254,9 @@ int buildList (TGAME refJeu, register int who, TLIST list) { /* */
       }
    }
 
-   for (l = 0; l < N; l++)
+   findKing (refJeu, who, &lKing, &cKing);
+
+   for (l = 0; l < N; l++) {
       for (c = 0; c < N; c++) {
          u = refJeu [l][c];
          v = who * u; // v = abs (u)
@@ -246,145 +264,166 @@ int buildList (TGAME refJeu, register int who, TLIST list) { /* */
          switch (v) { // v est la valeur absolue car u < 0 ==> who < 0
          case PAWN:
          // deplacements du pion
-            if (who == -1 && l == 1 && 0 == refJeu [l+1][c] && 0  == refJeu[l+2][c]) { // coup initial saut de 2 cases
+            if (who == -1 && l == 1 && 0 == refJeu [l+1][c] && 0 == refJeu[l+2][c]) { // coup initial saut de 2 cases 
                memcpy (pl, refJeu, GAMESIZE);
                list [nListe][l+2][c] = -PAWN;
-               list [nListe++][l][c] = 0;
-               pl += GAMESIZE;
+               list [nListe][l][c] = 0;
+               if (! LCkingInCheck (list [nListe], who, lKing, cKing))
+                  { pl += GAMESIZE; nListe += 1; }
             }
             if (who == 1 && l == 6 && 0 == refJeu [l-1][c] && 0 == refJeu [l-2][c]) { // coup initial saut de 2 cases
                memcpy (pl, refJeu, GAMESIZE);
                list [nListe][l-2][c] = PAWN;
-               list [nListe++][l][c] = 0;
-               pl += GAMESIZE;
+               list [nListe][l][c] = 0;
+               if (! LCkingInCheck (list [nListe], who, lKing, cKing))
+                  { pl += GAMESIZE; nListe += 1; }
             }
             if (((l-who) >= 0) && ((l-who) < 8) && (0 == refJeu [l-who][c])) { // normal
                memcpy (pl, refJeu, GAMESIZE);
                if (l-1 == 0 && who == 1)  list [nListe][l-1][c] = QUEEN;
                else if (l+1 == 7 && who == -1) list [nListe][l+1][c] = -QUEEN;
                else list [nListe][l-who][c] = PAWN * who;
-               list [nListe++][l][c] = 0;
-               pl += GAMESIZE;
+               list [nListe][l][c] = 0;
+               if (! LCkingInCheck (list [nListe], who, lKing, cKing))
+                  { pl += GAMESIZE; nListe += 1; }
             }
             // prise a droite
-            if (c < 7 && (l-who) >=0 && (l-who) < N && refJeu [l-who][c+1]*who < 0) {// signes opposes
+            if (c < 7 && (l-who) >=0 && (l-who) < N && refJeu [l-who][c+1]*who < 0) { // signes opposes
                memcpy (pl, refJeu, GAMESIZE);
                if (l-1 == 0 && who == 1) list [nListe][l-1][c+1] = QUEEN;
                else if (l+1 == 7 && who == -1) list [nListe][l+1][c+1] = -QUEEN;
                else list [nListe][l-who][c+1] = PAWN * who;
-               list [nListe++][l][c] = 0;
-               pl += GAMESIZE;
+               list [nListe][l][c] = 0;
+               if (! LCkingInCheck (list [nListe], who, lKing, cKing))
+                  { pl += GAMESIZE; nListe += 1; }
             }
             // prise a gauche
-            if (c > 0 && (l-who) >= 0 && (l-who) < N && refJeu [l-who][c-1]*who < 0) { // signes opposes
+            if (c > 0 && (l-who) >= 0 && (l-who) < N && refJeu [l-who][c-1]*who < 0) { // signes opposesY
                memcpy (pl, refJeu, GAMESIZE);
                if (l-1 == 0 && who == 1) list [nListe][l-1][c-1] = QUEEN;
                else if (l+1 == 7 && who == -1) list [nListe][l+1][c-1] = -QUEEN;
                else list [nListe][l-who][c-1] = PAWN * who;
-               list [nListe++][l][c] = 0;
-               pl += GAMESIZE;
+               list [nListe][l][c] = 0;
+               if (! LCkingInCheck (list [nListe], who, lKing, cKing))
+                  { pl += GAMESIZE; nListe += 1; }
             }
             break;
          case KING: case CASTLEKING:
-            if (c < 7 && u * refJeu [l][c+1] <= 0) {
-                memcpy (pl, refJeu, GAMESIZE);
-                list [nListe][l][c+1] = u;
-                list [nListe++][l][c] = 0;
-                pl += GAMESIZE;
+            if (c < 7 && (u * refJeu [l][c+1] <= 0)) {
+               memcpy (pl, refJeu, GAMESIZE);
+               list [nListe][l][c+1] = u;
+               list [nListe][l][c] = 0;
+               if (! LCkingInCheck (list [nListe], who, lKing, cKing))
+                  { pl += GAMESIZE; nListe += 1; }
             }
-            if (c > 0 && u * refJeu [l][c-1] <= 0) {
-                memcpy (pl, refJeu, GAMESIZE);
-                list [nListe][l][c-1] = u;
-                list [nListe++][l][c] = 0;
-                pl += GAMESIZE;
-           }
-            if (l < 7 && u * refJeu [l+1][c] <= 0) {
-                memcpy (pl, refJeu, GAMESIZE);
-                list [nListe][l+1][c] = u;
-                list [nListe++][l][c] = 0;
-                pl += GAMESIZE;
+            if (c > 0 && (u * refJeu [l][c-1] <= 0)) {
+               memcpy (pl, refJeu, GAMESIZE);
+               list [nListe][l][c-1] = u;
+               list [nListe][l][c] = 0;
+               if (! LCkingInCheck (list [nListe], who, lKing, cKing))
+                  { pl += GAMESIZE; nListe += 1; }
             }
-            if (l > 0 && u * refJeu [l-1][c] <= 0) {
-                memcpy (pl, refJeu, GAMESIZE);
-                list [nListe][l-1][c] = u;
-                list [nListe++][l][c] = 0;
-                pl += GAMESIZE;
-           }
-            if ((l < 7) && (c < 7) && u * refJeu [l+1][c+1] <= 0) {
-                memcpy (pl, refJeu, GAMESIZE);
-                list [nListe][l+1][c+1] = u;
-                list [nListe++][l][c] = 0;
-                pl += GAMESIZE;
+            if (l < 7 && (u * refJeu [l+1][c] <= 0)) {
+               memcpy (pl, refJeu, GAMESIZE);
+               list [nListe][l+1][c] = u;
+               list [nListe][l][c] = 0;
+               if (! LCkingInCheck (list [nListe], who, lKing, cKing))
+                  { pl += GAMESIZE; nListe += 1; }
             }
-            if ((l < 7) && (c > 0) && u * refJeu [l+1][c-1] <= 0) {
-                memcpy (pl, refJeu, GAMESIZE);
-                list [nListe][l+1][c-1] = u;
-                list [nListe++][l][c] = 0;
-                pl += GAMESIZE;
-           }
-            if ((l > 0) && (c < 7) && u * refJeu [l-1][c+1] <= 0) {
-                memcpy (pl, refJeu, GAMESIZE);
-                list [nListe][l-1][c+1] = u;
-                list [nListe++][l][c] = 0;
-                pl += GAMESIZE;
+            if (l > 0 && (u * refJeu [l-1][c] <= 0)) {
+               memcpy (pl, refJeu, GAMESIZE);
+               list [nListe][l-1][c] = u;
+               list [nListe][l][c] = 0;
+               if (! LCkingInCheck (list [nListe], who, lKing, cKing))
+                  { pl += GAMESIZE; nListe += 1; }
             }
-            if ((l > 0) && (c > 0) && u * refJeu [l-1][c-1] <= 0) {
-                memcpy (pl, refJeu, GAMESIZE);
-                list [nListe][l-1][c-1] = u;
-                list [nListe++][l][c] = 0;
-                pl += GAMESIZE;
+            if ((l < 7) && (c < 7) && (u * refJeu [l+1][c+1] <= 0)) {
+               memcpy (pl, refJeu, GAMESIZE);
+               list [nListe][l+1][c+1] = u;
+               list [nListe][l][c] = 0;
+               if (! LCkingInCheck (list [nListe], who, lKing, cKing))
+                  { pl += GAMESIZE; nListe += 1; }
+            }
+            if ((l < 7) && (c > 0) && (u * refJeu [l+1][c-1] <= 0)) {
+               memcpy (pl, refJeu, GAMESIZE);
+               list [nListe][l+1][c-1] = u;
+               list [nListe][l][c] = 0;
+               if (! LCkingInCheck (list [nListe], who, lKing, cKing))
+                  { pl += GAMESIZE; nListe += 1; }
+            }
+            if ((l > 0) && (c < 7) && (u * refJeu [l-1][c+1] <= 0)) {
+               memcpy (pl, refJeu, GAMESIZE);
+               list [nListe][l-1][c+1] = u;
+               list [nListe][l][c] = 0;
+               if (! LCkingInCheck (list [nListe], who, lKing, cKing))
+                  { pl += GAMESIZE; nListe += 1; }
+            }
+            if ((l > 0) && (c > 0) && (u * refJeu [l-1][c-1] <= 0)) {
+               memcpy (pl, refJeu, GAMESIZE);
+               list [nListe][l-1][c-1] = u;
+               list [nListe][l][c] = 0;
+               if (! LCkingInCheck (list [nListe], who, lKing, cKing))
+                  { pl += GAMESIZE; nListe += 1; }
             }
             break;
 
          case KNIGHT:
-            if (l < 7 && c < 6 && u * refJeu [l+1][c+2] <= 0) {
-                memcpy (pl, refJeu, GAMESIZE);
-                list [nListe][l+1][c+2] = u;
-                list [nListe++][l][c] = 0;
-                pl += GAMESIZE;
+            if (l < 7 && c < 6 && (u * refJeu [l+1][c+2] <= 0)) {
+               memcpy (pl, refJeu, GAMESIZE);
+               list [nListe][l+1][c+2] = u;
+               list [nListe][l][c] = 0;
+               if (! LCkingInCheck (list [nListe], who, lKing, cKing))
+                  { pl += GAMESIZE; nListe += 1; }
             }
-            if (l < 7 && c > 1 && u * refJeu [l+1][c-2] <= 0) {
-                memcpy (pl, refJeu, GAMESIZE);
-                list [nListe][l+1][c-2] = u;
-                list [nListe++][l][c] = 0;
-                pl += GAMESIZE;
-           }
-            if (l < 6 && c < 7 && u * refJeu [l+2][c+1] <= 0) {
-                memcpy (pl, refJeu, GAMESIZE);
-                list [nListe][l+2][c+1] = u;
-                list [nListe++][l][c] = 0;
-                pl += GAMESIZE;
+            if (l < 7 && c > 1 && (u * refJeu [l+1][c-2] <= 0)) {
+               memcpy (pl, refJeu, GAMESIZE);
+               list [nListe][l+1][c-2] = u;
+               list [nListe][l][c] = 0;
+               if (! LCkingInCheck (list [nListe], who, lKing, cKing))
+                  { pl += GAMESIZE; nListe += 1; }
             }
-            if (l < 6 && c > 0 && u * refJeu [l+2][c-1] <= 0) {
-                memcpy (pl, refJeu, GAMESIZE);
-                list [nListe][l+2][c-1] = u;
-                list [nListe++][l][c] = 0;
-                pl += GAMESIZE;
-           }
-            if (l > 0 && c < 6 && u * refJeu [l-1][c+2] <= 0) {
-                memcpy (pl, refJeu, GAMESIZE);
-                list [nListe][l-1][c+2] = u;
-                list [nListe++][l][c] = 0;
-                pl += GAMESIZE;
+            if (l < 6 && c < 7 && (u * refJeu [l+2][c+1] <= 0)) {
+               memcpy (pl, refJeu, GAMESIZE);
+               list [nListe][l+2][c+1] = u;
+               list [nListe][l][c] = 0;
+               if (! LCkingInCheck (list [nListe], who, lKing, cKing))
+                  { pl += GAMESIZE; nListe += 1; }
             }
-            if (l > 0  && c > 1 && u * refJeu [l-1][c-2] <= 0) {
-                memcpy (pl, refJeu, GAMESIZE);
-                list [nListe][l-1][c-2] = u;
-                list [nListe++][l][c] = 0;
-                pl += GAMESIZE;
-           }
-            if (l > 1 && c < 7 && u * refJeu [l-2][c+1] <= 0) {
-                memcpy (pl, refJeu, GAMESIZE);
-                list [nListe][l-2][c+1] = u;
-                list [nListe++][l][c] = 0;
-                pl += GAMESIZE;
+            if (l < 6 && c > 0 && (u * refJeu [l+2][c-1] <= 0)) {
+               memcpy (pl, refJeu, GAMESIZE);
+               list [nListe][l+2][c-1] = u;
+               list [nListe][l][c] = 0;
+               if (! LCkingInCheck (list [nListe], who, lKing, cKing))
+                  { pl += GAMESIZE; nListe += 1; }
             }
-            if (l > 1 && c > 0 && u * refJeu [l-2][c-1] <= 0) {
-                memcpy (pl, refJeu, GAMESIZE);
-                list [nListe][l-2][c-1] = u;
-                list [nListe++][l][c] = 0;
-                pl += GAMESIZE;
-           }
+            if (l > 0 && c < 6 && (u * refJeu [l-1][c+2] <= 0)) {
+               memcpy (pl, refJeu, GAMESIZE);
+               list [nListe][l-1][c+2] = u;
+               list [nListe][l][c] = 0;
+               if (! LCkingInCheck (list [nListe], who, lKing, cKing))
+                  { pl += GAMESIZE; nListe += 1; }
+            }
+            if (l > 0  && c > 1 && (u * refJeu [l-1][c-2] <= 0)) {
+               memcpy (pl, refJeu, GAMESIZE);
+               list [nListe][l-1][c-2] = u;
+               list [nListe][l][c] = 0;
+               if (! LCkingInCheck (list [nListe], who, lKing, cKing))
+                  { pl += GAMESIZE; nListe += 1; }
+            }
+            if (l > 1 && c < 7 && (u * refJeu [l-2][c+1] <= 0)) {
+               memcpy (pl, refJeu, GAMESIZE);
+               list [nListe][l-2][c+1] = u;
+               list [nListe][l][c] = 0;
+               if (! LCkingInCheck (list [nListe], who, lKing, cKing))
+                  { pl += GAMESIZE; nListe += 1; }
+            }
+            if (l > 1 && c > 0 && (u * refJeu [l-2][c-1] <= 0)) {
+               memcpy (pl, refJeu, GAMESIZE);
+               list [nListe][l-2][c-1] = u;
+               list [nListe][l][c] = 0;
+               if (! LCkingInCheck (list [nListe], who, lKing, cKing))
+                  { pl += GAMESIZE; nListe += 1; }
+            }
             break;
 
          case ROOK: case QUEEN:
@@ -392,8 +431,9 @@ int buildList (TGAME refJeu, register int who, TLIST list) { /* */
                if (u * refJeu [i][c] <= 0) {
                   memcpy (pl, refJeu, GAMESIZE);
                   list [nListe][i][c] = u;
-                  list [nListe++][l][c] = 0;
-                  pl += GAMESIZE;
+                  list [nListe][l][c] = 0;
+                  if (! LCkingInCheck (list [nListe], who, lKing, cKing))
+                     { pl += GAMESIZE; nListe += 1; }
                   if (refJeu [i][c] != 0)  break;
                }
                else break;
@@ -402,28 +442,31 @@ int buildList (TGAME refJeu, register int who, TLIST list) { /* */
                if (u * refJeu [i][c] <= 0) {
                   memcpy (pl, refJeu, GAMESIZE);
                   list [nListe][i][c] = u;
-                  list [nListe++][l][c] = 0;
-                  pl += GAMESIZE;
-               if (refJeu [i][c] != 0) break;
+                  list [nListe][l][c] = 0;
+                  if (! LCkingInCheck (list [nListe], who, lKing, cKing))
+                     { pl += GAMESIZE; nListe += 1; }
+                  if (refJeu [i][c] != 0) break;
                }
                else break;
             }
             for (j = c+1; j < N; j++) {  // a droite
-               memcpy (pl, refJeu, GAMESIZE);
                if (u * refJeu [l][j] <= 0) {
+                  memcpy (pl, refJeu, GAMESIZE);
                   list [nListe][l][j] = u;
-                  list [nListe++][l][c] = 0;
-                  pl += GAMESIZE;
+                  list [nListe][l][c] = 0;
+                  if (! LCkingInCheck (list [nListe], who, lKing, cKing))
+                     { pl += GAMESIZE; nListe += 1; }
                   if (refJeu [l][j] != 0) break;
                }
                else break;
             }
             for (j = c-1; j >=0; j--)  { // a gauche
-               memcpy (pl, refJeu, GAMESIZE);
                if (u * refJeu [l][j] <= 0) {
+                  memcpy (pl, refJeu, GAMESIZE);
                   list [nListe][l][j] = u;
-                  list [nListe++][l][c] = 0;
-                  pl += GAMESIZE;
+                  list [nListe][l][c] = 0;
+                  if (! LCkingInCheck (list [nListe], who, lKing, cKing))
+                     { pl += GAMESIZE; nListe += 1; }
                   if (refJeu [l][j] != 0) break;
                }
                else break;
@@ -435,8 +478,9 @@ int buildList (TGAME refJeu, register int who, TLIST list) { /* */
                if (u * refJeu [l+k+1][c+k+1] <=0) {
                   memcpy (pl, refJeu, GAMESIZE);
                   list [nListe][l+k+1][c+k+1] = u;
-                  list [nListe++][l][c] = 0;
-                  pl += GAMESIZE;
+                  list [nListe][l][c] = 0;
+                  if (! LCkingInCheck (list [nListe], who, lKing, cKing))
+                     { pl += GAMESIZE; nListe += 1; }
                   if (refJeu [l+k+1][c+k+1] != 0) break;
                }
                else break;
@@ -445,8 +489,9 @@ int buildList (TGAME refJeu, register int who, TLIST list) { /* */
                if (u * refJeu [l+k+1][c-k-1] <=0) {
                   memcpy (pl, refJeu, GAMESIZE);
                   list [nListe][l+k+1][c-k-1] = u;
-                  list [nListe++][l][c] = 0;
-                  pl += GAMESIZE;
+                  list [nListe][l][c] = 0;
+                  if (! LCkingInCheck (list [nListe], who, lKing, cKing))
+                     { pl += GAMESIZE; nListe += 1; }
                   if (refJeu [l+k+1][c-k-1] != 0) break;
                }
                else break;
@@ -455,8 +500,9 @@ int buildList (TGAME refJeu, register int who, TLIST list) { /* */
                if (u * refJeu [l-k-1][c+k+1] <=0) {
                   memcpy (pl, refJeu, GAMESIZE);
                   list [nListe][l-k-1][c+k+1] = u;
-                  list [nListe++][l][c] = 0;
-                  pl += GAMESIZE;
+                  list [nListe][l][c] = 0;
+                  if (! LCkingInCheck (list [nListe], who, lKing, cKing))
+                     { pl += GAMESIZE; nListe += 1; }
                   if (refJeu [l-k-1][c+k+1] != 0) break;
                }
                else break;
@@ -465,8 +511,9 @@ int buildList (TGAME refJeu, register int who, TLIST list) { /* */
                if (u * refJeu [l-k-1][c-k-1] <=0) {
                   memcpy (pl, refJeu, GAMESIZE);
                   list [nListe][l-k-1][c-k-1] = u;
-                  list [nListe++][l][c] = 0;
-                  pl += GAMESIZE;
+                  list [nListe][l][c] = 0;
+                  if (! LCkingInCheck (list [nListe], who, lKing, cKing))
+                     { pl += GAMESIZE; nListe += 1; }
                   if (refJeu [l-k-1][c-k-1] != 0) break;
                }
                else break;
@@ -475,6 +522,7 @@ int buildList (TGAME refJeu, register int who, TLIST list) { /* */
          default:;
          } //fin du switch
       }    // fin des deux for imbriques
+   }
    return nListe;
 }
 
@@ -501,7 +549,7 @@ void updateInfo (TGAME sq64) { /* */
    info.nGamerPieces = info.nComputerPieces = 0;
    for (l = 0; l < N; l++) {
       for (c = 0; c < N; c++) {
-         v = - sq64 [l][c]* info.gamerColor;
+         v = - sq64 [l][c] * info.gamerColor;
          if (v > 0) info.nComputerPieces += 1;
          else if (v < 0) info.nGamerPieces += 1;
          if (v == KING || v == CASTLEKING) {
@@ -577,6 +625,7 @@ int evaluation (TGAME sq64, register int who) { /* */
       for (c = 0; c < N; c++)
          if(sq64 [l][c]*who > 0)
              dist = dist + abs (cadverse -c ) + abs (ladverse - l);
+
    eval += -who*dist;
    if (LCkingInCheck(sq64, who, lwho, cwho)) return -who * MATE; // who ne peut pas jouer et se mettre en echec
    kingInCheck = LCkingInCheck(sq64, -who, ladverse, cadverse);
@@ -649,6 +698,8 @@ int find (TGAME sq64, TGAME bestSq64, int *bestNote, int color) { /* */
    nextL = buildList(sq64, color, list);
    strcpy (info.comment, "");
 
+   // for (int k = 0; k < nextL; k++) printGame (list [k]);
+   
    if (nextL == 0) return 0;
 
    // Hasard Total
@@ -702,7 +753,7 @@ int find (TGAME sq64, TGAME bestSq64, int *bestNote, int color) { /* */
          *bestNote = tEval [k];
    }
  
-   // construction de la liste des jeux aiallant la meilleure note
+   // construction de la liste des jeux aillant la meilleure note
    i = 0;
    for (k = 0; k < nextL; k++)
       if (tEval [k] == *bestNote)
@@ -746,7 +797,7 @@ void computerPlay (TGAME sq64) { /* */
       chrono = time (NULL);
 
       // lancement de la recherche par l'ordi
-      if ((info.nValidComputerPos = find(sq64, bestSq64, &info.evaluation, -info.gamerColor)) > 0) {  
+      if ((info.nValidComputerPos = find (sq64, bestSq64, &info.evaluation, -info.gamerColor)) > 0) {  
          info.computeTime = (int) difftime (time (NULL), chrono);
          difference(sq64, bestSq64, -info.gamerColor, &info.lastCapturedByComputer, info.computerPlay);
          memcpy(sq64, bestSq64, GAMESIZE);
@@ -794,18 +845,18 @@ void cgi () { /* */
 
    if (getInfo.reqType != 0) {
        fenToGame (getInfo.fenString, sq64, &getInfo.activeColor);
-       computerPlay(sq64);
+       computerPlay (sq64);
        sendGame(sq64, info, getInfo.reqType);
        fprintf (flog, "%2d; %s; %s; %d", getInfo.level, getInfo.fenString, info.computerPlay, info.note);
    }
-   else sendGame(sq64, info, getInfo.reqType);
+   else sendGame (sq64, info, getInfo.reqType);
    fprintf (flog, "\n");
 }
 
 int main (int argc, char *argv[]) { /* */
    /* lit la ligne de commande */
-   /* -i [FENGame] : CLI avec sortie JSON */
-   /* -r [FENGame] : CLI avec sortie raw */
+   /* -i [FENGame] [profondeur] : CLI avec sortie JSON */
+   /* -r [FENGame] [profondeur] : CLI avec sortie raw */
    /* -t : test unitaire */
    /* -h : help */
    /* autrement CGI */
@@ -818,19 +869,27 @@ int main (int argc, char *argv[]) { /* */
    if (argc >= 2) {
       if ((strcmp (argv[1], "-i") == 0) || (strcmp (argv[1], "-r") == 0)) {
          if (argc > 2) fenToGame (argv [2], sq64, &getInfo.activeColor);
-         computerPlay(sq64);
+         if (argc > 3) getInfo.level = atoi (argv [3]);
+         printf ("fen: %s, level: %d\n", argv [2], getInfo.level);
+         computerPlay (sq64);
          if (strcmp (argv[1], "-i") == 0) { //JSON
-            sendGame(sq64, info, getInfo.reqType);
+            sendGame (sq64, info, getInfo.reqType);
          }
          else { //raw
-            gameToFen(sq64, fen, info.gamerColor, '+', true); 
+            gameToFen (sq64, fen, info.gamerColor, '+', true); 
             printf ("%s\n", fen);
          }
          fclose (flog);
          exit (1);
       }
       if (strcmp (argv[1], "-t") == 0) {
-         test(sq64, list);
+         // tests
+         fenToGame (argv [2], sq64, &getInfo.activeColor);
+         printGame (sq64);
+         info.gamerColor = (getInfo.activeColor == 'b')? -1 : 1;
+         nextL = buildList(sq64, -info.gamerColor, list);         
+         printf ("Nombre de possibilites : %d\n", nextL);
+         for (int i = 0; i < nextL; i++) printGame (list [i]);
          exit (1);
       }
       if (strcmp (argv[1], "-h") == 0) {

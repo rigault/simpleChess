@@ -163,7 +163,7 @@ static void moveToStr (const struct pos *pos, unsigned move, char *str) { /* */
    unsigned r = rank(from);
    unsigned f = file(from);
    unsigned promotes = TB_GET_PROMOTES(move);
-   bool    capture  = (occ & board(to)) != 0 || (TB_GET_EP(move) != 0);
+   bool capture  = (occ & board(to)) != 0 || (TB_GET_EP(move) != 0);
    uint64_t b = board(from);
    
    if (b & pos->kings) *str++ = 'K';
@@ -191,7 +191,7 @@ static void moveToStr (const struct pos *pos, unsigned move, char *str) { /* */
 
 bool syzygyRR (const char* path, const char *fen, char *bestMove, char *comment) { /* */
    /* recherche dans la tablebase sygyzy situee dans path le jeu decrit en notation */
-   /* FEN par fen. Renvoie le eplacement dans bestMove */
+   /* FEN par fen. Renvoie le deplacement dans bestMove */
    /* le commentaire contient ce deplacement et les valeur WIN WDL DTZ */
    /* vrai si trouve, faux si erreur */
    struct pos pos0;

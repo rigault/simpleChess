@@ -16,6 +16,7 @@ typedef char TLIST [MAXSIZELIST][N][N];
 enum {VOID, PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING, CASTLEKING};
 enum kingState {NOEXIST, EXIST, ISINCHECK, UNVALIDINCHECK, ISMATE, ISPAT};
 
+
 TLIST list;
 int nextL;
 
@@ -51,9 +52,11 @@ struct sinfo {
    char move [15];               // deplacement donne par fonction ouverture
 } info;
 
+extern int charToInt (int c);
 extern void fenToGame (char *sFenComplete, TGAME jeu, char *activeColor);
 extern void gameToFen (TGAME jeu, char *sFen, int color, char sep, bool complete);
 extern bool opening (const char *fileName, char *gameFen, char *sComment, char *move);
 extern char *difference (TGAME jeu1, TGAME jeu2, int color, int *prise, char* temp);
 extern void sendGame (TGAME jeu, struct sinfo info, int reqType);
+extern void printGame (TGAME jeu);
 extern void moveGame (TGAME jeu, int color, char *move);

@@ -14,14 +14,30 @@
 // Pawn, kNight, Bishop, Rook, Queen, King, rOckking
 // FEN notation
 // White : Majuscules. Black: Minuscules 
+
 const char dict [] = {'-', 'P', 'N', 'B', 'R', 'Q', 'K', 'K'};
 
-static int charToInt (int c) { /* */
+int charToInt (int c) { /* */
    /* traduit la piece au format RNBQR... en nombre entier */
    int sign = islower (c) ? 1 : -1;
    for (unsigned int i = 0; i < sizeof (dict); i++)
       if (toupper (c) == dict [i]) return sign * i;
    return NIL;
+}
+
+void printGame (TGAME jeu) { /* */
+   /* imprime le jeu a la conole pour Debug */
+   int l, c;
+   int v;
+   printf ("-------------------------\n");
+   for (l = 7; l >= 0; l--) {
+      for (c = 0; c < N; c++) {
+         v = jeu [l][c];
+         printf ("%3c",  (v > 0) ? tolower(dict [v]): dict [-v]);
+      }
+      printf ("\n");
+   }
+   printf ("-------------------------\n");
 }
 
 void fenToGame (char *fenComplete, TGAME sq64, char *activeColor) { /* */
@@ -30,10 +46,12 @@ void fenToGame (char *fenComplete, TGAME sq64, char *activeColor) { /* */
    /* FENToJeu traduit cette chaine et renvoie l'objet jeu ansi que la couleur */
    /* 3kq3/8/8/8/8/3K4/+w+-- */
    int k, l = 7, c = 0;
-   char cChar;
-   char *fen, *sCouleur, *sCastle;
+   char *fen, cChar;
+   char *sCouleur, *sCastle;
+   char copyFen [MAXLEN];
    bool bCastleW, bCastleB;
-   fen = strtok (fenComplete, "+");
+   strcpy (copyFen, fenComplete);
+   fen = strtok (copyFen, "+");
    sCouleur = strtok (NULL, "+");
    *activeColor = sCouleur [0]; 
    sCastle = strtok (NULL, "+");
