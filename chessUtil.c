@@ -7,15 +7,15 @@
 
 #define NIL -9999999
 #define MAXLENBIG 10000
-
+#define RED "\033[1;31m"
+#define DEFAULT_COLOR "\033[0;m"
 #include "chessUtil.h"
-#include "syzygy.h"
-
 // Pawn, kNight, Bishop, Rook, Queen, King, rOckking
 // FEN notation
 // White : Majuscules. Black: Minuscules 
 
 const char dict [] = {'-', 'P', 'N', 'B', 'R', 'Q', 'K', 'K'};
+const char *unicode [] = {"-", "\x26\5F", "\x26\5E", "\x26\5D", "\x26\5C", "\x26\5B", "\x26\5A", "\x26\5A"};
 
 int charToInt (int c) { /* */
    /* traduit la piece au format RNBQR... en nombre entier */
@@ -33,7 +33,9 @@ void printGame (TGAME jeu, int eval) { /* */
    for (l = 7; l >= 0; l--) {
       for (c = 0; c < N; c++) {
          v = jeu [l][c];
+         printf ("%s",  (v > 0) ? RED : DEFAULT_COLOR);
          printf ("%3c",  (v > 0) ? tolower(dict [v]): dict [-v]);
+         printf ("%s", DEFAULT_COLOR);
       }
       printf ("\n");
    }
@@ -260,6 +262,7 @@ void sendGame (TGAME sq64, struct sinfo info, int reqType) { /* */
       printf ("\"lastTake\" : \"%d\",\n", info.lastCapturedByComputer);
       printf ("\"openingName\" : \"%s\",\n", info.comment);
       printf ("\"endName\" : \"%s\",\n", info.endName);
+      printf ("\"wdl\" : \"%u\",\n", info.wdl);
       printf ("\"computePlay\" : \"%s\"", info.computerPlay);
    }
    if (reqType > 1) {

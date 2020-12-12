@@ -23,7 +23,7 @@
 #include <stdbool.h>
 #include <unistd.h>
 
-#define HELP "Syntax; sudo ./chess.cgi -i|-r|-h|-t [<jeu au format FEN>]"
+#define HELP "Syntax; sudo ./chess.cgi -i|-r|-h|-t [<jeu au format FEN>] [profondeur]"
 
 #define MAXPIECESSYZYGY 6
 #define MAXTHREADS 128             // nombre max de thread
@@ -162,6 +162,8 @@ bool LCkingInCheck (TGAME sq64, register int who, register int l, register int c
    return false;
 }
 
+#include "buildlistsimple.c"
+
 bool fKingInCheck (TGAME sq64, int who) { /* */
    /* retourne vrai si 'who' est en echec */
    register int l, c;
@@ -173,27 +175,6 @@ bool fKingInCheck (TGAME sq64, int who) { /* */
 	 }
    return false;
 }
-
-bool findKing (TGAME refJeu, int who, int *lKing, int *cKing) { /* */
-   /* recherche du roi */
-   *lKing = -1;
-   *cKing = -1;
-   for (int l = 0; l < N; l++) {
-      for (int c = 0; c < N; c++) {
-         int sign = (refJeu [l][c] >= 0) ? 1 : -1;
-         if (abs (refJeu [l][c]) >= KING && sign == who) {
-            *lKing = l;
-            *cKing = c;
-            break;
-         }
-      if (*lKing != -1) break;
-      }
-   }
-// printf ("Who lKing, cKing %d %d %d\n", who, *lKing, *cKing);
-  return *lKing != -1;
-}
-
-#include "buildlistsimple.c"
 
 bool kingCannotMove (TGAME sq64, register int who) { /* */
    /* vrai si le roi du joueur 'who' ne peut plus bouger sans se mettre echec au roi */
@@ -383,7 +364,7 @@ int find (TGAME sq64, TGAME bestSq64, int *bestNote, int color) { /* */
    // recherche de fin de partie voir  https://syzygy-tables.info/
    if ((info.nGamerPieces + info.nComputerPieces) <= MAXPIECESSYZYGY) {
       strcat (fen," - - 0 0"); // idem
-      if (syzygyRR (PATHTABLE, fen, info.move, info.comment)) {
+      if (syzygyRR (PATHTABLE, fen, &info.wdl, info.move, info.comment)) {
          moveGame (localSq64, color, info.move);
          memcpy (bestSq64, localSq64, GAMESIZE);
 	 return nextL;
@@ -430,7 +411,7 @@ int find (TGAME sq64, TGAME bestSq64, int *bestNote, int color) { /* */
 
    random  = rand () % i; // renvoie un entier >=  0 et strictement inferieur a i
    k = possible [random]; // indice du jeu choisi au hasard
-   k = possible [0];      // deterministe A ENLBER SI RANDOM PREFERE
+   k = possible [0];      // deterministe A ENLEVER SI RANDOM PREFERE
    memcpy (bestSq64, list [k], GAMESIZE);
 
    return nextL;
@@ -441,7 +422,7 @@ void test (TGAME sq64, TLIST list) { /* */
    char fen [MAXLENGTH] = "4k2r/8/8/8/8/5p2/8/4K3 b - - 1 0 0";
    char move [32];
    // char comment [10000] = "";
-   if (syzygyRR (PATHTABLE, fen, move, info.comment)) {
+   if (syzygyRR (PATHTABLE, fen, &info.wdl, move, info.comment)) {
       // moveGame(sq64, move);
       printf ("OK, comment: %s\n", info.comment);
       printf ("move : %s\n", move);
@@ -471,9 +452,9 @@ void computerPlay (TGAME sq64) { /* */
          info.computeTime = (int) difftime (time (NULL), chrono);
          difference(sq64, bestSq64, -info.gamerColor, &info.lastCapturedByComputer, info.computerPlay);
          memcpy(sq64, bestSq64, GAMESIZE);
-         info.note = evaluation(sq64, 1);
+         info.note = evaluation(sq64, -info.gamerColor);
          updateInfo(sq64);
-         if (fKingInCheck(sq64, -info.gamerColor))    // pas le droit d etre en echec apres avoir joue
+         if (fKingInCheck(sq64, -info.gamerColor))        // pas le droit d etre en echec apres avoir joue
             info.computerKingState = UNVALIDINCHECK;      // ou alors c'est Mat
       }
    }

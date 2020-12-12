@@ -189,7 +189,7 @@ static void moveToStr (const struct pos *pos, unsigned move, char *str) { /* */
    *str++ = '\0';
 }
 
-bool syzygyRR (const char* path, const char *fen, char *bestMove, char *comment) { /* */
+bool syzygyRR (const char* path, const char *fen, unsigned *wdl, char *bestMove, char *comment) { /* */
    /* recherche dans la tablebase sygyzy situee dans path le jeu decrit en notation */
    /* FEN par fen. Renvoie le deplacement dans bestMove */
    /* le commentaire contient ce deplacement et les valeur WIN WDL DTZ */
@@ -197,7 +197,6 @@ bool syzygyRR (const char* path, const char *fen, char *bestMove, char *comment)
    struct pos pos0;
    struct pos *pos = &pos0;
    unsigned move;
-   unsigned wdl;
 
    // init
    if (path == NULL) path = getenv("TB_PATH");
@@ -234,9 +233,9 @@ bool syzygyRR (const char* path, const char *fen, char *bestMove, char *comment)
       sprintf (comment, " 1/2-1/2\n");
       return true;
    }
-   wdl = TB_GET_WDL(move);
+   *wdl = TB_GET_WDL(move);
    moveToStr (pos, move, bestMove);
    // Output
-   sprintf (comment, "WIN: %s; BESTMOVE: %s; WDL: %u; DTZ: %u", wdl_to_str[(pos->turn? wdl: 4-wdl)], bestMove, wdl, TB_GET_DTZ(move));
+   sprintf (comment, "WIN: %s; BESTMOVE: %s; WDL: %u; DTZ: %u", wdl_to_str[(pos->turn? *wdl: 4-*wdl)], bestMove, *wdl, TB_GET_DTZ(move));
    return true;
 }
