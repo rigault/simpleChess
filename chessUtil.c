@@ -25,11 +25,11 @@ int charToInt (int c) { /* */
    return NIL;
 }
 
-void printGame (TGAME jeu) { /* */
+void printGame (TGAME jeu, int eval) { /* */
    /* imprime le jeu a la conole pour Debug */
    int l, c;
    int v;
-   printf ("-------------------------\n");
+   printf ("--------------------Eval: %d\n", eval);
    for (l = 7; l >= 0; l--) {
       for (c = 0; c < N; c++) {
          v = jeu [l][c];
