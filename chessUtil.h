@@ -58,5 +58,5 @@ extern void gameToFen (TGAME jeu, char *sFen, int color, char sep, bool complete
 extern bool opening (const char *fileName, char *gameFen, char *sComment, char *move);
 extern char *difference (TGAME jeu1, TGAME jeu2, int color, int *prise, char* temp);
 extern void sendGame (TGAME jeu, struct sinfo info, int reqType);
-extern void printGame (TGAME jeu);
+extern void printGame (TGAME jeu, int eval);
 extern void moveGame (TGAME jeu, int color, char *move);
