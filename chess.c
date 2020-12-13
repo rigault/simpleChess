@@ -392,7 +392,7 @@ int find (TGAME sq64, TGAME bestSq64, int *bestNote, int color) { /* */
           return EXIT_FAILURE;
       }
 
-   for (int k = 0; k < nextL; k++) printGame (list [k], tEval [k]);
+   // for (int k = 0; k < nextL; k++) printGame (list [k], tEval [k]);
    // tEval contient les évaluations de toutes les possibilites
    // recherche de la meilleure note
    for (k = 0; k < nextL; k++) {

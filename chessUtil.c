@@ -51,15 +51,16 @@ void fenToGame (char *fenComplete, TGAME sq64, char *activeColor) { /* */
    char *fen, cChar;
    char *sCouleur, *sCastle;
    char copyFen [MAXLEN];
-   bool bCastleW, bCastleB;
+   bool bCastleW = false;  
+   bool bCastleB = false;
    strcpy (copyFen, fenComplete);
    fen = strtok (copyFen, "+");
-   sCouleur = strtok (NULL, "+");
-   *activeColor = sCouleur [0]; 
-   sCastle = strtok (NULL, "+");
-   bCastleW = (sCastle [0] == '-');
-   bCastleB = (bCastleW ? sCastle [1] == '-' : sCastle [2] == '-');
-
+   if ((sCouleur = strtok (NULL, "+")) != NULL)
+      *activeColor = sCouleur [0]; 
+   if ((sCastle = strtok (NULL, "+")) != NULL) {
+      bCastleW = (sCastle [0] == '-');
+      bCastleB = (bCastleW ? sCastle [1] == '-' : sCastle [2] == '-');
+   }
    for (unsigned i = 0; i < strlen (fen) ; i++) {
       cChar = fen [i];
       if (isspace (cChar)) break;
@@ -178,19 +179,19 @@ bool opening (const char *fileName, char *gameFen, char *sComment, char *move) {
    return false;
 }
 
-char *difference (TGAME sq64_1, TGAME sq64_2, int color, int *prise, char* temp) { /* */
+char *difference (TGAME sq64_1, TGAME sq64_2, int color, char *prise, char* temp) { /* */
    /* coul = 1 (ordi) si le joueur a les blancs */
    /* retrouve le coup joue par Ordi */
    /* traite le roque. En dehors de ce cas */
    /* suppose qu'il n' y a deux cases differentes (l1,c1) (l2, c2) */
    /* renvoie la chaine decrivant la difference */
    /* qui represente le deplacement au format a1:a1 */
-   /* prise est la valeur de la piece prise. 0 si pas de prise */
+   /* prise est la valeur de la piece prise toujour en majuscule. ' ' si pas de prise */
    int l1, c1, l2, c2, lCastling;
    char promotion [3] = "";
    char cCharPiece = ' ';
    int v = 0;
-   *prise = 0;
+   *prise = ' ';
    sprintf (temp, "%s", "");
    l1 = c1 = l2 = c2 = NIL;
    lCastling = (color == -1) ? 0 : 7;
@@ -207,7 +208,7 @@ char *difference (TGAME sq64_1, TGAME sq64_2, int color, int *prise, char* temp)
    for (int l = 0; l < N; l++) {
       for (int c = 0; c < N; c++) {
          if (sq64_1 [l][c] * sq64_2 [l][c] < 0) { // couleur opposee => prise par couleur coul
-            *prise = sq64_1 [l][c];
+            *prise = dict [abs(sq64_1 [l][c])];
             l2 = l;
             c2 = c;
          }
@@ -233,7 +234,7 @@ char *difference (TGAME sq64_1, TGAME sq64_2, int color, int *prise, char* temp)
          sprintf (promotion, "=%c", dict [abs (sq64_2 [l2][c2])]);
    }
    // promotion non implementee pour les noirs : Bug 
-   sprintf (temp, "%c%c%d%c%c%d%s", cCharPiece, c1 + 'a', l1 + 1, ((*prise != 0) ? 'x' : '-'), c2 + 'a', l2 + 1, promotion);
+   sprintf (temp, "%c%c%d%c%c%d%s", cCharPiece, c1 + 'a', l1 + 1, ((*prise != ' ') ? 'x' : '-'), c2 + 'a', l2 + 1, promotion);
    return temp;
 }
 
@@ -259,7 +260,7 @@ void sendGame (TGAME sq64, struct sinfo info, int reqType) { /* */
       printf ("\"computerStatus\" : \"%d\",\n", info.computerKingState);
       printf ("\"playerStatus\" : \"%d\",\n", info.gamerKingState);
       printf ("\"fen\" : \"%s\",\n", fen);
-      printf ("\"lastTake\" : \"%d\",\n", info.lastCapturedByComputer);
+      printf ("\"lastTake\" : \"%c\",\n", info.lastCapturedByComputer);
       printf ("\"openingName\" : \"%s\",\n", info.comment);
       printf ("\"endName\" : \"%s\",\n", info.endName);
       printf ("\"wdl\" : \"%u\",\n", info.wdl);
