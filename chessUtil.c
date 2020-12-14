@@ -1,15 +1,16 @@
+#include <locale.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 #include <ctype.h>
 #include <stdbool.h>
+#include <stddef.h>
 
 #define NIL -9999999
 #define MAXLENBIG 10000
-#define RED "\033[1;31m"
-#define DEFAULT_COLOR "\033[0;m"
 #include "chessUtil.h"
+#include "vt100.h"
 // Pawn, kNight, Bishop, Rook, Queen, King, rOckking
 // FEN notation
 // White : Majuscules. Black: Minuscules 
@@ -29,15 +30,19 @@ void printGame (TGAME jeu, int eval) { /* */
    /* imprime le jeu a la conole pour Debug */
    int l, c;
    int v;
+   bool normal = true;
    printf ("--------------------Eval: %d\n", eval);
    for (l = 7; l >= 0; l--) {
       for (c = 0; c < N; c++) {
+         printf ("%s", (normal ? BG_CYAN : BG_BLACK));
+         normal =! normal; 
          v = jeu [l][c];
-         printf ("%s",  (v > 0) ? RED : DEFAULT_COLOR);
-         printf ("%3c",  (v > 0) ? tolower(dict [v]): dict [-v]);
+         printf ("%s",  (v > 0) ? C_RED : C_WHITE);
+         printf (" %c ",  (v > 0) ? tolower(dict [v]): ((v < 0) ? dict [-v] : ' '));
          printf ("%s", DEFAULT_COLOR);
       }
       printf ("\n");
+      normal =! normal; 
    }
    printf ("-------------------------\n");
 }
@@ -54,6 +59,8 @@ void fenToGame (char *fenComplete, TGAME sq64, char *activeColor) { /* */
    bool bCastleW = false;  
    bool bCastleB = false;
    strcpy (copyFen, fenComplete);
+   for (unsigned i = 0; i < strlen (copyFen); i++) // normalisation
+      if (isspace (copyFen [i])) copyFen [i] = '+'; 
    fen = strtok (copyFen, "+");
    if ((sCouleur = strtok (NULL, "+")) != NULL)
       *activeColor = sCouleur [0]; 
@@ -260,7 +267,9 @@ void sendGame (TGAME sq64, struct sinfo info, int reqType) { /* */
       printf ("\"computerStatus\" : \"%d\",\n", info.computerKingState);
       printf ("\"playerStatus\" : \"%d\",\n", info.gamerKingState);
       printf ("\"fen\" : \"%s\",\n", fen);
-      printf ("\"lastTake\" : \"%c\",\n", info.lastCapturedByComputer);
+      if (info.lastCapturedByComputer >= ' ' && info.lastCapturedByComputer <= 'Z')
+         printf ("\"lastTake\" : \"%c\",\n", info.lastCapturedByComputer);
+      else printf ("\"lastTake\" : \"%c\",\n", ' ');
       printf ("\"openingName\" : \"%s\",\n", info.comment);
       printf ("\"endName\" : \"%s\",\n", info.endName);
       printf ("\"wdl\" : \"%u\",\n", info.wdl);
