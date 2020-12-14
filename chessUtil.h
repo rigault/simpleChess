@@ -54,7 +54,7 @@ struct sinfo {
 
 extern int charToInt (int c);
 extern void fenToGame (char *sFenComplete, TGAME jeu, char *activeColor);
-extern void gameToFen (TGAME jeu, char *sFen, int color, char sep, bool complete);
+extern char *gameToFen (TGAME jeu, char *sFen, int color, char sep, bool complete);
 extern bool opening (const char *fileName, char *gameFen, char *sComment, char *move);
 extern char *difference (TGAME jeu1, TGAME jeu2, int color, char *prise, char* temp);
 extern void sendGame (TGAME jeu, struct sinfo info, int reqType);

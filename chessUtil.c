@@ -91,7 +91,7 @@ void fenToGame (char *fenComplete, TGAME sq64, char *activeColor) { /* */
    }
 }
 
-void gameToFen (TGAME sq64, char *fen, int color, char sep, bool complete) { /* */
+char *gameToFen (TGAME sq64, char *fen, int color, char sep, bool complete) { /* */
    /* Forsyth–Edwards Notation */
    /* le jeu est envoye sous la forme d'une chaine de cCharacteres au format FEN au navigateur */
    int n, v;
@@ -123,6 +123,7 @@ void gameToFen (TGAME sq64, char *fen, int color, char sep, bool complete) { /* 
       strcat (fen, (castleB ? "-" : "kq"));
    }
    else fen [i] = '\0';
+   return fen;
 }
 
 void moveGame (TGAME sq64, int color, char *move) { /* */

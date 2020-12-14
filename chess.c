@@ -521,7 +521,7 @@ int main (int argc, char *argv[]) { /* */
       if ((strcmp (argv[1], "-i") == 0) || (strcmp (argv[1], "-r") == 0)) {
          if (argc > 2) fenToGame (argv [2], sq64, &getInfo.activeColor);
          if (argc > 3) getInfo.level = atoi (argv [3]);
-         printf ("fen: %s, level: %d\n", argv [2], getInfo.level);
+         printf ("fen: %s, level: %d\n", gameToFen (sq64, fen, info.gamerColor, '+', true), getInfo.level);
          computerPlay (sq64);
          if (strcmp (argv[1], "-i") == 0) { //JSON
             sendGame (sq64, info, getInfo.reqType);
