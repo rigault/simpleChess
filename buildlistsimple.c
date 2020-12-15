@@ -2,7 +2,6 @@ int buildList (TGAME refJeu, register int who, TLIST list) { /* */
    /* construit la liste des jeux possibles a partir de jeu. */
    /* 'who' joue */
    register int u, v, i, j, k, l, c;
-   // int lKing, cKing;
    register int nListe = 0;
    char *pl = &list [0][0][0];
    info.nBuildListCall += 1;
@@ -58,8 +57,6 @@ int buildList (TGAME refJeu, register int who, TLIST list) { /* */
          }
       }
    }
-
-   // findKing (refJeu, who, &lKing, &cKing);
 
    for (l = 0; l < N; l++) {
       for (c = 0; c < N; c++) {

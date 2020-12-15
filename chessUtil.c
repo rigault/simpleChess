@@ -45,23 +45,26 @@ void printGame (TGAME jeu, int eval) { /* */
    printf ("%s\n", NORMAL);
 }
 
-void fenToGame (char *fenComplete, TGAME sq64, char *activeColor) { /* */
+int fenToGame (char *fenComplete, TGAME sq64) { /* */
    /* Forsyth–Edwards Notation */
-   /* le jeu est recu sous la forme d'une chaine de cCharacteres du navigateur */
-   /* FENToJeu traduit cette chaine et renvoie l'objet jeu ansi que la couleur */
+   /* le jeu est recu sous la forme d'une chaine de caracteres du navigateur au format fen*/
+   /* FENToJeu traduit cette chaine et renvoie l'objet jeu ainsi que la couleur */
    /* 3kq3/8/8/8/8/3K4/+w+-- */
+   /* retour 1 si noir -1 si blanc */
+   /* le roque est contenu dans la valeur u roi : ROI ou ROIROQUE */
    int k, l = 7, c = 0;
    char *fen, cChar;
-   char *sCouleur, *sCastle;
+   char *sColor, *sCastle;
    char copyFen [MAXLEN];
    bool bCastleW = false;  
    bool bCastleB = false;
+   int activeColor = 1; //par defaut : noir
    strcpy (copyFen, fenComplete);
    for (unsigned i = 0; i < strlen (copyFen); i++) // normalisation
       if (isspace (copyFen [i])) copyFen [i] = '+'; 
    fen = strtok (copyFen, "+");
-   if ((sCouleur = strtok (NULL, "+")) != NULL)
-      *activeColor = sCouleur [0]; 
+   if ((sColor = strtok (NULL, "+")) != NULL) 
+      activeColor = (sColor [0] == 'b') ? 1 : -1;    
    if ((sCastle = strtok (NULL, "+")) != NULL) {
       bCastleW = (sCastle [0] == '-');
       bCastleB = (bCastleW ? sCastle [1] == '-' : sCastle [2] == '-');
@@ -87,6 +90,7 @@ void fenToGame (char *fenComplete, TGAME sq64, char *activeColor) { /* */
          c = 0;
       }
    }
+   return activeColor;
 }
 
 char *gameToFen (TGAME sq64, char *fen, int color, char sep, bool complete) { /* */
@@ -245,12 +249,10 @@ char *difference (TGAME sq64_1, TGAME sq64_2, int color, char *prise, char* temp
    return temp;
 }
 
-void sendGame (TGAME sq64, struct sinfo info, int reqType) { /* */
+void sendGame (const char *fen, struct sinfo info, int reqType) { /* */
    /* envoie le jeu au format JSON */
-   char fen [MAXLEN];
    char dump [MAXLENBIG];
    char temp [MAXLENBIG];
-   info.nClock = clock () - info.nClock;
    printf ("Access-Control-Allow-Origin: *\n");
    printf ("Content-Type: text/html\n\n");
    printf ("{\n");
@@ -258,10 +260,9 @@ void sendGame (TGAME sq64, struct sinfo info, int reqType) { /* */
    printf ("\"compilation-date\": \"%s\",\n", __DATE__);
    printf ("\"version\" : \"%s\"", VERSION);
    if (reqType > 0) {
-      gameToFen (sq64, fen, info.gamerColor, '+', true);
       printf (",\n");
       printf ("\"clockTime\": \"%lf\",\n", (double) info.nClock/CLOCKS_PER_SEC);
-      printf ("\"time\" : \"%d.%d\",\n", (int) info.computeTime/MILLION,  (int) info.computeTime % MILLION);
+      printf ("\"time\" : \"%lf\",\n", (double) info.computeTime/MILLION);
       printf ("\"note\" : \"%d\",\n", info.note);
       printf ("\"eval\" : \"%d\",\n", info.evaluation);
       printf ("\"computerStatus\" : \"%d\",\n", info.computerKingState);

@@ -43,8 +43,7 @@ struct sGetInfo {                  // description de la requete emise par le cli
    char fenString [MAXLENGTH];     // le jeu
    int reqType;                    // le type de requete : 0 1 ou 2
    int level;                      // la profondeur de la recherche souhaitee
-   char activeColor;               // 'b' black, 'w' whites
-} getInfo = {"", 1, 3, 'b'};
+} getInfo = {"", 1, 3};
 
 // valorisation des pieces dans l'ordre  VOID PAWN KNIGHT BISHOP ROOK QUEEN KING CASTLEKING
 // fou > cavalier, tour = fou + 2 pions, dame > fou + tour + pion
@@ -289,7 +288,6 @@ int evaluation (TGAME sq64, register int who) { /* */
    return eval;
 }
 
-
 int alphaBeta (TGAME sq64, int turn, int p, int refAlpha, int refBeta) { /* */
    /* le coeur du programme */
    TLIST list;
@@ -420,41 +418,49 @@ int find (TGAME sq64, TGAME bestSq64, int *bestNote, int color) { /* */
    return nextL;
 }
 
-void computerPlay (TGAME sq64) { /* */
+bool computerPlay (TGAME sq64) { /* */
    /* prepare le lancement de la recherche avec find */
    struct timeval tRef;
    TGAME bestSq64;
-   info.gamerColor = (getInfo.activeColor == 'b')? -1 : 1;
    updateInfo(sq64);
-   if (info.computerKingState == NOEXIST || info.computerKingState == ISMATE) return; // le roi est pris... 
+   if (info.computerKingState == NOEXIST || info.computerKingState == ISMATE) 
+      return false; // le roi est pris... 
    info.note = evaluation(sq64, info.gamerColor);
    updateInfo(sq64);
    if (info.gamerKingState == ISINCHECK) {
       info.gamerKingState = UNVALIDINCHECK; // le joueur n'a pas le droit d'etre en echec
+      return false;
    }
-   if (info.computerKingState != ISMATE && info.computerKingState != ISPAT && 
-      info.computerKingState != NOEXIST && info.gamerKingState != UNVALIDINCHECK) {
-      info.maxDepth = fMaxDepth (getInfo.level, info);
-      gettimeofday (&tRef, NULL);
-      info.computeTime = tRef.tv_sec * MILLION + tRef.tv_usec;
+   if (info.computerKingState == ISMATE || info.computerKingState == ISPAT || 
+      info.computerKingState == NOEXIST || info.gamerKingState == UNVALIDINCHECK)
+      return false;
 
-      // lancement de la recherche par l'ordi
-      if ((info.nValidComputerPos = find (sq64, bestSq64, &info.evaluation, -info.gamerColor)) > 0) {  
-         gettimeofday (&tRef, NULL);
-         info.computeTime = tRef.tv_sec * MILLION + tRef.tv_usec - info.computeTime;
-         difference(sq64, bestSq64, -info.gamerColor, &info.lastCapturedByComputer, info.computerPlay);
-         memcpy(sq64, bestSq64, GAMESIZE);
-         info.note = evaluation(sq64, -info.gamerColor);
-         updateInfo(sq64);
-         if (fKingInCheck(sq64, -info.gamerColor))        // pas le droit d etre en echec apres avoir joue
-            info.computerKingState = UNVALIDINCHECK;      // ou alors c'est Mat
-      }
-   }
+   info.maxDepth = fMaxDepth (getInfo.level, info);
+   gettimeofday (&tRef, NULL);
+   info.computeTime = tRef.tv_sec * MILLION + tRef.tv_usec;
+   info.nClock = clock ();
+
+   // lancement de la recherche par l'ordi
+   info.nValidComputerPos = find (sq64, bestSq64, &info.evaluation, -info.gamerColor);
+   if (info.nValidComputerPos == 0) 
+      return false;
+  
+   info.nClock = clock () - info.nClock;
+   gettimeofday (&tRef, NULL);
+   info.computeTime = tRef.tv_sec * MILLION + tRef.tv_usec - info.computeTime;
+   difference(sq64, bestSq64, -info.gamerColor, &info.lastCapturedByComputer, info.computerPlay);
+   memcpy(sq64, bestSq64, GAMESIZE);
+   info.note = evaluation(sq64, -info.gamerColor);
+   updateInfo(sq64);
+   if (fKingInCheck(sq64, -info.gamerColor))        // pas le droit d etre en echec apres avoir joue
+      info.computerKingState = UNVALIDINCHECK;      // ou alors c'est Mat
+   return true;
 }
 
 void cgi () { /* */
    /* MODE CGI
    */
+   char fen [MAXLENGTH];
    char *str;
    char *env;
    char temp [MAXBUFFER];
@@ -466,17 +472,17 @@ void cgi () { /* */
    time_t now = time (NULL); // pour .log
    struct tm *timeNow = localtime (&now);
    strftime (buffer, 80, "%F; %T", timeNow);
-   fprintf (flog, "%s; ", buffer);            // log de la date et du temps
+   fprintf (flog, "%s; ", buffer);           // log de la date et du temps
    env = buffer;
    env = getenv ("REMOTE_ADDR");
-   fprintf (flog, "%s; ", env);             // log de l'address IP distante
+   fprintf (flog, "%s; ", env);              // log de l'address IP distante
    env = getenv ("HTTP_USER_AGENT");
-   if (strlen (env) > 8) *(env + 8) = '\0'; // tronque a 10 caracteres
+   if (strlen (env) > 8) *(env + 8) = '\0';  // tronque a 10 caracteres
    fprintf (flog, "%s; ", env);              // log du user agent distant
 
    // Lecture de la chaine de caractere representant le jeu via la methode post
 
-   env = getenv ("QUERY_STRING");             // Les variables GET
+   env = getenv ("QUERY_STRING");            // Les variables GET
    if (env == NULL) return;
 
    if ((str = strstr (env, "fen=")) != NULL)
@@ -487,12 +493,13 @@ void cgi () { /* */
       sscanf (str, "reqType=%d", &getInfo.reqType);
  
    if (getInfo.reqType != 0) {
-       fenToGame (getInfo.fenString, sq64, &getInfo.activeColor);
+       info.gamerColor = -fenToGame (getInfo.fenString, sq64);
        computerPlay (sq64);
-       sendGame(sq64, info, getInfo.reqType);
+       gameToFen (sq64, fen, info.gamerColor, '+', true);
+       sendGame (fen, info, getInfo.reqType);
        fprintf (flog, "%2d; %s; %s; %d", getInfo.level, getInfo.fenString, info.computerPlay, info.note);
    }
-   else sendGame (sq64, info, getInfo.reqType);
+   else sendGame ("", info, getInfo.reqType);
    fprintf (flog, "\n");
 }
 
@@ -510,17 +517,15 @@ int main (int argc, char *argv[]) { /* */
    // preparation du fichier log 
    flog = fopen (F_LOG, "a");
    info.wdl = 9; // valeur inateignable montrant que syzygy n'a pas ete appelee
-   info.nClock = clock ();
    srand (time (NULL)); // initialise le generateur aleatoire
    if (argc >= 2 && argv [1][0] == '-') {
-      if (argc > 2) fenToGame (argv [2], sq64, &getInfo.activeColor);
+      if (argc > 2) info.gamerColor = -fenToGame (argv [2], sq64);
       if (argc > 3) getInfo.level = atoi (argv [3]);
-      info.gamerColor = (getInfo.activeColor == 'b')? -1 : 1;
       switch (argv [1][1]) {
       case 'i':
          printf ("fen: %s, level: %d\n", gameToFen (sq64, fen, info.gamerColor, '+', true), getInfo.level);
          computerPlay (sq64);
-         sendGame (sq64, info, getInfo.reqType);
+         sendGame (fen, info, getInfo.reqType);
          break;
       case 'r':
          printGame (sq64, evaluation (sq64, -info.gamerColor));
@@ -542,7 +547,7 @@ int main (int argc, char *argv[]) { /* */
       case 'p':
          printGame (sq64, evaluation (sq64, -info.gamerColor));
          bool debut = true;
-         while (abs (evaluation (sq64, -info.gamerColor)) < (MATE - 100)) {
+         while (abs (evaluation (sq64, -info.gamerColor)) < MATE) {
             if (info.gamerColor == 1 || ! debut) { // les blancs jouent en premier
                memcpy (oldSq64, sq64, GAMESIZE);
                computerPlay (sq64);
@@ -568,4 +573,3 @@ int main (int argc, char *argv[]) { /* */
    fclose (flog);
    exit (EXIT_SUCCESS);
 }
-
