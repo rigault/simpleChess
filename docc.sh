@@ -1,5 +1,13 @@
 #!/bin/bash
-grep "\/\*" chess.c | sed 's/^\([a-zA-Z]\)/\n\1/'
-grep "\/\*" syzygy.c | sed 's/^\([a-zA-Z]\)/\n\1/'
-grep "\/\*" chessUtil.c | sed 's/^\([a-zA-Z]\)/\n\1/'
-grep "\/\*" buildlistsimple.c | sed 's/^\([a-zA-Z]\)/\n\1/'
+declare -a StringArray=("chess.c" "syzygy.c" "chessUtil.c" "buildlistsimple.c")
+ 
+for file in ${StringArray[@]}; do
+   echo "Fichier $file"
+   l=${#file}   
+   for ((i = 0; i < $l; i++)); do
+      echo -n "-"
+   done
+   echo "--------"
+   grep "\/\*" $file | sed 's/^\([a-zA-Z]\)/\n\1/'
+   echo; echo
+done
