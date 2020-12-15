@@ -14,7 +14,8 @@
 // White : Majuscules. Black: Minuscules 
 
 const char dict [] = {'-', 'P', 'N', 'B', 'R', 'Q', 'K', 'K'};
-const char *unicode [] = {"-", "\x26\5F", "\x26\5E", "\x26\5D", "\x26\5C", "\x26\5B", "\x26\5A", "\x26\5A"};
+
+const char *unicode [] = {" ", "♟", "♞", "♝", "♜", "♛", "♚", "♚"};
 
 int charToInt (int c) { /* */
    /* traduit la piece au format RNBQR... en nombre entier */
@@ -36,14 +37,12 @@ void printGame (TGAME jeu, int eval) { /* */
          printf ("%s", (normal ? BG_CYAN : BG_BLACK));
          normal =! normal; 
          v = jeu [l][c];
-         printf ("%s",  (v > 0) ? C_RED : C_WHITE);
-         printf (" %c ",  (v > 0) ? tolower(dict [v]): ((v < 0) ? dict [-v] : ' '));
-         printf ("%s", DEFAULT_COLOR);
+         printf ("%s %s %s",  (v > 0) ? C_RED : C_WHITE, unicode [abs (v)], DEFAULT_COLOR);
       }
       printf ("  %d\n", l+1);
       normal =! normal; 
    }
-   printf ("\n");
+   printf ("%s\n", NORMAL);
 }
 
 void fenToGame (char *fenComplete, TGAME sq64, char *activeColor) { /* */

@@ -23,4 +23,6 @@
 #define DEFAULT_COLOR "\033[0;m"
 #define INVERSE "\033[7m"
 #define NORMAL "\033[m"
-
+#define BLINK "\033[5m"
+#define BOLD "\033[1m"
+#define UNDERSCORE "\033[4m"
