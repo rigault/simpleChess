@@ -1,11 +1,9 @@
-#include <locale.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 #include <ctype.h>
 #include <stdbool.h>
-#include <stddef.h>
 
 #define NIL -9999999
 #define MAXLENBIG 10000
@@ -31,7 +29,8 @@ void printGame (TGAME jeu, int eval) { /* */
    int l, c;
    int v;
    bool normal = true;
-   printf ("--------------------Eval: %d\n", eval);
+   for (int c = 'a'; c <= 'h'; c++) printf (" %c ", c);
+   printf ("   --> eval: %d\n", eval);
    for (l = 7; l >= 0; l--) {
       for (c = 0; c < N; c++) {
          printf ("%s", (normal ? BG_CYAN : BG_BLACK));
@@ -41,10 +40,10 @@ void printGame (TGAME jeu, int eval) { /* */
          printf (" %c ",  (v > 0) ? tolower(dict [v]): ((v < 0) ? dict [-v] : ' '));
          printf ("%s", DEFAULT_COLOR);
       }
-      printf ("\n");
+      printf ("  %d\n", l+1);
       normal =! normal; 
    }
-   printf ("-------------------------\n");
+   printf ("\n");
 }
 
 void fenToGame (char *fenComplete, TGAME sq64, char *activeColor) { /* */
@@ -216,7 +215,8 @@ char *difference (TGAME sq64_1, TGAME sq64_2, int color, char *prise, char* temp
    for (int l = 0; l < N; l++) {
       for (int c = 0; c < N; c++) {
          if (sq64_1 [l][c] * sq64_2 [l][c] < 0) { // couleur opposee => prise par couleur coul
-            *prise = dict [abs(sq64_1 [l][c])];
+            v = abs (sq64_1 [l][c]);
+            *prise = (color == 1) ? dict [v] : tolower (dict [v]); // on prend la couleur opposee
             l2 = l;
             c2 = c;
          }
@@ -262,13 +262,13 @@ void sendGame (TGAME sq64, struct sinfo info, int reqType) { /* */
       gameToFen (sq64, fen, info.gamerColor, '+', true);
       printf (",\n");
       printf ("\"clockTime\": \"%lf\",\n", (double) info.nClock/CLOCKS_PER_SEC);
-      printf ("\"time\" : \"%d\",\n", info.computeTime);
+      printf ("\"time\" : \"%d.%d\",\n", (int) info.computeTime/MILLION,  (int) info.computeTime % MILLION);
       printf ("\"note\" : \"%d\",\n", info.note);
       printf ("\"eval\" : \"%d\",\n", info.evaluation);
       printf ("\"computerStatus\" : \"%d\",\n", info.computerKingState);
       printf ("\"playerStatus\" : \"%d\",\n", info.gamerKingState);
       printf ("\"fen\" : \"%s\",\n", fen);
-      if (info.lastCapturedByComputer >= ' ' && info.lastCapturedByComputer <= 'Z')
+      if (info.lastCapturedByComputer >= ' ' && info.lastCapturedByComputer <= 'z')
          printf ("\"lastTake\" : \"%c\",\n", info.lastCapturedByComputer);
       else printf ("\"lastTake\" : \"%c\",\n", ' ');
       printf ("\"openingName\" : \"%s\",\n", info.comment);
