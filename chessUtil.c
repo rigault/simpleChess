@@ -14,7 +14,6 @@
 // White : Majuscules. Black: Minuscules 
 
 const char dict [] = {'-', 'P', 'N', 'B', 'R', 'Q', 'K', 'K'};
-
 const char *unicode [] = {" ", "♟", "♞", "♝", "♜", "♛", "♚", "♚"};
 
 int charToInt (int c) { /* */

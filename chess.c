@@ -193,53 +193,6 @@ bool kingCannotMove (TGAME sq64, register int who) { /* */
    return true;
 }
 
-void updateInfo (TGAME sq64) { /* */
-   /* met a jour l'objet info a partir de l'objet jeu */
-   int l, c, v;
-   info.gamerKingState = info.computerKingState = NOEXIST;
-   info.castleComputer = info.castleGamer = false;
-   info.nGamerPieces = info.nComputerPieces = 0;
-   for (l = 0; l < N; l++) {
-      for (c = 0; c < N; c++) {
-         v = - sq64 [l][c] * info.gamerColor;
-         if (v > 0) info.nComputerPieces += 1;
-         else if (v < 0) info.nGamerPieces += 1;
-         if (v == KING || v == CASTLEKING) {
-            info.lComputerKing = l;
-            info.cComputerKing = c;
-            info.computerKingState = EXIST;
-         }
-         if (v == CASTLEKING) info.castleComputer = true;
-         if (v == -KING || v == -CASTLEKING) {
-            info.lGamerKing = l;
-            info.cGamerKing = c;
-            info.gamerKingState = EXIST;
-         }
-         if (v == -CASTLEKING) info.castleGamer = true;
-      }
-   }
-   if (info.gamerKingState == EXIST) {
-      if (LCkingInCheck(sq64, info.gamerColor, info.lGamerKing, info.cGamerKing))
-         info.gamerKingState = ISINCHECK;
-      if (kingCannotMove(sq64, info.gamerColor)) {
-         if (info.gamerKingState == ISINCHECK) info.gamerKingState = ISMATE;
-         else info.gamerKingState = ISPAT;
-      }
-   }
-   if (info.computerKingState == EXIST) {
-      if (LCkingInCheck(sq64, -info.gamerColor, info.lComputerKing, info.cComputerKing))
-         info.computerKingState = ISINCHECK;
-      if (kingCannotMove(sq64, -info.gamerColor)) {
-         if (info.computerKingState == ISINCHECK) info.computerKingState = ISMATE;
-         else info.computerKingState = ISPAT;
-      }
-   }
-   info.nValidGamerPos = buildList(sq64, info.gamerColor, list);
-   info.nValidComputerPos = buildList(sq64, -info.gamerColor, list);
-   info.end = ((info.gamerKingState != EXIST && info.gamerKingState != ISINCHECK) ||
-               (info.computerKingState != EXIST && info.computerKingState != ISINCHECK));
-}
-
 int evaluation (TGAME sq64, register int who) { /* */
    /* fonction d'evaluation retournant MATE si Ordinateur gagne, */
    /* -MATE si joueur gagne, 0 si nul,... */
@@ -337,6 +290,53 @@ void *fThread (void *arg) { /* */
    pthread_exit (NULL);
 }
 
+void updateInfo (TGAME sq64, int color) { /* */
+   /* met a jour l'objet info a partir de l'objet jeu */
+   int l, c, v;
+   info.gamerKingState = info.computerKingState = NOEXIST;
+   info.castleComputer = info.castleGamer = false;
+   info.nGamerPieces = info.nComputerPieces = 0;
+   for (l = 0; l < N; l++) {
+      for (c = 0; c < N; c++) {
+         v = sq64 [l][c] * color;
+         if (v > 0) info.nComputerPieces += 1;
+         else if (v < 0) info.nGamerPieces += 1;
+         if (v == KING || v == CASTLEKING) {
+            info.lComputerKing = l;
+            info.cComputerKing = c;
+            info.computerKingState = EXIST;
+         }
+         if (v == CASTLEKING) info.castleComputer = true;
+         if (v == -KING || v == -CASTLEKING) {
+            info.lGamerKing = l;
+            info.cGamerKing = c;
+            info.gamerKingState = EXIST;
+         }
+         if (v == -CASTLEKING) info.castleGamer = true;
+      }
+   }
+   if (info.gamerKingState == EXIST) {
+      if (LCkingInCheck(sq64, -color, info.lGamerKing, info.cGamerKing))
+         info.gamerKingState = ISINCHECK;
+      if (kingCannotMove(sq64, -color)) {
+         if (info.gamerKingState == ISINCHECK) info.gamerKingState = ISMATE;
+         else info.gamerKingState = ISPAT;
+      }
+   }
+   if (info.computerKingState == EXIST) {
+      if (LCkingInCheck(sq64, color, info.lComputerKing, info.cComputerKing))
+         info.computerKingState = ISINCHECK;
+      if (kingCannotMove(sq64, color)) {
+         if (info.computerKingState == ISINCHECK) info.computerKingState = ISMATE;
+         else info.computerKingState = ISPAT;
+      }
+   }
+   info.nValidGamerPos = buildList(sq64, -color, list);
+   info.nValidComputerPos = buildList(sq64, color, list);
+   info.end = ((info.gamerKingState != EXIST && info.gamerKingState != ISINCHECK) ||
+               (info.computerKingState != EXIST && info.computerKingState != ISINCHECK));
+}
+
 int find (TGAME sq64, TGAME bestSq64, int *bestNote, int color) { /* */
    /* ordinateur joue renvoie le meilleur jeu possible et le nombre de jeux possibles */
    TGAME localSq64;
@@ -424,11 +424,11 @@ bool computerPlay (TGAME sq64, int color) { /* */
    /* prepare le lancement de la recherche avec find */
    struct timeval tRef;
    TGAME bestSq64;
-   updateInfo(sq64);
+   updateInfo (sq64, color);
    if (info.computerKingState == NOEXIST || info.computerKingState == ISMATE) 
       return false; // le roi est pris... 
    info.note = evaluation(sq64, -color);
-   updateInfo(sq64);
+   updateInfo(sq64, color);
    if (info.gamerKingState == ISINCHECK) {
       info.gamerKingState = UNVALIDINCHECK; // le joueur n'a pas le droit d'etre en echec
       return false;
@@ -453,9 +453,11 @@ bool computerPlay (TGAME sq64, int color) { /* */
    difference(sq64, bestSq64, color, &info.lastCapturedByComputer, info.computerPlay);
    memcpy(sq64, bestSq64, GAMESIZE);
    info.note = evaluation(sq64, color);
-   updateInfo(sq64);
-   if (fKingInCheck(sq64, color))        // pas le droit d etre en echec apres avoir joue
-      info.computerKingState = UNVALIDINCHECK;      // ou alors c'est Mat
+   updateInfo(sq64, color);
+   if (fKingInCheck (sq64, color)) {        // pas le droit d etre en echec apres avoir joue
+      info.computerKingState = UNVALIDINCHECK;
+      return false;
+   }
    return true;
 }
 
