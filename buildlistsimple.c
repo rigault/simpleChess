@@ -96,7 +96,7 @@ int buildList (TGAME refJeu, register int who, TLIST list) { /* */
                pl += GAMESIZE; nListe += 1;
             }
             // prise a gauche
-            if (c > 0 && (l-who) >= 0 && (l-who) < N && refJeu [l-who][c-1]*who < 0) { // signes opposesY
+            if (c > 0 && (l-who) >= 0 && (l-who) < N && refJeu [l-who][c-1]*who < 0) { // signes opposes
                memcpy (pl, refJeu, GAMESIZE);
                if (l-1 == 0 && who == 1) list [nListe][l-1][c-1] = QUEEN;
                else if (l+1 == 7 && who == -1) list [nListe][l+1][c-1] = -QUEEN;

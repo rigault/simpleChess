@@ -525,16 +525,19 @@ int main (int argc, char *argv[]) { /* */
       case 'i':
          printf ("fen: %s, level: %d\n", gameToFen (sq64, fen, info.gamerColor, '+', true), getInfo.level);
          computerPlay (sq64);
+         gameToFen (sq64, fen, info.gamerColor, '+', true); 
          sendGame (fen, info, getInfo.reqType);
          break;
       case 'r':
-         printGame (sq64, evaluation (sq64, -info.gamerColor));
          memcpy (oldSq64, sq64, GAMESIZE);
          computerPlay (sq64);
          printf ("%s\n", gameToFen (sq64, fen, info.gamerColor, '+', true)); 
          printGame (sq64, evaluation (sq64, -info.gamerColor));
          difference (oldSq64, sq64, -info.gamerColor, &info.lastCapturedByComputer, info.computerPlay);
-         printf ("%s %c\n", info.computerPlay, info.lastCapturedByComputer);
+         gameToFen (sq64, fen, info.gamerColor, '+', true); 
+         printf ("comment: %s%s\n", info.comment, info.endName);
+         printf ("fen: %s\n", fen); 
+         printf ("move: %s %c\n", info.computerPlay, info.lastCapturedByComputer);
          break;      
       case 't':
          // tests
@@ -545,24 +548,27 @@ int main (int argc, char *argv[]) { /* */
          for (int i = 0; i < nextL; i++) printGame (list [i], evaluation (list [i], -info.gamerColor));
          break;
       case 'p':
+         printf ("whe have the: %s\n", (info.gamerColor == -1) ? "Whites" : "Blacks");
          printGame (sq64, evaluation (sq64, -info.gamerColor));
-         bool debut = true;
+         bool player = (info.gamerColor == 1); 
          while (abs (evaluation (sq64, -info.gamerColor)) < MATE) {
-            if (info.gamerColor == 1 || ! debut) { // les blancs jouent en premier
+            if (player) { // joueur joue
+               printf ("gamer move: ");
+               while (scanf ("%s", strMove) != 1);
+               moveGame (sq64, info.gamerColor, strMove);
+               printGame (sq64, evaluation (sq64, info.gamerColor));
+            }
+            else { // ordinateur joue
                memcpy (oldSq64, sq64, GAMESIZE);
                computerPlay (sq64);
-               printf ("%s\n", gameToFen (sq64, fen, info.gamerColor, '+', true)); 
                printGame (sq64, evaluation (sq64, -info.gamerColor));
-               printf ("%s%s\n", info.comment, info.endName);
+               printf ("comment: %s%s\n", info.comment, info.endName);
                difference (oldSq64, sq64, -info.gamerColor, &info.lastCapturedByComputer, info.computerPlay);
-               printf ("%s %c\n", info.computerPlay, info.lastCapturedByComputer);
+               printf ("computer move: %s %c\n", info.computerPlay, info.lastCapturedByComputer);
             }
-            debut = false;
-            printf ("move: ");
-            while (scanf ("%s", strMove) != 1);
-            moveGame (sq64, info.gamerColor, strMove);
-            printGame (sq64, evaluation (sq64, info.gamerColor));
+            player = !player;
          }
+         break;
       case 'h':
          printf ("%s\n", HELP);
          break;

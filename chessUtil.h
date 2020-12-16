@@ -34,13 +34,13 @@ struct sinfo {
    int note;                     // evaluation du jeu ourant
    int evaluation;               // evaluation rendue par le minimax
    char computerPlay [15];       // dernier jeu ordi reconstruit par la fonction difference
-   char lastCapturedByComputer;   // derniere piece prise par Ordi
+   char lastCapturedByComputer;  // derniere piece prise par Ordi
    int calculatedMaxDepth;
    int lGamerKing;
    int cGamerKing;
    int lComputerKing;
    int cComputerKing;
-   int gamerColor;               // -1 si joueur blanc, 1 si joueur noir
+   int gamerColor;               // -1 si joueur blanc (defaut), 1 si joueur noir
    enum kingState gamerKingState;
    enum kingState computerKingState;
    bool castleGamer;
