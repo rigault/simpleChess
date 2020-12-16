@@ -236,6 +236,8 @@ void updateInfo (TGAME sq64) { /* */
    }
    info.nValidGamerPos = buildList(sq64, info.gamerColor, list);
    info.nValidComputerPos = buildList(sq64, -info.gamerColor, list);
+   info.end = ((info.gamerKingState != EXIST && info.gamerKingState != ISINCHECK) ||
+               (info.computerKingState != EXIST && info.computerKingState != ISINCHECK));
 }
 
 int evaluation (TGAME sq64, register int who) { /* */
@@ -418,14 +420,14 @@ int find (TGAME sq64, TGAME bestSq64, int *bestNote, int color) { /* */
    return nextL;
 }
 
-bool computerPlay (TGAME sq64) { /* */
+bool computerPlay (TGAME sq64, int color) { /* */
    /* prepare le lancement de la recherche avec find */
    struct timeval tRef;
    TGAME bestSq64;
    updateInfo(sq64);
    if (info.computerKingState == NOEXIST || info.computerKingState == ISMATE) 
       return false; // le roi est pris... 
-   info.note = evaluation(sq64, info.gamerColor);
+   info.note = evaluation(sq64, -color);
    updateInfo(sq64);
    if (info.gamerKingState == ISINCHECK) {
       info.gamerKingState = UNVALIDINCHECK; // le joueur n'a pas le droit d'etre en echec
@@ -441,18 +443,18 @@ bool computerPlay (TGAME sq64) { /* */
    info.nClock = clock ();
 
    // lancement de la recherche par l'ordi
-   info.nValidComputerPos = find (sq64, bestSq64, &info.evaluation, -info.gamerColor);
+   info.nValidComputerPos = find (sq64, bestSq64, &info.evaluation, color);
    if (info.nValidComputerPos == 0) 
       return false;
   
    info.nClock = clock () - info.nClock;
    gettimeofday (&tRef, NULL);
    info.computeTime = tRef.tv_sec * MILLION + tRef.tv_usec - info.computeTime;
-   difference(sq64, bestSq64, -info.gamerColor, &info.lastCapturedByComputer, info.computerPlay);
+   difference(sq64, bestSq64, color, &info.lastCapturedByComputer, info.computerPlay);
    memcpy(sq64, bestSq64, GAMESIZE);
-   info.note = evaluation(sq64, -info.gamerColor);
+   info.note = evaluation(sq64, color);
    updateInfo(sq64);
-   if (fKingInCheck(sq64, -info.gamerColor))        // pas le droit d etre en echec apres avoir joue
+   if (fKingInCheck(sq64, color))        // pas le droit d etre en echec apres avoir joue
       info.computerKingState = UNVALIDINCHECK;      // ou alors c'est Mat
    return true;
 }
@@ -494,7 +496,7 @@ void cgi () { /* */
  
    if (getInfo.reqType != 0) {
        info.gamerColor = -fenToGame (getInfo.fenString, sq64);
-       computerPlay (sq64);
+       computerPlay (sq64, -info.gamerColor);
        gameToFen (sq64, fen, info.gamerColor, '+', true);
        sendGame (fen, info, getInfo.reqType);
        fprintf (flog, "%2d; %s; %s; %d", getInfo.level, getInfo.fenString, info.computerPlay, info.note);
@@ -518,26 +520,30 @@ int main (int argc, char *argv[]) { /* */
    flog = fopen (F_LOG, "a");
    info.wdl = 9; // valeur inateignable montrant que syzygy n'a pas ete appelee
    srand (time (NULL)); // initialise le generateur aleatoire
+   info.gamerColor = 1;
    if (argc >= 2 && argv [1][0] == '-') {
       if (argc > 2) info.gamerColor = -fenToGame (argv [2], sq64);
       if (argc > 3) getInfo.level = atoi (argv [3]);
       switch (argv [1][1]) {
       case 'i':
-         printf ("fen: %s, level: %d\n", gameToFen (sq64, fen, info.gamerColor, '+', true), getInfo.level);
-         computerPlay (sq64);
+         printf ("fen: %s, level: %d\n", gameToFen (sq64, fen, -info.gamerColor, '+', true), getInfo.level);
+         computerPlay (sq64, -info.gamerColor);
          gameToFen (sq64, fen, info.gamerColor, '+', true); 
          sendGame (fen, info, getInfo.reqType);
          break;
       case 'r':
          memcpy (oldSq64, sq64, GAMESIZE);
-         computerPlay (sq64);
-         printf ("%s\n", gameToFen (sq64, fen, info.gamerColor, '+', true)); 
+         computerPlay (sq64, -info.gamerColor);
          printGame (sq64, evaluation (sq64, -info.gamerColor));
          difference (oldSq64, sq64, -info.gamerColor, &info.lastCapturedByComputer, info.computerPlay);
-         gameToFen (sq64, fen, info.gamerColor, '+', true); 
+         gameToFen (sq64, fen, info.gamerColor, '+', true);
+         printf ("clockTime: %ld, time: %ld, note; %d, eval: %d, computerStatus: %d, playerStatus; %d\n", 
+                 info.nClock, info.computeTime, info.note, info.evaluation, info.computerKingState, info.gamerKingState); 
          printf ("comment: %s%s\n", info.comment, info.endName);
-         printf ("fen: %s\n", fen); 
-         printf ("move: %s %c\n", info.computerPlay, info.lastCapturedByComputer);
+         printf ("fen: %s\n", fen);
+         printf ("move: %s %s %c\n", info.computerPlay, (info.lastCapturedByComputer != ' ') ? "taken:": "", 
+                 info.lastCapturedByComputer);
+         printf ("etat: %s\n", (info.end) ? "END" : "ONGOING");
          break;      
       case 't':
          // tests
@@ -548,10 +554,11 @@ int main (int argc, char *argv[]) { /* */
          for (int i = 0; i < nextL; i++) printGame (list [i], evaluation (list [i], -info.gamerColor));
          break;
       case 'p':
+         info.gamerColor = -1;
          printf ("whe have the: %s\n", (info.gamerColor == -1) ? "Whites" : "Blacks");
          printGame (sq64, evaluation (sq64, -info.gamerColor));
-         bool player = (info.gamerColor == 1); 
-         while (abs (evaluation (sq64, -info.gamerColor)) < MATE) {
+         bool player = (info.gamerColor == -1); 
+         while (! info.end) {
             if (player) { // joueur joue
                printf ("gamer move: ");
                while (scanf ("%s", strMove) != 1);
@@ -560,7 +567,7 @@ int main (int argc, char *argv[]) { /* */
             }
             else { // ordinateur joue
                memcpy (oldSq64, sq64, GAMESIZE);
-               computerPlay (sq64);
+               computerPlay (sq64, -info.gamerColor);
                printGame (sq64, evaluation (sq64, -info.gamerColor));
                printf ("comment: %s%s\n", info.comment, info.endName);
                difference (oldSq64, sq64, -info.gamerColor, &info.lastCapturedByComputer, info.computerPlay);

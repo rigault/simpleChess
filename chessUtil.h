@@ -51,6 +51,7 @@ struct sinfo {
    clock_t nClock;
    char move [15];               // deplacement donne par fonction ouverture
    unsigned wdl;                 // retour de syzygy - end table
+   bool end;
 } info;
 
 extern int charToInt (int c);
