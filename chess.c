@@ -27,7 +27,7 @@
 #include <stdbool.h>
 #include <unistd.h>
 
-#define HELP "Syntax; sudo ./chess.cgi -i|-r|-h|-t [<jeu au format FEN>] [profondeur]"
+#define HELP "Syntax; sudo ./chess.cgi -i|-r|-h|-p|-t [jeu au format FEN] [profondeur]"
 
 #define MAXPIECESSYZYGY 6
 #define MAXTHREADS 128             // nombre max de thread
@@ -361,11 +361,11 @@ int find (TGAME sq64, TGAME bestSq64, int *bestNote, int color) { /* */
    }
    
    memcpy (localSq64, sq64, GAMESIZE);
-   gameToFen (localSq64, fen, color, ' ', false);
+   gameToFen (localSq64, fen, color, ' ', false, 0, 0);
 
    // recherche de fin de partie voir  https://syzygy-tables.info/
    if ((info.nGamerPieces + info.nComputerPieces) <= MAXPIECESSYZYGY) {
-      strcat (fen," - - 0 0"); // idem
+      sprintf (fen, "%s - - %d %d", fen, info.cpt50, info.nb); // pour regle des 50 coups
       if (syzygyRR (PATHTABLE, fen, &info.wdl, info.move, info.endName)) {
          moveGame (localSq64, color, info.move);
          memcpy (bestSq64, localSq64, GAMESIZE);
@@ -450,7 +450,11 @@ bool computerPlay (TGAME sq64, int color) { /* */
    info.nClock = clock () - info.nClock;
    gettimeofday (&tRef, NULL);
    info.computeTime = tRef.tv_sec * MILLION + tRef.tv_usec - info.computeTime;
-   difference(sq64, bestSq64, color, &info.lastCapturedByComputer, info.computerPlay);
+   difference (sq64, bestSq64, color, &info.lastCapturedByComputer, info.computerPlay);
+   if (info.gamerColor == -1) info.nb += 1;
+   if (abs (info.computerPlay [0] == 'P') ||  info.computerPlay [3] == 'x')
+      info.cpt50 = 0;
+   else info.cpt50 += 1;
    memcpy(sq64, bestSq64, GAMESIZE);
    info.note = evaluation(sq64, color);
    updateInfo(sq64);
@@ -490,16 +494,17 @@ void cgi () { /* */
    if (env == NULL) return;
 
    if ((str = strstr (env, "fen=")) != NULL)
-      sscanf (str, "fen=%[bwprnbqkPRNBQK1-8+-/]", getInfo.fenString);
+      sscanf (str, "fen=%[bwprnbqkPRNBQK0-9+-/]", getInfo.fenString);
    if ((str = strstr (env, "level=")) != NULL)
       sscanf (str, "level=%d", &getInfo.level);
    if ((str = strstr (env, "reqType=")) != NULL)
       sscanf (str, "reqType=%d", &getInfo.reqType);
  
    if (getInfo.reqType != 0) {
-       info.gamerColor = -fenToGame (getInfo.fenString, sq64);
+       info.gamerColor = -fenToGame (getInfo.fenString, sq64, &info.cpt50, &info.nb);
        computerPlay (sq64, -info.gamerColor);
-       gameToFen (sq64, fen, info.gamerColor, '+', true);
+       fprintf (flog, "cpt50 : %d, nb : %d\n", info.cpt50, info.nb);   
+       gameToFen (sq64, fen, info.gamerColor, '+', true, info.cpt50, info.nb);
        sendGame (fen, info, getInfo.reqType);
        fprintf (flog, "%2d; %s; %s; %d", getInfo.level, getInfo.fenString, info.computerPlay, info.note);
    }
@@ -511,8 +516,8 @@ int main (int argc, char *argv[]) { /* */
    /* lit la ligne de commande */
    /* -i [FENGame] [profondeur] : CLI avec sortie JSON */
    /* -r [FENGame] [profondeur] : CLI avec sortie raw */
-   /* -t : test unitaire */
    /* -p [FENGame] [profondeur] : play mode CLI */
+   /* -t : test unitaire */
    /* -h : help */
    /* autrement CGI */
    char fen [MAXLENGTH];
@@ -524,13 +529,13 @@ int main (int argc, char *argv[]) { /* */
    srand (time (NULL)); // initialise le generateur aleatoire
    info.gamerColor = 1;
    if (argc >= 2 && argv [1][0] == '-') {
-      if (argc > 2) info.gamerColor = -fenToGame (argv [2], sq64);
+      if (argc > 2) info.gamerColor = -fenToGame (argv [2], sq64, &info.cpt50, &info.nb);
       if (argc > 3) getInfo.level = atoi (argv [3]);
       switch (argv [1][1]) {
       case 'i':
-         printf ("fen: %s, level: %d\n", gameToFen (sq64, fen, -info.gamerColor, '+', true), getInfo.level);
+         printf ("fen: %s, level: %d\n", gameToFen (sq64, fen, -info.gamerColor, '+', true, info.cpt50, info.nb), getInfo.level);
          computerPlay (sq64, -info.gamerColor);
-         gameToFen (sq64, fen, info.gamerColor, '+', true); 
+         gameToFen (sq64, fen, info.gamerColor, '+', true, info.cpt50, info.nb); 
          sendGame (fen, info, getInfo.reqType);
          break;
       case 'r':
@@ -538,7 +543,7 @@ int main (int argc, char *argv[]) { /* */
          computerPlay (sq64, -info.gamerColor);
          printGame (sq64, evaluation (sq64, -info.gamerColor));
          difference (oldSq64, sq64, -info.gamerColor, &info.lastCapturedByComputer, info.computerPlay);
-         gameToFen (sq64, fen, info.gamerColor, '+', true);
+         gameToFen (sq64, fen, info.gamerColor, '+', true, info.cpt50, info.nb);
          printf ("clockTime: %ld, time: %ld, note; %d, eval: %d, computerStatus: %d, playerStatus; %d\n", 
                  info.nClock, info.computeTime, info.note, info.evaluation, info.computerKingState, info.gamerKingState); 
          printf ("comment: %s%s\n", info.comment, info.endName);
@@ -577,6 +582,13 @@ int main (int argc, char *argv[]) { /* */
             }
             player = !player;
          }
+         break;
+      case 'z':
+         for (int i = 0; i < strlen (argv [2]); i++) if (argv [2][i] == '+') argv [2][i] = ' ';
+
+         printf ("fen : %s\n", argv [2]);
+         syzygyRR (PATHTABLE, argv [2], &info.wdl, info.move, info.endName);
+         printf ("%s\n", info.endName);
          break;
       case 'h':
          printf ("%s\n", HELP);

@@ -23,8 +23,10 @@ int nextL;
 FILE *flog;
 
 struct sinfo {
+   int nb;                       // nb de coup recus
+   int cpt50;                    // compteur pour regle des 50 coups 
    int nGamerPieces;             // nombre de pieces Joueur
-   int nComputerPieces;                // nombre de pieces Ordi
+   int nComputerPieces;          // nombre de pieces Ordi
    int maxDepth;                 // profondeur (minimax)
    int nEvalCall;
    int nLCKingInCheckCall;
@@ -55,8 +57,8 @@ struct sinfo {
 } info;
 
 extern int charToInt (int c);
-extern int fenToGame (char *sFenComplete, TGAME jeu);
-extern char *gameToFen (TGAME jeu, char *sFen, int color, char sep, bool complete);
+extern int fenToGame (char *sFenComplete, TGAME jeu, int *cpt50, int *nb);
+extern char *gameToFen (TGAME sq64, char *fen, int color, char sep, bool complete, int cpt50, int nb);
 extern bool opening (const char *fileName, char *gameFen, char *sComment, char *move);
 extern char *difference (TGAME jeu1, TGAME jeu2, int color, char *prise, char* temp);
 extern void sendGame (const char *fen, struct sinfo info, int reqType);

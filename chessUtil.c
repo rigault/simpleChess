@@ -44,7 +44,7 @@ void printGame (TGAME jeu, int eval) { /* */
    printf ("%s\n", NORMAL);
 }
 
-int fenToGame (char *fenComplete, TGAME sq64) { /* */
+int fenToGame (char *fenComplete, TGAME sq64, int *cpt50, int *nb) { /* */
    /* Forsyth–Edwards Notation */
    /* le jeu est recu sous la forme d'une chaine de caracteres du navigateur au format fen*/
    /* FENToJeu traduit cette chaine et renvoie l'objet jeu ainsi que la couleur */
@@ -53,21 +53,28 @@ int fenToGame (char *fenComplete, TGAME sq64) { /* */
    /* le roque est contenu dans la valeur u roi : ROI ou ROIROQUE */
    int k, l = 7, c = 0;
    char *fen, cChar;
-   char *sColor, *sCastle;
+   char *sColor, *sCastle, *strNb, *str50;
    char copyFen [MAXLEN];
    bool bCastleW = false;  
    bool bCastleB = false;
    int activeColor = 1; //par defaut : noir
+   *cpt50 = *nb = 0;
    strcpy (copyFen, fenComplete);
-   for (unsigned i = 0; i < strlen (copyFen); i++) // normalisation
+   for (unsigned i = 0; i < strlen (copyFen); i++)   // normalisation
       if (isspace (copyFen [i])) copyFen [i] = '+'; 
    fen = strtok (copyFen, "+");
-   if ((sColor = strtok (NULL, "+")) != NULL) 
+   if ((sColor = strtok (NULL, "+")) != NULL)        // couleur
       activeColor = (sColor [0] == 'b') ? 1 : -1;    
-   if ((sCastle = strtok (NULL, "+")) != NULL) {
+   if ((sCastle = strtok (NULL, "+")) != NULL) {     // roques
       bCastleW = (sCastle [0] == '-');
       bCastleB = (bCastleW ? sCastle [1] == '-' : sCastle [2] == '-');
    }
+   if ((strtok (NULL, "+")) != NULL) {};             // en passant non traite
+   if ((str50 = strtok (NULL, "+")) != NULL)
+      *cpt50 = atoi (str50);                         // pour regle des cinquante coups
+   if ((strNb = strtok (NULL, "+")) != NULL)  
+      *nb = atoi (strNb);                            // nbcoup
+   
    for (unsigned i = 0; i < strlen (fen) ; i++) {
       cChar = fen [i];
       if (isspace (cChar)) break;
@@ -92,7 +99,7 @@ int fenToGame (char *fenComplete, TGAME sq64) { /* */
    return activeColor;
 }
 
-char *gameToFen (TGAME sq64, char *fen, int color, char sep, bool complete) { /* */
+char *gameToFen (TGAME sq64, char *fen, int color, char sep, bool complete, int cpt50, int nb) { /* */
    /* Forsyth–Edwards Notation */
    /* le jeu est envoye sous la forme d'une chaine de cCharacteres au format FEN au navigateur */
    int n, v;
@@ -122,6 +129,7 @@ char *gameToFen (TGAME sq64, char *fen, int color, char sep, bool complete) { /*
       fen [i++] = '\0'; 
       strcat (fen, (castleW ? "-" : "KQ"));
       strcat (fen, (castleB ? "-" : "kq"));
+      sprintf (fen, "%s%c-%c%d%c%d", fen, sep, sep, cpt50, sep, nb); 
    }
    else fen [i] = '\0';
    return fen;
