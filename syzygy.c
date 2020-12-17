@@ -239,6 +239,7 @@ bool syzygyRR (const char* path, const char *fen, unsigned *wdl, char *bestMove,
    *wdl = TB_GET_WDL(move);
    moveToStr (pos, move, bestMove);
    // Output
-   sprintf (comment, "WIN: %s; BESTMOVE: %s; WDL: %u; DTZ: %u", wdl_to_str[(pos->turn? *wdl: 4-*wdl)], bestMove, *wdl, TB_GET_DTZ(move));
+   sprintf (comment, "WIN: %s; BESTMOVE: %s; WDL: %u; DTZ: %u", 
+      wdl_to_str[(pos->turn? *wdl: 4-*wdl)], bestMove, *wdl, TB_GET_DTZ(move));
    return true;
 }

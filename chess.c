@@ -585,7 +585,6 @@ int main (int argc, char *argv[]) { /* */
          break;
       case 'z':
          for (int i = 0; i < strlen (argv [2]); i++) if (argv [2][i] == '+') argv [2][i] = ' ';
-
          printf ("fen : %s\n", argv [2]);
          syzygyRR (PATHTABLE, argv [2], &info.wdl, info.move, info.endName);
          printf ("%s\n", info.endName);
