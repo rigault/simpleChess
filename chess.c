@@ -30,6 +30,7 @@
 
 #define HELP "Syntax; sudo ./chess.cgi -i|-r|-h|-p|-t [jeu au format FEN] [profondeur]"
 
+#define NDEPTH 3                   // pour fMaxDepth ()
 #define MAXPIECESSYZYGY 6
 #define MAXTHREADS 128             // nombre max de thread
 #define KINGINCHECKEVAL 1          // evaluation du gain d'un echec au roi..
@@ -69,10 +70,14 @@ TGAME sq64 = {
 int fMaxDepth (int lev, struct sinfo info) { /* */
    /* renvoie la profondeur du jeu en fonction du niveau choisi et */
    /* de l'etat du jeu */
+   const struct {      
+      int v;
+      int inc;
+   } val [] = {{256, 3}, {512, 2},  {1024, 1}};
+
    int prod = info.nValidComputerPos * info.nValidGamerPos;
-   if (prod < 256) return lev + 3;
-   if (prod < 512) return lev + 2;
-   if (prod < 1024) return lev + 1;
+   for (int i = 0; i < NDEPTH; i++)
+      if (prod < val [i].v) return val [i].inc + lev;
    return lev;
 }
 
@@ -294,7 +299,7 @@ int evaluation (TGAME sq64, register int who) { /* */
    return eval;
 }
 
-int alphaBeta (TGAME sq64, int turn, int p, int refAlpha, int refBeta) { /* */
+int alphaBeta (TGAME sq64, int who, int p, int refAlpha, int refBeta) { /* */
    /* le coeur du programme */
    TLIST list;
    int maxList = 0;
@@ -302,7 +307,7 @@ int alphaBeta (TGAME sq64, int turn, int p, int refAlpha, int refBeta) { /* */
    int val;
    int alpha = refAlpha;
    int beta = refBeta;
-   note = evaluation(sq64, turn);
+   note = evaluation(sq64, who);
    if (info.calculatedMaxDepth < p) info.calculatedMaxDepth = p;
 
    // conditions de fin de jeu
@@ -310,7 +315,7 @@ int alphaBeta (TGAME sq64, int turn, int p, int refAlpha, int refBeta) { /* */
    if (note == MATE) return note-p;    // -p pour favoriser le choix avec faible profondeur
    if (note == -MATE) return note+p;  // +p idem
    // pire des notes a ameliorer
-   if (turn == 1) {
+   if (who == 1) {
       val = MATE;
       maxList = buildList(sq64, -1, list);
       for (k = 0; k < maxList; k++) {
