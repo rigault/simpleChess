@@ -11,7 +11,7 @@
 #include "vt100.h"
 // Pawn, kNight, Bishop, Rook, Queen, King, rOckking
 // FEN notation
-// White : Majuscules. Black: Minuscules 
+// White : Majuscules, negatives. Black: Minuscules, positives. 
 
 const char dict [] = {'-', 'P', 'N', 'B', 'R', 'Q', 'K', 'K'};
 const char *unicode [] = {" ", "♟", "♞", "♝", "♜", "♛", "♚", "♚"};

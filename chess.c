@@ -26,6 +26,7 @@
 #include <pthread.h>
 #include <stdbool.h>
 #include <unistd.h>
+#include <math.h>
 
 #define HELP "Syntax; sudo ./chess.cgi -i|-r|-h|-p|-t [jeu au format FEN] [profondeur]"
 
@@ -69,7 +70,10 @@ int fMaxDepth (int lev, struct sinfo info) { /* */
    /* renvoie la profondeur du jeu en fonction du niveau choisi et */
    /* de l'etat du jeu */
    int prod = info.nValidComputerPos * info.nValidGamerPos;
-   return  (prod < 400) ? lev + 2 : ((prod < 800) ? lev + 1 : lev); 
+   if (prod < 256) return lev + 3;
+   if (prod < 512) return lev + 2;
+   if (prod < 1024) return lev + 1;
+   return lev;
 }
 
 bool LCkingInCheck (TGAME sq64, register int who, register int l, register int c) { /* */
@@ -503,7 +507,6 @@ void cgi () { /* */
    if (getInfo.reqType != 0) {
        info.gamerColor = -fenToGame (getInfo.fenString, sq64, &info.cpt50, &info.nb);
        computerPlay (sq64, -info.gamerColor);
-       fprintf (flog, "cpt50 : %d, nb : %d\n", info.cpt50, info.nb);   
        gameToFen (sq64, fen, info.gamerColor, '+', true, info.cpt50, info.nb);
        sendGame (fen, info, getInfo.reqType);
        fprintf (flog, "%2d; %s; %s; %d", getInfo.level, getInfo.fenString, info.computerPlay, info.note);
@@ -544,7 +547,7 @@ int main (int argc, char *argv[]) { /* */
          printGame (sq64, evaluation (sq64, -info.gamerColor));
          difference (oldSq64, sq64, -info.gamerColor, &info.lastCapturedByComputer, info.computerPlay);
          gameToFen (sq64, fen, info.gamerColor, '+', true, info.cpt50, info.nb);
-         printf ("clockTime: %ld, time: %ld, note; %d, eval: %d, computerStatus: %d, playerStatus; %d\n", 
+         printf ("clockTime: %ld, time: %ld, note: %d, eval: %d, computerStatus: %d, playerStatus: %d\n", 
                  info.nClock, info.computeTime, info.note, info.evaluation, info.computerKingState, info.gamerKingState); 
          printf ("comment: %s%s\n", info.comment, info.endName);
          printf ("fen: %s\n", fen);
@@ -588,6 +591,9 @@ int main (int argc, char *argv[]) { /* */
          printf ("fen : %s\n", argv [2]);
          syzygyRR (PATHTABLE, argv [2], &info.wdl, info.move, info.endName);
          printf ("%s\n", info.endName);
+         break;
+      case 'm':
+         printf ("%d\n", fMaxDepth (atoi (argv [2]), info));
          break;
       case 'h':
          printf ("%s\n", HELP);

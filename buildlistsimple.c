@@ -108,49 +108,49 @@ int buildList (TGAME refJeu, register int who, TLIST list) { /* */
          case KING: case CASTLEKING:
             if (c < 7 && (u * refJeu [l][c+1] <= 0)) {
                memcpy (pl, refJeu, GAMESIZE);
-               list [nListe][l][c+1] = u;
+               list [nListe][l][c+1] = who * CASTLEKING; // plus droit de roquer
                list [nListe][l][c] = 0;
                pl += GAMESIZE; nListe += 1;
             }
             if (c > 0 && (u * refJeu [l][c-1] <= 0)) {
                memcpy (pl, refJeu, GAMESIZE);
-               list [nListe][l][c-1] = u;
+               list [nListe][l][c-1] = who * CASTLEKING;
                list [nListe][l][c] = 0;
                pl += GAMESIZE; nListe += 1;
             }
             if (l < 7 && (u * refJeu [l+1][c] <= 0)) {
                memcpy (pl, refJeu, GAMESIZE);
-               list [nListe][l+1][c] = u;
+               list [nListe][l+1][c] = who * CASTLEKING;
                list [nListe][l][c] = 0;
                pl += GAMESIZE; nListe += 1;
             }
             if (l > 0 && (u * refJeu [l-1][c] <= 0)) {
                memcpy (pl, refJeu, GAMESIZE);
-               list [nListe][l-1][c] = u;
+               list [nListe][l-1][c] = who * CASTLEKING;
                list [nListe][l][c] = 0;
                pl += GAMESIZE; nListe += 1;
             }
             if ((l < 7) && (c < 7) && (u * refJeu [l+1][c+1] <= 0)) {
                memcpy (pl, refJeu, GAMESIZE);
-               list [nListe][l+1][c+1] = u;
+               list [nListe][l+1][c+1] = who * CASTLEKING;
                list [nListe][l][c] = 0;
                pl += GAMESIZE; nListe += 1;
             }
             if ((l < 7) && (c > 0) && (u * refJeu [l+1][c-1] <= 0)) {
                memcpy (pl, refJeu, GAMESIZE);
-               list [nListe][l+1][c-1] = u;
+               list [nListe][l+1][c-1] = who * CASTLEKING;
                list [nListe][l][c] = 0;
                pl += GAMESIZE; nListe += 1;
             }
             if ((l > 0) && (c < 7) && (u * refJeu [l-1][c+1] <= 0)) {
                memcpy (pl, refJeu, GAMESIZE);
-               list [nListe][l-1][c+1] = u;
+               list [nListe][l-1][c+1] = who * CASTLEKING;
                list [nListe][l][c] = 0;
                pl += GAMESIZE; nListe += 1;
             }
             if ((l > 0) && (c > 0) && (u * refJeu [l-1][c-1] <= 0)) {
                memcpy (pl, refJeu, GAMESIZE);
-               list [nListe][l-1][c-1] = u;
+               list [nListe][l-1][c-1] = who * CASTLEKING;
                list [nListe][l][c] = 0;
                pl += GAMESIZE; nListe += 1;
             }
