@@ -2,10 +2,12 @@
 #define VERSION "2.1"
 #define DESCRIPTION "Chess Rene Rigault 2020"
 #define PATHTABLE "/var/www/html/chessdata"    // table de fin de jeux SYZYGY.
-#define F_OUVB "../chessopenings/chessB.fen"   // fichier des ouvertures (openings)
-#define F_OUVW "../chessopenings/chessW.fen"   // fichier des ouvertures (openings)
+#define OPENINGDIR "/home/rr/git/simplechess/bigfen"
+// #define OPENINGDIR "/var/www/html/chessopenings"
+#define F_OUVB "/var/www/html/chessopenings/chessB.fen"   // fichier des ouvertures (openings)
+#define F_OUVW "/var/www/html/chessopenings/chessW.fen"   // fichier des ouvertures (openings)
 #define N 8
-#define MAXLEN 1000
+#define MAXLEN 10000
 #define MAXSIZELIST 128
 #define GAMESIZE 64         // taille du jeu = N * N * sizeeof (char) = 8 * 8 * 1 ATTENTION PORTABILITE
 #define F_LOG "chess.log"   // log des jeux
@@ -59,6 +61,7 @@ struct sinfo {
 extern int charToInt (int c);
 extern int fenToGame (char *sFenComplete, TGAME jeu, int *cpt50, int *nb);
 extern char *gameToFen (TGAME sq64, char *fen, int color, char sep, bool complete, int cpt50, int nb);
+extern bool openingAll (const char *dir, const char *filter, char *gameFen, char *sComment, char *move);
 extern bool opening (const char *fileName, char *gameFen, char *sComment, char *move);
 extern char *difference (TGAME jeu1, TGAME jeu2, int color, char *prise, char* temp);
 extern void sendGame (const char *fen, struct sinfo info, int reqType);

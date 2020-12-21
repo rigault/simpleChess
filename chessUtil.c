@@ -4,6 +4,7 @@
 #include <time.h>
 #include <ctype.h>
 #include <stdbool.h>
+#include <dirent.h>
 
 #define NIL -9999999
 #define MAXLENBIG 10000
@@ -142,18 +143,18 @@ void moveGame (TGAME sq64, int color, char *move) { /* */
    int base = (color == -1) ? 0 : 7; // Roque non teste
    int cDep, lDep, cDest, lDest, i, j;
    
-   if (strcmp (move, "0-0") == 0) { // petit Roque
-      sq64 [base][4] = VOID;
-      sq64 [base][5] = ROOK * color;
-      sq64 [base][6] = KING * color;
-      sq64 [base][7] = VOID;
-      return;
-   }
-   if (strcmp (move, "0-0-0") == 0) { // grand Roque
+   if ((strcmp (move, "O-O-O") == 0) || (strcmp (move, "0-0-0") == 0)) { // grand Roque
       sq64 [base][4] = VOID;
       sq64 [base][3] = ROOK * color;
       sq64 [base][2] = KING * color;
       sq64 [base][0] = VOID;
+      return;
+   }
+   if ((strcmp (move, "O-O") == 0) || (strcmp (move, "0-0") == 0)) { // petit Roque
+      sq64 [base][4] = VOID;
+      sq64 [base][5] = ROOK * color;
+      sq64 [base][6] = KING * color;
+      sq64 [base][7] = VOID;
       return;
    }
    i = isupper (move[0]) ? 1 : 0; // nom de piece optionnel. S'il existe c'est une Majuscule.
@@ -168,11 +169,34 @@ void moveGame (TGAME sq64, int color, char *move) { /* */
    sq64 [lDep][cDep] = VOID;
 }
 
+bool openingAll (const char *dir, const char *filter, char *gameFen, char *sComment, char *move) {
+   /* liste les fichier du reperdoire dir contenant la chaine filter */
+   /* appelle opening sur les fichiers listes jusqu a trouver */
+   /* renvoie vraie si gameFen est trouvee dans l'un des fichiers faux sinon */
+   struct dirent *lecture;
+   DIR *rep;
+   rep = opendir(dir);
+   char fileName [MAXLEN];
+   char comment [MAXLEN];
+   while ((lecture = readdir(rep))) {
+      if (strstr (lecture->d_name, filter) != NULL) {
+         // printf ("%s\n", lecture->d_name);
+         sprintf (fileName, "%s/%s", dir, lecture->d_name);
+         if (opening (fileName, gameFen, comment, move)) {
+            sprintf (sComment, "%s %s", lecture->d_name, comment);
+            return true;
+         }
+      }
+   }
+   closedir(rep);
+   return false;
+}
+
 bool opening (const char *fileName, char *gameFen, char *sComment, char *move) { /* */
    /* lit le fichier des ouvertures et produit le jeu final */
    /* ce fichier est au forma CSV : FENstring ; dep ; commentaire */
-   /* dep contient le deplacement en notation algebrique complete Xe2:e4[Y] | 0-0 | 0-0-0 */
-   /* X : piece joue. Y : promotion,  0-0 : petit roque,  0-0-0 : grand roque */
+   /* dep contient le deplacement en notation algebrique complete Xe2:e4[Y] | O-O | O-O-O */
+   /* X : piece joue. Y : promotion,  O-O : petit roque,  O-O-O : grand roque */
    /* nom Ouverture contient le nom trouve */
    /* renvoie vrai si ouverture trouvee dans le fichier, faux sinon */
    FILE *fe;
@@ -187,9 +211,9 @@ bool opening (const char *fileName, char *gameFen, char *sComment, char *move) {
       if (((sFEN = strtok (line, ";")) != NULL) && (strncmp (sFEN, gameFen, MIN(strlen (sFEN), lenGameFen)) == 0)) {
          if ((ptDep = strtok (NULL, ";")) != NULL) {
             ptComment = strtok (NULL, "\n");
+            strcpy (sComment, ptComment);
          }
          strcpy (move, ptDep);
-         strcpy (sComment, ptComment);
          return true;
       }
    }
@@ -214,12 +238,12 @@ char *difference (TGAME sq64_1, TGAME sq64_2, int color, char *prise, char* temp
    lCastling = (color == -1) ? 0 : 7;
    if (sq64_1[lCastling][4] == color*KING && sq64_2[lCastling][4] == VOID && 
       sq64_1[lCastling][0] == color*ROOK && sq64_2 [lCastling][0] == VOID) {
-      sprintf (temp, "%s", "0-0-0");
+      sprintf (temp, "%s", "O-O-O");
       return temp;
    }
    if (sq64_1[lCastling][4] == color*KING && sq64_2[lCastling][4] == VOID && 
       sq64_1[lCastling][7] == color*ROOK && sq64_2 [lCastling][7] == VOID) {
-      sprintf (temp, "%s", "0-0");
+      sprintf (temp, "%s", "O-O");
       return temp;
    }
    for (int l = 0; l < N; l++) {

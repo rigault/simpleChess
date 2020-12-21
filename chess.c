@@ -73,7 +73,7 @@ int fMaxDepth (int lev, struct sinfo info) { /* */
    const struct {      
       int v;
       int inc;
-   } val [] = {{256, 3}, {512, 2},  {1024, 1}};
+   } val [] = {{200, 3}, {400, 2},  {800, 1}};
 
    int prod = info.nValidComputerPos * info.nValidGamerPos;
    for (int i = 0; i < NDEPTH; i++)
@@ -383,7 +383,8 @@ int find (TGAME sq64, TGAME bestSq64, int *bestNote, int color) { /* */
    }
      
    // ouvertures
-   if (opening ((color == 1) ? F_OUVB: F_OUVW, fen, info.comment, info.move)) {
+  // if (opening ((color == 1) ? F_OUVB: F_OUVW, fen, info.comment, info.move)) {   
+  if (openingAll (OPENINGDIR, (color == 1) ? ".b.fen": ".w.fen", fen, info.comment, info.move)) {
       moveGame (localSq64, color, info.move);
       memcpy (bestSq64, localSq64, GAMESIZE);
       return nextL;
@@ -530,6 +531,7 @@ int main (int argc, char *argv[]) { /* */
    /* autrement CGI */
    char fen [MAXLENGTH];
    char strMove [15];
+   int color;
    TGAME oldSq64;
    // preparation du fichier log 
    flog = fopen (F_LOG, "a");
@@ -596,6 +598,13 @@ int main (int argc, char *argv[]) { /* */
          printf ("fen : %s\n", argv [2]);
          syzygyRR (PATHTABLE, argv [2], &info.wdl, info.move, info.endName);
          printf ("%s\n", info.endName);
+         break;
+      case 'l': case 'L':
+         color = 1;
+          if (openingAll (OPENINGDIR, (color == 1) ? "B.fen": "W.fen", fen, info.comment, info.move)) {
+            printf ("comment: %s, move; %s\n", info.comment, info.move);
+         }
+         else printf ("KO\n");
          break;
       case 'm':
          printf ("%d\n", fMaxDepth (atoi (argv [2]), info));
