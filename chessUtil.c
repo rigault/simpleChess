@@ -1,3 +1,7 @@
+#define _DEFAULT_SOURCE // pour scandir
+#define NIL -9999999
+#define MAXLENBIG 10000
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -6,8 +10,6 @@
 #include <stdbool.h>
 #include <dirent.h>
 
-#define NIL -9999999
-#define MAXLENBIG 10000
 #include "chessUtil.h"
 #include "vt100.h"
 // Pawn, kNight, Bishop, Rook, Queen, King, rOckking
@@ -171,24 +173,28 @@ void moveGame (TGAME sq64, int color, char *move) { /* */
 
 bool openingAll (const char *dir, const char *filter, char *gameFen, char *sComment, char *move) {
    /* liste les fichier du reperdoire dir contenant la chaine filter */
+   /* fichier dans l'ordre alphabetique */
+   /* donc nommer les fichier les plus prioritaires en debut alphabet */
    /* appelle opening sur les fichiers listes jusqu a trouver */
    /* renvoie vraie si gameFen est trouvee dans l'un des fichiers faux sinon */
-   struct dirent *lecture;
-   DIR *rep;
-   rep = opendir(dir);
+
+   struct dirent **namelist;
+   int n;
    char fileName [MAXLEN];
    char comment [MAXLEN];
-   while ((lecture = readdir(rep))) {
-      if (strstr (lecture->d_name, filter) != NULL) {
-         // printf ("%s\n", lecture->d_name);
-         sprintf (fileName, "%s/%s", dir, lecture->d_name);
+   n = scandir(dir, &namelist, 0, alphasort);
+   if (n < 0) return false;
+   for (int i = 0; i < n; i++) {
+      if (strstr (namelist [i]->d_name, filter) != NULL) {
+         sprintf (fileName, "%s/%s", dir, namelist [i]->d_name);
          if (opening (fileName, gameFen, comment, move)) {
-            sprintf (sComment, "%s %s", lecture->d_name, comment);
+            sprintf (sComment, "%s %s", namelist [i]->d_name, comment);
             return true;
          }
       }
+      free (namelist [i]);
    }
-   closedir(rep);
+   free (namelist);
    return false;
 }
 

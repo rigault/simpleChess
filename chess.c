@@ -599,9 +599,9 @@ int main (int argc, char *argv[]) { /* */
          syzygyRR (PATHTABLE, argv [2], &info.wdl, info.move, info.endName);
          printf ("%s\n", info.endName);
          break;
-      case 'l': case 'L':
+      case 'l':
          color = 1;
-          if (openingAll (OPENINGDIR, (color == 1) ? "B.fen": "W.fen", fen, info.comment, info.move)) {
+          if (openingAll (OPENINGDIR, (color == 1) ? "b.fen": "w.fen", fen, info.comment, info.move)) {
             printf ("comment: %s, move; %s\n", info.comment, info.move);
          }
          else printf ("KO\n");
