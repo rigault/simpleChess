@@ -288,8 +288,6 @@ char *difference (TGAME sq64_1, TGAME sq64_2, int color, char *prise, char* temp
 
 void sendGame (const char *fen, struct sinfo info, int reqType) { /* */
    /* envoie le jeu au format JSON */
-   char dump [MAXLENBIG];
-   char temp [MAXLENBIG];
    printf ("Access-Control-Allow-Origin: *\n");
    printf ("Content-Type: text/html\n\n");
    printf ("{\n");
@@ -314,18 +312,10 @@ void sendGame (const char *fen, struct sinfo info, int reqType) { /* */
       printf ("\"computePlay\" : \"%s\"", info.computerPlay);
    }
    if (reqType > 1) {
-      sprintf (dump, "maxDepth=%d", info.maxDepth);
-      sprintf (temp, "   nEval=%d", info.nEvalCall);
-      strcat (dump, temp);
-      sprintf (temp, "   nLCKingInCheck=%d", info.nLCKingInCheckCall);
-      strcat (dump, temp);
-      sprintf (temp, "   nBuildList=%d", info.nBuildListCall);
-      strcat (dump, temp);
-      sprintf (temp, "   nValidComputerPos=%d", info.nValidComputerPos);
-      strcat (dump, temp);
-      sprintf (temp, "   nValidPlayerPos=%d", info.nValidGamerPos);
-      strcat (dump, temp);
-      printf (",\n\"dump\" : \"%s\"", dump);
+      printf (",\n\"dump\" : \"");
+      printf ("  maxDepth=%d  nEvalCall=%d  nLCKingInCheck=%d", info.maxDepth, info.nEvalCall, info.nLCKingInCheckCall);
+      printf ("  nBuildList=%d  nValidComputerPos=%d", info.nBuildListCall, info.nValidComputerPos);
+      printf ("  nValidPlayerPos=%d\"", info.nValidGamerPos);
    }
    printf ("\n}\n");
 }
