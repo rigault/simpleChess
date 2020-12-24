@@ -37,7 +37,8 @@ struct sinfo {
    int nValidComputerPos;
    int note;                     // evaluation du jeu ourant
    int evaluation;               // evaluation rendue par le minimax
-   char computerPlay [15];       // dernier jeu ordi reconstruit par la fonction difference
+   char computerPlayC [15];       // dernier jeu ordi reconstruit par la fonction difference. Notation Alg. complete
+   char computerPlayA [15];       // dernier jeu ordi reconstruit par la fonction difference. Notation Alg. abegee
    char lastCapturedByComputer;  // derniere piece prise par Ordi
    int calculatedMaxDepth;
    int lGamerKing;
@@ -63,7 +64,7 @@ extern int fenToGame (char *sFenComplete, TGAME jeu, int *cpt50, int *nb);
 extern char *gameToFen (TGAME sq64, char *fen, int color, char sep, bool complete, int cpt50, int nb);
 extern bool openingAll (const char *dir, const char *filter, char *gameFen, char *sComment, char *move);
 extern bool opening (const char *fileName, char *gameFen, char *sComment, char *move);
-extern char *difference (TGAME jeu1, TGAME jeu2, int color, char *prise, char* temp);
+extern char *difference (TGAME jeu1, TGAME jeu2, int color, char *prise, char *complete, char *abbr);
 extern void sendGame (const char *fen, struct sinfo info, int reqType);
 extern void printGame (TGAME jeu, int eval);
 extern void moveGame (TGAME jeu, int color, char *move);

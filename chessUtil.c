@@ -226,7 +226,93 @@ bool opening (const char *fileName, char *gameFen, char *sComment, char *move) {
    return false;
 }
 
-char *difference (TGAME sq64_1, TGAME sq64_2, int color, char *prise, char* temp) { /* */
+bool symetryV (TGAME sq64, int l1, int c1, int cDest) { /* */ 
+   /* vraie si il y a une piece egale a l1, c1 dans le symetrique par rapport a la colonne cDest */
+   int cSym = cDest + cDest - c1;
+   return (cSym >= 0 && cSym < N) ? (sq64 [l1][c1] == sq64 [l1][cSym]) : false;
+}
+
+bool symetryH (TGAME sq64, int l1, int c1, int lDest) { /* */ 
+   /* vraie si il y a une piece egale a l1, c1 dans le symetrique par rapport a la ligne lDest */
+   int lSym = lDest + lDest - l1;
+   return (lSym >= 0 && lSym < N) ? (sq64 [l1][c1] == sq64 [lSym][c1]): false;
+}
+
+char *abbrev (TGAME sq64, char *complete, char *abbr) { /* */ 
+   /* transforme la specif algebriqe complete en abregee */
+   char cCharPiece = complete [0];
+   int c1 = complete [1] - 'a';
+   int l1 = complete [2] - '1';
+   int c2 = complete [4] - 'a';
+   int l2 = complete [5] - '1';
+   char prise = complete [3];
+   int v = sq64 [l1][c1];
+   char promotion [3] = "";
+   char spec = ' ';     // pour notation algebtique abrégéeA
+   char temp1 [] = " "; // idem
+   char temp2 [] = " "; // idem
+   if (strlen (complete) >= 7) {
+      promotion [0] = '=';
+      promotion [1] = complete [7];
+      promotion [2] = '\0';
+   }
+   // calcul de la notation abregee
+   switch (abs (v)) {                              
+   case PAWN: 
+      if ((prise == 'x') && (symetryV (sq64, l1, c1, c2))) // il y a deux pions symetrique prenant en c2 a partir de la ligne l1
+         spec = c1 + 'a';                          // on donne la colonne
+      break;
+   case KNIGHT:
+      if (symetryV (sq64, l1, c1, c2)) spec = c1 + 'a';      //cavaliers symetrique par rapport à la col. dest. on donne la col. 
+      else if (symetryH (sq64, l1, c1, l2)) spec = l1 + '1'; //cavaliers symetrique par rapport à la ligne dest. on donne la ligne 
+      break;
+      
+   case ROOK:
+      if ((l1 == l2) && (c1 < c2)) {               // meme ligne, recherche a droite  
+         for (int i = (c2 + 1); i < N; i++) {
+            if (sq64 [l1][i] == v) {// il y a une autre tour en position d'aller vers l2 c2
+               spec = c1 + 'a';                     // Trouve. on donne la colonne
+               break;
+            }
+            if (sq64 [l2][i] != VOID) break;
+         }
+      }
+      if ((l1 == l2) && (c1 > c2)) {               // meme ligne, recherche a droite  
+         for (int i = (c2 - 1); i >= 0; i--) {
+            if (sq64 [l1][i] == v) {// il y a une autre tour en position d'aller vers l2 c2
+               spec = c1 + 'a';                     // Trouve. On donne la colonne
+               break;
+            }
+            if (sq64 [l2][i] != VOID) break;
+         }
+      }
+      if ((c1 == c2) && (l1 < l2)) {               // meme colonne, recherche en bas 
+         for (int i = (l2 + 1); i < N; i++) {
+            if (sq64 [i][c1] == v) {// il y a une autre tour en position d'aller vers l2 c2
+               spec = l1 + '1';
+               break;
+            }
+            if (sq64 [i][c2] != VOID) break;
+         }
+      }
+      if ((c1 == c2) && (l1 > l2)) {               // meme colonne, recherce en haut  
+         for (int i = (l2 - 1); i >= 0; i--) {
+            if (sq64 [i][c1] == v) {// il y a une autre tour en position d'aller vers l2 c2
+               spec = l1 + '1';
+               break;
+            }
+            if (sq64 [i][c2] != VOID) break;
+         }
+      }
+   default:; // BISHOP, QUEEN, KING
+   }
+   temp1 [0] = (cCharPiece == 'P') ? '\0':  cCharPiece;
+   temp2 [0] = (spec == ' ') ? '\0': spec;
+   sprintf (abbr, "%s%s%s%c%d%s", temp1, temp2, ((prise == 'x') ? "x" : ""), c2 + 'a', l2 + 1, promotion);
+   return abbr;
+}
+
+char *difference (TGAME sq64_1, TGAME sq64_2, int color, char *prise, char *complete, char *abbr) { /* */
    /* coul = 1 (ordi) si le joueur a les blancs */
    /* retrouve le coup joue par Ordi */
    /* traite le roque. En dehors de ce cas */
@@ -239,18 +325,20 @@ char *difference (TGAME sq64_1, TGAME sq64_2, int color, char *prise, char* temp
    char cCharPiece = ' ';
    int v = 0;
    *prise = ' ';
-   sprintf (temp, "%s", "");
+   sprintf (complete, "%s", "");
    l1 = c1 = l2 = c2 = NIL;
    lCastling = (color == -1) ? 0 : 7;
    if (sq64_1[lCastling][4] == color*KING && sq64_2[lCastling][4] == VOID && 
       sq64_1[lCastling][0] == color*ROOK && sq64_2 [lCastling][0] == VOID) {
-      sprintf (temp, "%s", "O-O-O");
-      return temp;
+      sprintf (complete, "%s", "O-O-O");
+      sprintf (abbr, "%s", "O-O-O");
+      return complete;
    }
    if (sq64_1[lCastling][4] == color*KING && sq64_2[lCastling][4] == VOID && 
       sq64_1[lCastling][7] == color*ROOK && sq64_2 [lCastling][7] == VOID) {
-      sprintf (temp, "%s", "O-O");
-      return temp;
+      sprintf (complete, "%s", "O-O");
+      sprintf (abbr, "%s", "O-O");
+      return complete;
    }
    for (int l = 0; l < N; l++) {
       for (int c = 0; c < N; c++) {
@@ -282,8 +370,9 @@ char *difference (TGAME sq64_1, TGAME sq64_2, int color, char *prise, char* temp
          sprintf (promotion, "=%c", dict [abs (sq64_2 [l2][c2])]);
    }
    // promotion non implementee pour les noirs : Bug 
-   sprintf (temp, "%c%c%d%c%c%d%s", cCharPiece, c1 + 'a', l1 + 1, ((*prise != ' ') ? 'x' : '-'), c2 + 'a', l2 + 1, promotion);
-   return temp;
+   sprintf (complete, "%c%c%d%c%c%d%s", cCharPiece, c1 + 'a', l1 + 1, ((*prise != ' ') ? 'x' : '-'), c2 + 'a', l2 + 1, promotion);
+   abbrev (sq64_1, complete, abbr);
+   return complete;
 }
 
 void sendGame (const char *fen, struct sinfo info, int reqType) { /* */
@@ -309,7 +398,8 @@ void sendGame (const char *fen, struct sinfo info, int reqType) { /* */
       printf ("\"openingName\" : \"%s\",\n", info.comment);
       printf ("\"endName\" : \"%s\",\n", info.endName);
       printf ("\"wdl\" : \"%u\",\n", info.wdl);
-      printf ("\"computePlay\" : \"%s\"", info.computerPlay);
+      printf ("\"computePlayC\" : \"%s\",\n", info.computerPlayC);
+      printf ("\"computePlayA\" : \"%s\"", info.computerPlayA);
    }
    if (reqType > 1) {
       printf (",\n\"dump\" : \"");

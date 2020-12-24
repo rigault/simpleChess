@@ -460,9 +460,9 @@ bool computerPlay (TGAME sq64, int color) { /* */
    info.nClock = clock () - info.nClock;
    gettimeofday (&tRef, NULL);
    info.computeTime = tRef.tv_sec * MILLION + tRef.tv_usec - info.computeTime;
-   difference (sq64, bestSq64, color, &info.lastCapturedByComputer, info.computerPlay);
+   difference (sq64, bestSq64, color, &info.lastCapturedByComputer, info.computerPlayC, info.computerPlayA);
    if (info.gamerColor == -1) info.nb += 1;
-   if (abs (info.computerPlay [0] == 'P') ||  info.computerPlay [3] == 'x')
+   if (abs (info.computerPlayC [0] == 'P') ||  info.computerPlayC [3] == 'x')
       info.cpt50 = 0;
    else info.cpt50 += 1;
    memcpy(sq64, bestSq64, GAMESIZE);
@@ -515,7 +515,7 @@ void cgi () { /* */
        computerPlay (sq64, -info.gamerColor);
        gameToFen (sq64, fen, info.gamerColor, '+', true, info.cpt50, info.nb);
        sendGame (fen, info, getInfo.reqType);
-       fprintf (flog, "%2d; %s; %s; %d", getInfo.level, getInfo.fenString, info.computerPlay, info.note);
+       fprintf (flog, "%2d; %s; %s; %d", getInfo.level, getInfo.fenString, info.computerPlayC, info.note);
    }
    else sendGame ("", info, getInfo.reqType);
    fprintf (flog, "\n");
@@ -552,13 +552,13 @@ int main (int argc, char *argv[]) { /* */
          memcpy (oldSq64, sq64, GAMESIZE);
          computerPlay (sq64, -info.gamerColor);
          printGame (sq64, evaluation (sq64, -info.gamerColor));
-         difference (oldSq64, sq64, -info.gamerColor, &info.lastCapturedByComputer, info.computerPlay);
+         difference (oldSq64, sq64, -info.gamerColor, &info.lastCapturedByComputer, info.computerPlayC, info.computerPlayA);
          gameToFen (sq64, fen, info.gamerColor, '+', true, info.cpt50, info.nb);
          printf ("clockTime: %ld, time: %ld, note: %d, eval: %d, computerStatus: %d, playerStatus: %d\n", 
                  info.nClock, info.computeTime, info.note, info.evaluation, info.computerKingState, info.gamerKingState); 
          printf ("comment: %s%s\n", info.comment, info.endName);
          printf ("fen: %s\n", fen);
-         printf ("move: %s %s %c\n", info.computerPlay, (info.lastCapturedByComputer != ' ') ? "taken:": "", 
+         printf ("move: %s %s %c\n", info.computerPlayC, (info.lastCapturedByComputer != ' ') ? "taken:": "", 
                  info.lastCapturedByComputer);
          printf ("etat: %s\n", (info.end) ? "END" : "ONGOING");
          break;      
@@ -587,8 +587,8 @@ int main (int argc, char *argv[]) { /* */
                computerPlay (sq64, -info.gamerColor);
                printGame (sq64, evaluation (sq64, -info.gamerColor));
                printf ("comment: %s%s\n", info.comment, info.endName);
-               difference (oldSq64, sq64, -info.gamerColor, &info.lastCapturedByComputer, info.computerPlay);
-               printf ("computer move: %s %c\n", info.computerPlay, info.lastCapturedByComputer);
+               difference (oldSq64, sq64, -info.gamerColor, &info.lastCapturedByComputer, info.computerPlayC, info.computerPlayA);
+               printf ("computer move: %s %c\n", info.computerPlayC, info.lastCapturedByComputer);
             }
             player = !player;
          }
