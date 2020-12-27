@@ -1,11 +1,9 @@
 #define MILLION 1000000
 #define VERSION "2.1"
 #define DESCRIPTION "Chess Rene Rigault 2020"
-#define PATHTABLE "/var/www/html/chessdata"    // table de fin de jeux SYZYGY.
-#define OPENINGDIR "/home/rr/git/simplechess/bigfen"
-// #define OPENINGDIR "/var/www/html/chessopenings"
-#define F_OUVB "/var/www/html/chessopenings/chessB.fen"   // fichier des ouvertures (openings)
-#define F_OUVW "/var/www/html/chessopenings/chessW.fen"   // fichier des ouvertures (openings)
+#define PATHTABLE "/var/www/html/chessdata"           // table de fin de jeux SYZYGY.
+#define OPENINGDIR "/home/rr/git/simplechess/bigfen"  // repetoire des ouvertures
+
 #define N 8
 #define MAXLEN 10000
 #define MAXSIZELIST 128

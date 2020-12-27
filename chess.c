@@ -32,6 +32,7 @@
 
 #define NDEPTH 3                   // pour fMaxDepth ()
 #define MAXPIECESSYZYGY 6
+#define MAXNBOPENINGS 8            // on ne regarde pas la biblio ouverture a partir de ce nb de coups
 #define MAXTHREADS 128             // nombre max de thread
 #define KINGINCHECKEVAL 1          // evaluation du gain d'un echec au roi..
 #define MATE 1000000
@@ -383,11 +384,13 @@ int find (TGAME sq64, TGAME bestSq64, int *bestNote, int color) { /* */
    }
      
    // ouvertures
-  // if (opening ((color == 1) ? F_OUVB: F_OUVW, fen, info.comment, info.move)) {   
-  if (openingAll (OPENINGDIR, (color == 1) ? ".b.fen": ".w.fen", fen, info.comment, info.move)) {
-      moveGame (localSq64, color, info.move);
-      memcpy (bestSq64, localSq64, GAMESIZE);
-      return nextL;
+   // if (opening ((color == 1) ? F_OUVB: F_OUVW, fen, info.comment, info.move)) {   
+   if (info.nb < MAXNBOPENINGS) {
+      if (openingAll (OPENINGDIR, (color == 1) ? ".b.fen": ".w.fen", fen, info.comment, info.move)) {
+         moveGame (localSq64, color, info.move);
+         memcpy (bestSq64, localSq64, GAMESIZE);
+         return nextL;
+      }
    }
  
    // recherche par la methode minimax Alphabeta

@@ -1,3 +1,10 @@
+inline char *pushList (TGAME refJeu, TLIST list, int nListe, char *pl, int l1, int c1, int l2, int c2, int u) {
+   memcpy (pl, refJeu, GAMESIZE);
+   list [nListe][l2][c2] = u;
+   list [nListe][l1][c1] = 0;
+   return (pl + GAMESIZE); 
+}
+
 int buildList (TGAME refJeu, register int who, TLIST list) { /* */
    /* construit la liste des jeux possibles a partir de jeu. */
    /* 'who' joue */
@@ -67,16 +74,10 @@ int buildList (TGAME refJeu, register int who, TLIST list) { /* */
          case PAWN:
          // deplacements du pion
             if (who == -1 && l == 1 && 0 == refJeu [l+1][c] && 0 == refJeu[l+2][c]) { // coup initial saut de 2 cases 
-               memcpy (pl, refJeu, GAMESIZE);
-               list [nListe][l+2][c] = -PAWN;
-               list [nListe][l][c] = 0;
-               pl += GAMESIZE; nListe += 1;
+               pl = pushList (refJeu, list, nListe++, pl, l, c, l+2, c, -PAWN);
             }
             if (who == 1 && l == 6 && 0 == refJeu [l-1][c] && 0 == refJeu [l-2][c]) { // coup initial saut de 2 cases
-               memcpy (pl, refJeu, GAMESIZE);
-               list [nListe][l-2][c] = PAWN;
-               list [nListe][l][c] = 0;
-               pl += GAMESIZE; nListe += 1;
+               pl = pushList (refJeu, list, nListe++, pl, l, c, l-2, c, PAWN);
             }
             if (((l-who) >= 0) && ((l-who) < 8) && (0 == refJeu [l-who][c])) { // normal
                memcpy (pl, refJeu, GAMESIZE);
@@ -107,143 +108,83 @@ int buildList (TGAME refJeu, register int who, TLIST list) { /* */
             break;
          case KING: case CASTLEKING:
             if (c < 7 && (u * refJeu [l][c+1] <= 0)) {
-               memcpy (pl, refJeu, GAMESIZE);
-               list [nListe][l][c+1] = who * CASTLEKING; // plus droit de roquer
-               list [nListe][l][c] = 0;
-               pl += GAMESIZE; nListe += 1;
+               pl = pushList (refJeu, list, nListe++, pl, l, c, l, c+1, who * CASTLEKING);
             }
             if (c > 0 && (u * refJeu [l][c-1] <= 0)) {
-               memcpy (pl, refJeu, GAMESIZE);
-               list [nListe][l][c-1] = who * CASTLEKING;
-               list [nListe][l][c] = 0;
-               pl += GAMESIZE; nListe += 1;
+               pl = pushList (refJeu, list, nListe++, pl, l, c, l, c-1, who * CASTLEKING);
             }
             if (l < 7 && (u * refJeu [l+1][c] <= 0)) {
-               memcpy (pl, refJeu, GAMESIZE);
-               list [nListe][l+1][c] = who * CASTLEKING;
-               list [nListe][l][c] = 0;
-               pl += GAMESIZE; nListe += 1;
+               pl = pushList (refJeu, list, nListe++, pl, l, c, l+1, c, who * CASTLEKING);
             }
             if (l > 0 && (u * refJeu [l-1][c] <= 0)) {
-               memcpy (pl, refJeu, GAMESIZE);
-               list [nListe][l-1][c] = who * CASTLEKING;
-               list [nListe][l][c] = 0;
-               pl += GAMESIZE; nListe += 1;
+               pl = pushList (refJeu, list, nListe++, pl, l, c, l-1, c, who * CASTLEKING);
             }
             if ((l < 7) && (c < 7) && (u * refJeu [l+1][c+1] <= 0)) {
-               memcpy (pl, refJeu, GAMESIZE);
-               list [nListe][l+1][c+1] = who * CASTLEKING;
-               list [nListe][l][c] = 0;
-               pl += GAMESIZE; nListe += 1;
+               pl = pushList (refJeu, list, nListe++, pl, l, c, l+1, c+1, who * CASTLEKING);
             }
             if ((l < 7) && (c > 0) && (u * refJeu [l+1][c-1] <= 0)) {
-               memcpy (pl, refJeu, GAMESIZE);
-               list [nListe][l+1][c-1] = who * CASTLEKING;
-               list [nListe][l][c] = 0;
-               pl += GAMESIZE; nListe += 1;
+               pl = pushList (refJeu, list, nListe++, pl, l, c, l+1, c-1, who * CASTLEKING);
             }
             if ((l > 0) && (c < 7) && (u * refJeu [l-1][c+1] <= 0)) {
-               memcpy (pl, refJeu, GAMESIZE);
-               list [nListe][l-1][c+1] = who * CASTLEKING;
-               list [nListe][l][c] = 0;
-               pl += GAMESIZE; nListe += 1;
+               pl = pushList (refJeu, list, nListe++, pl, l, c, l-1, c+1, who * CASTLEKING);
             }
             if ((l > 0) && (c > 0) && (u * refJeu [l-1][c-1] <= 0)) {
-               memcpy (pl, refJeu, GAMESIZE);
-               list [nListe][l-1][c-1] = who * CASTLEKING;
-               list [nListe][l][c] = 0;
-               pl += GAMESIZE; nListe += 1;
+               pl = pushList (refJeu, list, nListe++, pl, l, c, l-1, c-1, who * CASTLEKING);
             }
             break;
 
          case KNIGHT:
             if (l < 7 && c < 6 && (u * refJeu [l+1][c+2] <= 0)) {
-               memcpy (pl, refJeu, GAMESIZE);
-               list [nListe][l+1][c+2] = u;
-               list [nListe][l][c] = 0;
-               pl += GAMESIZE; nListe += 1;
+               pl = pushList (refJeu, list, nListe++, pl, l, c, l+1, c+2, u);
             }
             if (l < 7 && c > 1 && (u * refJeu [l+1][c-2] <= 0)) {
-               memcpy (pl, refJeu, GAMESIZE);
-               list [nListe][l+1][c-2] = u;
-               list [nListe][l][c] = 0;
-               pl += GAMESIZE; nListe += 1;
+               pl = pushList (refJeu, list, nListe++, pl, l, c, l+1, c-2, u);
             }
             if (l < 6 && c < 7 && (u * refJeu [l+2][c+1] <= 0)) {
-               memcpy (pl, refJeu, GAMESIZE);
-               list [nListe][l+2][c+1] = u;
-               list [nListe][l][c] = 0;
-               pl += GAMESIZE; nListe += 1;
+               pl = pushList (refJeu, list, nListe++, pl, l, c, l+2, c+1, u);
             }
             if (l < 6 && c > 0 && (u * refJeu [l+2][c-1] <= 0)) {
-               memcpy (pl, refJeu, GAMESIZE);
-               list [nListe][l+2][c-1] = u;
-               list [nListe][l][c] = 0;
-               pl += GAMESIZE; nListe += 1;
+               pl = pushList (refJeu, list, nListe++, pl, l, c, l+2, c-1, u);
             }
             if (l > 0 && c < 6 && (u * refJeu [l-1][c+2] <= 0)) {
-               memcpy (pl, refJeu, GAMESIZE);
-               list [nListe][l-1][c+2] = u;
-               list [nListe][l][c] = 0;
-               pl += GAMESIZE; nListe += 1;
+               pl = pushList (refJeu, list, nListe++, pl, l, c, l-1, c+2, u);
             }
             if (l > 0  && c > 1 && (u * refJeu [l-1][c-2] <= 0)) {
-               memcpy (pl, refJeu, GAMESIZE);
-               list [nListe][l-1][c-2] = u;
-               list [nListe][l][c] = 0;
-               pl += GAMESIZE; nListe += 1;
+               pl = pushList (refJeu, list, nListe++, pl, l, c, l-1, c-2, u);
             }
             if (l > 1 && c < 7 && (u * refJeu [l-2][c+1] <= 0)) {
-               memcpy (pl, refJeu, GAMESIZE);
-               list [nListe][l-2][c+1] = u;
-               list [nListe][l][c] = 0;
-               pl += GAMESIZE; nListe += 1;
+               pl = pushList (refJeu, list, nListe++, pl, l, c, l-2, c+1, u);
             }
             if (l > 1 && c > 0 && (u * refJeu [l-2][c-1] <= 0)) {
-               memcpy (pl, refJeu, GAMESIZE);
-               list [nListe][l-2][c-1] = u;
-               list [nListe][l][c] = 0;
-               pl += GAMESIZE; nListe += 1;
+               pl = pushList (refJeu, list, nListe++, pl, l, c, l-2, c-1, u);
             }
             break;
 
          case ROOK: case QUEEN:
             for (i = l+1; i < N; i++) { // en haut
                if (u * refJeu [i][c] <= 0) {
-                  memcpy (pl, refJeu, GAMESIZE);
-                  list [nListe][i][c] = u;
-                  list [nListe][l][c] = 0;
-                  pl += GAMESIZE; nListe += 1;
+                  pl = pushList (refJeu, list, nListe++, pl, l, c, i, c, u);
                   if (refJeu [i][c] != 0)  break;
                }
                else break;
             }
             for (i = l-1; i >=0; i--) { // en bas
                if (u * refJeu [i][c] <= 0) {
-                  memcpy (pl, refJeu, GAMESIZE);
-                  list [nListe][i][c] = u;
-                  list [nListe][l][c] = 0;
-                  pl += GAMESIZE; nListe += 1;
+                  pl = pushList (refJeu, list, nListe++, pl, l, c, i, c, u);
                   if (refJeu [i][c] != 0) break;
                }
                else break;
             }
             for (j = c+1; j < N; j++) {  // a droite
                if (u * refJeu [l][j] <= 0) {
-                  memcpy (pl, refJeu, GAMESIZE);
-                  list [nListe][l][j] = u;
-                  list [nListe][l][c] = 0;
-                  pl += GAMESIZE; nListe += 1;
+                  pl = pushList (refJeu, list, nListe++, pl, l, c, l, j, u);
                   if (refJeu [l][j] != 0) break;
                }
                else break;
             }
             for (j = c-1; j >=0; j--)  { // a gauche
                if (u * refJeu [l][j] <= 0) {
-                  memcpy (pl, refJeu, GAMESIZE);
-                  list [nListe][l][j] = u;
-                  list [nListe][l][c] = 0;
-                  pl += GAMESIZE; nListe += 1;
+                  pl = pushList (refJeu, list, nListe++, pl, l, c, l, j, u);
                   if (refJeu [l][j] != 0) break;
                }
                else break;
@@ -253,40 +194,28 @@ int buildList (TGAME refJeu, register int who, TLIST list) { /* */
          case BISHOP : // valable aussi pour QUEEN
             for (k = 0; k < MIN (7-l, 7-c); k++) { // vers haut droit
                if (u * refJeu [l+k+1][c+k+1] <=0) {
-                  memcpy (pl, refJeu, GAMESIZE);
-                  list [nListe][l+k+1][c+k+1] = u;
-                  list [nListe][l][c] = 0;
-                  pl += GAMESIZE; nListe += 1;
+                  pl = pushList (refJeu, list, nListe++, pl, l, c, l+k+1, c+k+1, u);
                   if (refJeu [l+k+1][c+k+1] != 0) break;
                }
                else break;
             }
             for (k = 0; k < MIN (7-l, c); k++) { // vers haut gauche
                if (u * refJeu [l+k+1][c-k-1] <=0) {
-                  memcpy (pl, refJeu, GAMESIZE);
-                  list [nListe][l+k+1][c-k-1] = u;
-                  list [nListe][l][c] = 0;
-                  pl += GAMESIZE; nListe += 1;
+                  pl = pushList (refJeu, list, nListe++, pl, l, c, l+k+1, c-k-1, u);
                   if (refJeu [l+k+1][c-k-1] != 0) break;
                }
                else break;
             }
             for (k = 0; k < MIN (l, 7-c); k++) { // vers bas droit
                if (u * refJeu [l-k-1][c+k+1] <=0) {
-                  memcpy (pl, refJeu, GAMESIZE);
-                  list [nListe][l-k-1][c+k+1] = u;
-                  list [nListe][l][c] = 0;
-                  pl += GAMESIZE; nListe += 1;
+                  pl = pushList (refJeu, list, nListe++, pl, l, c, l-k-1, c+k+1, u);
                   if (refJeu [l-k-1][c+k+1] != 0) break;
                }
                else break;
             }
             for (k = 0; k < MIN (l, c); k++) { // vers bas gauche
                if (u * refJeu [l-k-1][c-k-1] <=0) {
-                  memcpy (pl, refJeu, GAMESIZE);
-                  list [nListe][l-k-1][c-k-1] = u;
-                  list [nListe][l][c] = 0;
-                  pl += GAMESIZE; nListe += 1;
+                  pl = pushList (refJeu, list, nListe++, pl, l, c, l-k-1, c-k-1, u);
                   if (refJeu [l-k-1][c-k-1] != 0) break;
                }
                else break;

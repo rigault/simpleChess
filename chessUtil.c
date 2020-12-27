@@ -251,6 +251,7 @@ char *abbrev (TGAME sq64, char *complete, char *abbr) { /* */
    char spec = ' ';     // pour notation algebtique abrégéeA
    char temp1 [] = " "; // idem
    char temp2 [] = " "; // idem
+   char temp3 [3] = ""; // idem cas particulier plusieurs reines
    if (strlen (complete) >= 7) {
       promotion [0] = '=';
       promotion [1] = complete [7];
@@ -304,11 +305,20 @@ char *abbrev (TGAME sq64, char *complete, char *abbr) { /* */
             if (sq64 [i][c2] != VOID) break;
          }
       }
-   default:; // BISHOP, QUEEN, KING
+      break;
+   case QUEEN: // cas ou il y aurait 2 reines apres une promotion
+      for (int l = 0; l < N; l++)
+         for (int c = 0; c < N; c ++)
+            if (l != l1 && c != c1 && sq64 [l][c] == v) {
+               sprintf (temp3, "%c%c", c1 + 'a', l1 + '1');
+               break;
+            }
+      break;
+   default:; // BISHOP, KING
    }
-   temp1 [0] = (cCharPiece == 'P') ? '\0':  cCharPiece;
+   temp1 [0] = (cCharPiece == 'P') ? '\0': cCharPiece;
    temp2 [0] = (spec == ' ') ? '\0': spec;
-   sprintf (abbr, "%s%s%s%c%d%s", temp1, temp2, ((prise == 'x') ? "x" : ""), c2 + 'a', l2 + 1, promotion);
+   sprintf (abbr, "%s%s%s%c%d%s", temp1, ((strlen (temp3) != 0) ? temp3 : temp2), ((prise == 'x') ? "x" : ""), c2 + 'a', l2 + 1, promotion);
    return abbr;
 }
 
