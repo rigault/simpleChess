@@ -55,14 +55,16 @@ struct sinfo {
    char move [15];               // deplacement donne par fonction ouverture
    unsigned wdl;                 // retour de syzygy - end table
    bool end;
+   char epComputer [3];
+   char epGamer [3];
 } info;
 
 extern int charToInt (int c);
-extern int fenToGame (char *sFenComplete, TGAME jeu, int *cpt50, int *nb);
-extern char *gameToFen (TGAME sq64, char *fen, int color, char sep, bool complete, int cpt50, int nb);
+extern int fenToGame (char *fenComplete, TGAME sq64, char *ep, int *cpt50, int *nb);
+extern char *gameToFen (TGAME sq64, char *fen, int color, char sep, bool complete, char *ep, int cpt50, int nb);
 extern bool openingAll (const char *dir, const char *filter, char *gameFen, char *sComment, char *move);
 extern bool opening (const char *fileName, char *gameFen, char *sComment, char *move);
-extern char *difference (TGAME jeu1, TGAME jeu2, int color, char *prise, char *complete, char *abbr);
+extern char *difference (TGAME jeu1, TGAME jeu2, int color, char *prise, char *complete, char *abbr, char *epGamer, char *epComputer);
 extern void sendGame (const char *fen, struct sinfo info, int reqType);
 extern void printGame (TGAME jeu, int eval);
 extern void moveGame (TGAME jeu, int color, char *move);

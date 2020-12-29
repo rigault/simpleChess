@@ -46,7 +46,7 @@ struct sGetInfo {                  // description de la requete emise par le cli
    char fenString [MAXLENGTH];     // le jeu
    int reqType;                    // le type de requete : 0 1 ou 2
    int level;                      // la profondeur de la recherche souhaitee
-} getInfo = {"", 1, 3};
+} getInfo = {"", 2, 3};
 
 // valorisation des pieces dans l'ordre  VOID PAWN KNIGHT BISHOP ROOK QUEEN KING CASTLEKING
 // fou > cavalier, tour = fou + 2 pions, dame > fou + tour + pion
@@ -358,6 +358,7 @@ int find (TGAME sq64, TGAME bestSq64, int *bestNote, int color) { /* */
    
    *bestNote = 0; 
    nextL = buildList(sq64, color, list);
+   nextL = buildListEnPassant (sq64, color, info.epGamer, list, nextL);
    strcpy (info.comment, "");
 
    
@@ -371,7 +372,7 @@ int find (TGAME sq64, TGAME bestSq64, int *bestNote, int color) { /* */
    }
    
    memcpy (localSq64, sq64, GAMESIZE);
-   gameToFen (localSq64, fen, color, ' ', false, 0, 0);
+   gameToFen (localSq64, fen, color, ' ', false, info.epComputer, 0, 0);
 
    // recherche de fin de partie voir  https://syzygy-tables.info/
    if ((info.nGamerPieces + info.nComputerPieces) <= MAXPIECESSYZYGY) {
@@ -463,7 +464,8 @@ bool computerPlay (TGAME sq64, int color) { /* */
    info.nClock = clock () - info.nClock;
    gettimeofday (&tRef, NULL);
    info.computeTime = tRef.tv_sec * MILLION + tRef.tv_usec - info.computeTime;
-   difference (sq64, bestSq64, color, &info.lastCapturedByComputer, info.computerPlayC, info.computerPlayA);
+   difference (sq64, bestSq64, color, &info.lastCapturedByComputer, info.computerPlayC, info.computerPlayA, 
+      info.epGamer, info.epComputer);
    if (info.gamerColor == -1) info.nb += 1;
    if (abs (info.computerPlayC [0] == 'P') ||  info.computerPlayC [3] == 'x')
       info.cpt50 = 0;
@@ -503,20 +505,19 @@ void cgi () { /* */
 
    // Lecture de la chaine de caractere representant le jeu via la methode post
 
-   env = getenv ("QUERY_STRING");            // Les variables GET
-   if (env == NULL) return;
+   if ((env = getenv ("QUERY_STRING")) == NULL) return;  // Les variables GET
 
    if ((str = strstr (env, "fen=")) != NULL)
-      sscanf (str, "fen=%[bwprnbqkPRNBQK0-9+-/]", getInfo.fenString);
+      sscanf (str, "fen=%[a-zA-Z0-9+-/]", getInfo.fenString);
    if ((str = strstr (env, "level=")) != NULL)
       sscanf (str, "level=%d", &getInfo.level);
    if ((str = strstr (env, "reqType=")) != NULL)
       sscanf (str, "reqType=%d", &getInfo.reqType);
  
    if (getInfo.reqType != 0) {
-       info.gamerColor = -fenToGame (getInfo.fenString, sq64, &info.cpt50, &info.nb);
+       info.gamerColor = -fenToGame (getInfo.fenString, sq64, info.epGamer, &info.cpt50, &info.nb);
        computerPlay (sq64, -info.gamerColor);
-       gameToFen (sq64, fen, info.gamerColor, '+', true, info.cpt50, info.nb);
+       gameToFen (sq64, fen, info.gamerColor, '+', true, info.epComputer, info.cpt50, info.nb);
        sendGame (fen, info, getInfo.reqType);
        fprintf (flog, "%2d; %s; %s; %d", getInfo.level, getInfo.fenString, info.computerPlayC, info.note);
    }
@@ -538,25 +539,28 @@ int main (int argc, char *argv[]) { /* */
    TGAME oldSq64;
    // preparation du fichier log 
    flog = fopen (F_LOG, "a");
-   info.wdl = 9; // valeur inateignable montrant que syzygy n'a pas ete appelee
-   srand (time (NULL)); // initialise le generateur aleatoire
+   info.wdl = 9;           // valeur inateignable montrant que syzygy n'a pas ete appelee
+   srand (time (NULL));    // initialise le generateur aleatoire
    info.gamerColor = 1;
    if (argc >= 2 && argv [1][0] == '-') {
-      if (argc > 2) info.gamerColor = -fenToGame (argv [2], sq64, &info.cpt50, &info.nb);
+      if (argc > 2) info.gamerColor = -fenToGame (argv [2], sq64, info.epGamer, &info.cpt50, &info.nb);
       if (argc > 3) getInfo.level = atoi (argv [3]);
       switch (argv [1][1]) {
       case 'i':
-         printf ("fen: %s, level: %d\n", gameToFen (sq64, fen, -info.gamerColor, '+', true, info.cpt50, info.nb), getInfo.level);
+         printf ("fen: %s, level: %d\n", 
+            gameToFen (sq64, fen, -info.gamerColor, '+', true, info.epComputer, info.cpt50, info.nb), getInfo.level);
          computerPlay (sq64, -info.gamerColor);
-         gameToFen (sq64, fen, info.gamerColor, '+', true, info.cpt50, info.nb); 
+         gameToFen (sq64, fen, info.gamerColor, '+', true, info.epComputer, info.cpt50, info.nb); 
          sendGame (fen, info, getInfo.reqType);
          break;
       case 'r':
          memcpy (oldSq64, sq64, GAMESIZE);
          computerPlay (sq64, -info.gamerColor);
+         printf ("--------resultat--------------\n");
          printGame (sq64, evaluation (sq64, -info.gamerColor));
-         difference (oldSq64, sq64, -info.gamerColor, &info.lastCapturedByComputer, info.computerPlayC, info.computerPlayA);
-         gameToFen (sq64, fen, info.gamerColor, '+', true, info.cpt50, info.nb);
+         difference (oldSq64, sq64, -info.gamerColor, &info.lastCapturedByComputer, 
+            info.computerPlayC, info.computerPlayA, info.epGamer, info.epComputer);
+         gameToFen (sq64, fen, info.gamerColor, '+', true, info.epComputer, info.cpt50, info.nb);
          printf ("clockTime: %ld, time: %ld, note: %d, eval: %d, computerStatus: %d, playerStatus: %d\n", 
                  info.nClock, info.computeTime, info.note, info.evaluation, info.computerKingState, info.gamerKingState); 
          printf ("comment: %s%s\n", info.comment, info.endName);
@@ -564,12 +568,25 @@ int main (int argc, char *argv[]) { /* */
          printf ("move: %s %s %c\n", info.computerPlayC, (info.lastCapturedByComputer != ' ') ? "taken:": "", 
                  info.lastCapturedByComputer);
          printf ("etat: %s\n", (info.end) ? "END" : "ONGOING");
-         break;      
+         break;
+      case 'd': // test difference
+         fenToGame ("2k5/8/8/8/4Pp2/8/8/2K5+b+-+e3+50+1", oldSq64, info.epGamer, &info.cpt50, &info.nb);
+         fenToGame ("2k5/8/8/8/8/4p3/8/2K5+b+-+e3+50+1", sq64, info.epGamer, &info.cpt50, &info.nb);
+         printGame (oldSq64, 0);
+         printGame (sq64, 0);
+         difference (oldSq64, sq64, 1, &info.lastCapturedByComputer, info.computerPlayC, 
+            info.computerPlayA, info.epGamer, info.epComputer);
+         printf ("last Captured: %c\n", info.lastCapturedByComputer);
+         printf ("Dep Complet: %s\n", info.computerPlayC);
+         printf ("Dep Abrege: %s\n", info.computerPlayA);
+         printf ("ep Gamer: %s\n", info.epGamer);
+         break;
       case 't':
          // tests
          printGame (sq64, evaluation (sq64, -info.gamerColor));
          printf ("==============================================================\n");
          nextL = buildList(sq64, -info.gamerColor, list);         
+         nextL = buildListEnPassant (sq64, -info.gamerColor, info.epGamer, list, nextL);
          printf ("Nombre de possibilites : %d\n", nextL);
          for (int i = 0; i < nextL; i++) printGame (list [i], evaluation (list [i], -info.gamerColor));
          break;
@@ -590,7 +607,6 @@ int main (int argc, char *argv[]) { /* */
                computerPlay (sq64, -info.gamerColor);
                printGame (sq64, evaluation (sq64, -info.gamerColor));
                printf ("comment: %s%s\n", info.comment, info.endName);
-               difference (oldSq64, sq64, -info.gamerColor, &info.lastCapturedByComputer, info.computerPlayC, info.computerPlayA);
                printf ("computer move: %s %c\n", info.computerPlayC, info.lastCapturedByComputer);
             }
             player = !player;

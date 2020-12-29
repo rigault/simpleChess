@@ -47,7 +47,7 @@ void printGame (TGAME jeu, int eval) { /* */
    printf ("%s\n", NORMAL);
 }
 
-int fenToGame (char *fenComplete, TGAME sq64, int *cpt50, int *nb) { /* */
+int fenToGame (char *fenComplete, TGAME sq64, char *ep, int *cpt50, int *nb) { /* */
    /* Forsyth–Edwards Notation */
    /* le jeu est recu sous la forme d'une chaine de caracteres du navigateur au format fen*/
    /* FENToJeu traduit cette chaine et renvoie l'objet jeu ainsi que la couleur */
@@ -56,7 +56,7 @@ int fenToGame (char *fenComplete, TGAME sq64, int *cpt50, int *nb) { /* */
    /* le roque est contenu dans la valeur u roi : ROI ou ROIROQUE */
    int k, l = 7, c = 0;
    char *fen, cChar;
-   char *sColor, *sCastle, *strNb, *str50;
+   char *sColor, *sCastle, *strNb, *str50, *strEp;
    char copyFen [MAXLEN];
    bool bCastleW = false;  
    bool bCastleB = false;
@@ -72,7 +72,8 @@ int fenToGame (char *fenComplete, TGAME sq64, int *cpt50, int *nb) { /* */
       bCastleW = (sCastle [0] == '-');
       bCastleB = (bCastleW ? sCastle [1] == '-' : sCastle [2] == '-');
    }
-   if ((strtok (NULL, "+")) != NULL) {};             // en passant non traite
+   if ((strEp = strtok (NULL, "+")) != NULL)         // en passant
+      strcpy (ep, strEp);
    if ((str50 = strtok (NULL, "+")) != NULL)
       *cpt50 = atoi (str50);                         // pour regle des cinquante coups
    if ((strNb = strtok (NULL, "+")) != NULL)  
@@ -102,7 +103,7 @@ int fenToGame (char *fenComplete, TGAME sq64, int *cpt50, int *nb) { /* */
    return activeColor;
 }
 
-char *gameToFen (TGAME sq64, char *fen, int color, char sep, bool complete, int cpt50, int nb) { /* */
+char *gameToFen (TGAME sq64, char *fen, int color, char sep, bool complete, char *ep, int cpt50, int nb) { /* */
    /* Forsyth–Edwards Notation */
    /* le jeu est envoye sous la forme d'une chaine de cCharacteres au format FEN au navigateur */
    int n, v;
@@ -132,7 +133,7 @@ char *gameToFen (TGAME sq64, char *fen, int color, char sep, bool complete, int 
       fen [i++] = '\0'; 
       strcat (fen, (castleW ? "-" : "KQ"));
       strcat (fen, (castleB ? "-" : "kq"));
-      sprintf (fen, "%s%c-%c%d%c%d", fen, sep, sep, cpt50, sep, nb); 
+      sprintf (fen, "%s%c%s%c%d%c%d", fen, sep, ep, sep, cpt50, sep, nb); 
    }
    else fen [i] = '\0';
    return fen;
@@ -247,59 +248,57 @@ char *abbrev (TGAME sq64, char *complete, char *abbr) { /* */
    int l2 = complete [5] - '1';
    char prise = complete [3];
    int v = sq64 [l1][c1];
-   char promotion [3] = "";
-   char spec = ' ';     // pour notation algebtique abrégéeA
-   char temp1 [] = " "; // idem
-   char temp2 [] = " "; // idem
-   char temp3 [3] = ""; // idem cas particulier plusieurs reines
+   char strEnd [5] = "";
+   char spec [3] = "";       // pour notation algebrique abrégée
    if (strlen (complete) >= 7) {
-      promotion [0] = '=';
-      promotion [1] = complete [7];
-      promotion [2] = '\0';
+     for (unsigned int i = 0; i <= strlen (complete) - 6; i++)
+       strEnd [i] = complete [6 + i];
    }
    // calcul de la notation abregee
    switch (abs (v)) {                              
    case PAWN: 
       if ((prise == 'x') && (symetryV (sq64, l1, c1, c2))) // il y a deux pions symetrique prenant en c2 a partir de la ligne l1
-         spec = c1 + 'a';                          // on donne la colonne
+         sprintf (spec, "%c", c1 + 'a');                   // on donne la colonne
       break;
    case KNIGHT:
-      if (symetryV (sq64, l1, c1, c2)) spec = c1 + 'a';      //cavaliers symetrique par rapport à la col. dest. on donne la col. 
-      else if (symetryH (sq64, l1, c1, l2)) spec = l1 + '1'; //cavaliers symetrique par rapport à la ligne dest. on donne la ligne 
+      if (symetryV (sq64, l1, c1, c2)) 
+         sprintf (spec, "%c", c1 + 'a');        //cavaliers symetrique par rapport à la col. dest. on donne la col. 
+      else if (symetryH (sq64, l1, c1, l2)) 
+         sprintf (spec, "%c", l1 + '1');        //cavaliers symetrique par rapport à la ligne dest. on donne la ligne 
       break;
       
    case ROOK:
-      if ((l1 == l2) && (c1 < c2)) {               // meme ligne, recherche a droite  
+      if ((l1 == l2) && (c1 < c2)) {            // meme ligne, recherche a droite  
          for (int i = (c2 + 1); i < N; i++) {
-            if (sq64 [l1][i] == v) {// il y a une autre tour en position d'aller vers l2 c2
-               spec = c1 + 'a';                     // Trouve. on donne la colonne
+            if (sq64 [l1][i] == v) {            // il y a une autre tour en position d'aller vers l2 c2
+               sprintf (spec, "%c", c1 + 'a');  // Trouve. on donne la colonne
                break;
             }
             if (sq64 [l2][i] != VOID) break;
          }
       }
-      if ((l1 == l2) && (c1 > c2)) {               // meme ligne, recherche a droite  
+      if ((l1 == l2) && (c1 > c2)) {            // meme ligne, recherche a droite  
          for (int i = (c2 - 1); i >= 0; i--) {
-            if (sq64 [l1][i] == v) {// il y a une autre tour en position d'aller vers l2 c2
-               spec = c1 + 'a';                     // Trouve. On donne la colonne
+            if (sq64 [l1][i] == v) {            // il y a une autre tour en position d'aller vers l2 c2
+               sprintf (spec, "%c", c1 + 'a');  // Trouve. On donne la colonne
                break;
             }
             if (sq64 [l2][i] != VOID) break;
          }
       }
-      if ((c1 == c2) && (l1 < l2)) {               // meme colonne, recherche en bas 
+      if ((c1 == c2) && (l1 < l2)) {            // meme colonne, recherche en bas 
          for (int i = (l2 + 1); i < N; i++) {
-            if (sq64 [i][c1] == v) {// il y a une autre tour en position d'aller vers l2 c2
-               spec = l1 + '1';
+            if (sq64 [i][c1] == v) {            // il y a une autre tour en position d'aller vers l2 c2
+               sprintf (spec, "%c", l1 + '1');
                break;
             }
             if (sq64 [i][c2] != VOID) break;
          }
       }
-      if ((c1 == c2) && (l1 > l2)) {               // meme colonne, recherce en haut  
+      if ((c1 == c2) && (l1 > l2)) {            // meme colonne, recherce en haut  
          for (int i = (l2 - 1); i >= 0; i--) {
-            if (sq64 [i][c1] == v) {// il y a une autre tour en position d'aller vers l2 c2
-               spec = l1 + '1';
+            if (sq64 [i][c1] == v) {            // il y a une autre tour en position d'aller vers l2 c2
+               sprintf (spec, "%c", l1 + '1');
                break;
             }
             if (sq64 [i][c2] != VOID) break;
@@ -310,27 +309,43 @@ char *abbrev (TGAME sq64, char *complete, char *abbr) { /* */
       for (int l = 0; l < N; l++)
          for (int c = 0; c < N; c ++)
             if (l != l1 && c != c1 && sq64 [l][c] == v) {
-               sprintf (temp3, "%c%c", c1 + 'a', l1 + '1');
+               sprintf (spec, "%c%c", c1 + 'a', l1 + '1');
                break;
             }
       break;
    default:; // BISHOP, KING
    }
-   temp1 [0] = (cCharPiece == 'P') ? '\0': cCharPiece;
-   temp2 [0] = (spec == ' ') ? '\0': spec;
-   sprintf (abbr, "%s%s%s%c%d%s", temp1, ((strlen (temp3) != 0) ? temp3 : temp2), ((prise == 'x') ? "x" : ""), c2 + 'a', l2 + 1, promotion);
+   abbr [0] = (cCharPiece == 'P') ? '\0': cCharPiece; // premier caractere
+   sprintf (abbr, "%s%s%s%c%d%s", abbr, spec, ((prise == 'x') ? "x" : ""), c2 + 'a', l2 + 1, strEnd);
    return abbr;
 }
 
-char *difference (TGAME sq64_1, TGAME sq64_2, int color, char *prise, char *complete, char *abbr) { /* */
+
+char *enPassant (int color, char *complete, char *strEp) { /* */
+   /* renseigne les coordonness eventuelles de la case en passant */
+   int c1 = complete [1] - 'a';
+   int l1 = complete [2] - '1';
+   int c2 = complete [4] - 'a';
+   int l2 = complete [5] - '1';
+   if ((complete [0] == 'P') && (c2 == c1) && ((l2 - l1) == -color * 2))
+      sprintf (strEp, "%c%c", c1 + 'a', (l1 - color) + '1'); 
+   else sprintf (strEp, "-");
+   return strEp;
+}
+
+char *difference (TGAME sq64_1, TGAME sq64_2, int color, char *prise, char *complete, char *abbr, char *epGamer, char *epComputer) { /* */
    /* coul = 1 (ordi) si le joueur a les blancs */
    /* retrouve le coup joue par Ordi */
    /* traite le roque. En dehors de ce cas */
-   /* suppose qu'il n' y a deux cases differentes (l1,c1) (l2, c2) */
+   /* traite le en passant sugggere par le joueur */
+   /* en dehors de ces deux cas suppose qu'il n' y a que deux cases differentes (l1,c1) (l2, c2) */
    /* renvoie la chaine decrivant la difference */
-   /* qui represente le deplacement au format a1:a1 */
-   /* prise est la valeur de la piece prise toujour en majuscule. ' ' si pas de prise */
+   /* qui represente le deplacement au format complet Pe2:e4 et abbregé e4 */
+   /* prise est la valeur de la piece prise. ' ' si pas de prise */
+   /* epComputer - en passant - renseigne les coordonnees eventuelles de prise en passant sinon - */
+   /* epGamer - pour prendre en compte l'indication du gamer pour une prise possible */
    int l1, c1, l2, c2, lCastling;
+   int lEp, cEp; // pour prise en Passant
    char promotion [3] = "";
    char cCharPiece = ' ';
    int v = 0;
@@ -338,18 +353,42 @@ char *difference (TGAME sq64_1, TGAME sq64_2, int color, char *prise, char *comp
    sprintf (complete, "%s", "");
    l1 = c1 = l2 = c2 = NIL;
    lCastling = (color == -1) ? 0 : 7;
-   if (sq64_1[lCastling][4] == color*KING && sq64_2[lCastling][4] == VOID && 
+   if (sq64_1[lCastling][4] == color*KING && sq64_2[lCastling][4] == VOID && // roque gauche
       sq64_1[lCastling][0] == color*ROOK && sq64_2 [lCastling][0] == VOID) {
       sprintf (complete, "%s", "O-O-O");
       sprintf (abbr, "%s", "O-O-O");
       return complete;
    }
-   if (sq64_1[lCastling][4] == color*KING && sq64_2[lCastling][4] == VOID && 
+   if (sq64_1[lCastling][4] == color*KING && sq64_2[lCastling][4] == VOID && // roque droit
       sq64_1[lCastling][7] == color*ROOK && sq64_2 [lCastling][7] == VOID) {
       sprintf (complete, "%s", "O-O");
       sprintf (abbr, "%s", "O-O");
       return complete;
    }
+
+   if (epGamer [0] != '-') { // prise en passant par color
+      lEp = epGamer [1] - '1';
+      cEp = epGamer [0] - 'a';
+      if ((cEp > 0) && (sq64_1 [lEp+color][cEp-1] == color * PAWN) &&      // vers droite
+         (sq64_1[lEp][cEp] == VOID) && (sq64_1 [lEp+color][cEp] == -color * PAWN) &&
+         (sq64_2 [lEp+color][cEp-1] == VOID) && 
+         (sq64_2 [lEp][cEp] == color * PAWN) && (sq64_2 [lEp+color][cEp] == 0)) {
+         *prise = (color == 1) ? dict [PAWN] : tolower (dict [PAWN]); // on prend la couleur opposee
+         sprintf (complete, "%c%c%d%c%c%d .e.p.", cCharPiece, cEp-1+'a', lEp+color+ 1 , 'x', cEp + 'a', lEp + 1);
+         sprintf (abbr, "%c%c%c%d .e.p", cEp-1+'a', 'x', cEp + 'a', lEp + 1);
+         return complete;
+      }
+      if ((cEp < N) && (sq64_1 [lEp+color][cEp+1] == color * PAWN) &&      // vers gauche
+         (sq64_1 [lEp][cEp] == VOID) && (sq64_1 [lEp+color][cEp] == -color * PAWN) &&
+         (sq64_2 [lEp+color][cEp+1] == VOID) && 
+         (sq64_2 [lEp][cEp] == color * PAWN) && (sq64_2 [lEp+color][cEp] == 0)) {
+         *prise = (color == 1) ? dict [PAWN] : tolower (dict [PAWN]); // on prend la couleur opposee
+         sprintf (complete, "%c%c%d%c%c%d .e.p.", cCharPiece, cEp+1+'a', lEp+color+ 1 , 'x', cEp + 'a', lEp + 1);
+         sprintf (abbr, "%c%c%c%d .e.p", cEp+1+'a', 'x', cEp + 'a', lEp + 1);
+         return complete;
+      }
+   }
+
    for (int l = 0; l < N; l++) {
       for (int c = 0; c < N; c++) {
          if (sq64_1 [l][c] * sq64_2 [l][c] < 0) { // couleur opposee => prise par couleur coul
@@ -374,14 +413,12 @@ char *difference (TGAME sq64_1, TGAME sq64_2, int color, char *prise, char *comp
       cCharPiece = (v > 0) ? dict [v] : tolower(dict [-v]);
    else cCharPiece = '?';
    cCharPiece = toupper (cCharPiece);
-   if (color == 1) {
-      if (((sq64_1 [l1][c1] == PAWN) && (l2 == 0)) || 
-         (sq64_1 [l1][c1] == -PAWN && (l2 == 7)))
-         sprintf (promotion, "=%c", dict [abs (sq64_2 [l2][c2])]);
-   }
-   // promotion non implementee pour les noirs : Bug 
+   if (((sq64_1 [l1][c1] == PAWN) && (sq64_2 [l2][c2] > PAWN) && (l2 == 0)) || 
+       ((sq64_1 [l1][c1] == -PAWN) && (sq64_2 [l2][c2] < -PAWN) && (l2 == 7)))
+      sprintf (promotion, "=%c", dict [abs (sq64_2 [l2][c2])]);
    sprintf (complete, "%c%c%d%c%c%d%s", cCharPiece, c1 + 'a', l1 + 1, ((*prise != ' ') ? 'x' : '-'), c2 + 'a', l2 + 1, promotion);
    abbrev (sq64_1, complete, abbr);
+   enPassant (color, complete, epComputer);
    return complete;
 }
 

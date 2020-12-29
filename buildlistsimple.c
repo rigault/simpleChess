@@ -5,6 +5,26 @@ inline char *pushList (TGAME refJeu, TLIST list, int nListe, char *pl, int l1, i
    return (pl + GAMESIZE); 
 }
 
+int buildListEnPassant (TGAME refJeu, register int who, char *epGamer, TLIST list, int nextL) { /* */
+   /* apporte le complement de positions avec en Passant */
+   char *pl = &list [nextL][0][0];
+   int nListe = nextL;
+   if (epGamer [0] == '-') return nListe;
+   int lEp = epGamer [1] - '1';
+   int cEp = epGamer [0] - 'a';
+   if ((cEp > 0) && (refJeu [lEp+who][cEp-1] == who * PAWN) &&      // vers droite
+      (refJeu[lEp][cEp] == VOID) && (refJeu [lEp+who][cEp] == -who * PAWN)) {
+      pl = pushList (refJeu, list, nListe++, pl, lEp+who, cEp-1, lEp, cEp, who * PAWN);
+      list [nListe -1][lEp+who][cEp] = 0;
+   }
+   if ((cEp < N) && (refJeu [lEp+who][cEp+1] == who * PAWN) &&      // vers gauche
+      (refJeu [lEp][cEp] == VOID) && (refJeu [lEp+who][cEp] == -who * PAWN)) { 
+      pl = pushList (refJeu, list, nListe++, pl, lEp+who, cEp+1, lEp, cEp, who * PAWN);
+      list [nListe -1][lEp+who][cEp] = 0;
+   }
+   return nListe;
+}
+
 int buildList (TGAME refJeu, register int who, TLIST list) { /* */
    /* construit la liste des jeux possibles a partir de jeu. */
    /* 'who' joue */

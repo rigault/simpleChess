@@ -159,7 +159,7 @@ static bool parseFEN (struct pos *pos, const char *fen) { /* */
 }
 
 static void moveToStr (const struct pos *pos, unsigned move, char *str) { /* */
-   /* Convert un deplacement en une chaine str au format algebrique comme  Pe2-e4 */
+   /* Converti un deplacement en une chaine str au format algebrique complet. Ex :  Pe2-e4 */
    uint64_t occ = pos->black | pos->white;
    unsigned from = TB_GET_FROM(move);
    unsigned to = TB_GET_TO(move);
@@ -194,7 +194,7 @@ static void moveToStr (const struct pos *pos, unsigned move, char *str) { /* */
 
 bool syzygyRR (const char* path, const char *fen, unsigned *wdl, char *bestMove, char *comment) { /* */
    /* recherche dans la tablebase sygyzy situee dans path le jeu decrit en notation */
-   /* FEN par fen. Renvoie le deplacement dans bestMove */
+   /* FEN par fen. Renvoie le deplacement au format algebrique complet dans bestMove */
    /* le commentaire contient ce deplacement et les valeur WIN WDL DTZ */
    /* vrai si trouve, faux si erreur */
    struct pos pos0;
