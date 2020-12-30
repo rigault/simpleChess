@@ -50,7 +50,7 @@ void printGame (TGAME jeu, int eval) { /* */
 int fenToGame (char *fenComplete, TGAME sq64, char *ep, int *cpt50, int *nb) { /* */
    /* Forsyth–Edwards Notation */
    /* le jeu est recu sous la forme d'une chaine de caracteres du navigateur au format fen */
-   /* FENToJeu traduit cette chaine et renvoie l'objet jeu ainsi que la couleur */
+   /* fenToGame traduit cette chaine et renvoie l'objet jeu ainsi que la couleur */
    /* 3kq3/8/8/8/8/3K4/+w+-- */
    /* retour 1 si noir, -1 si blanc */
    /* le roque est contenu dans la valeur du roi : KING ou CASTLEKING */
