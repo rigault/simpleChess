@@ -1,6 +1,5 @@
 /*   Pour produire la doc sur les fonctions : grep "\/\*" chess.c | sed 's/^\([a-zA-Z]\)/\n\1/' */
 /*   Jeu d'echec */
-/*   case libre 0 */
 /*   ./chess.cgi -i [FENGame] [profondeur] : CLI avec sortie JSON */
 /*   ./chess.cgi -r [FENGame] [profondeur] : CLI avec sortie raw */
 /*   ./chess.cgi -t : test unitaire */
@@ -28,7 +27,7 @@
 #include <unistd.h>
 #include <math.h>
 
-#define HELP "Syntax; sudo ./chess.cgi -i|-r|-h|-p|-t [jeu au format FEN] [profondeur]"
+#define HELP "Syntax; sudo ./chess.cgi -i|-r|-h|-p|-t [FEN string] [level]"
 
 #define NDEPTH 3                   // pour fMaxDepth ()
 #define MAXPIECESSYZYGY 6
@@ -49,10 +48,10 @@ struct sGetInfo {                  // description de la requete emise par le cli
 } getInfo = {"", 2, 3};
 
 // valorisation des pieces dans l'ordre  VOID PAWN KNIGHT BISHOP ROOK QUEEN KING CASTLEKING
-// fou > cavalier, tour = fou + 2 pions, dame > fou + tour + pion
+// tour = fou + 2 pions, dame >= fou + tour + pion
 // pion a la valeur 8 suur les cotes, 9 sur les  colonnes centrales et plus importante quand avances 
-// Le roi qui a roque est a le code 7, le roi normal code 6
-// Voir fn evaluation
+// Le roi qui a roque a le code 7, le roi normal code 6
+// Voir fonction d'evaluation
 int val [] = {0, 1000, 3000, 3000, 5000, 9000, 0, 100};
 
 int tEval [MAXTHREADS];
@@ -84,7 +83,7 @@ int fMaxDepth (int lev, struct sinfo info) { /* */
 
 bool LCkingInCheck (TGAME sq64, register int who, register int l, register int c) { /* */
    /* vrai si le roi situe case l, c est echec au roi */
-   /*'who' est la couleur du roi qui est attaque */
+   /* "who" est la couleur du roi qui est attaque */
    register int w, w1, w2, i, j, k;
    info.nLCKingInCheckCall += 1;
 
@@ -129,7 +128,6 @@ bool LCkingInCheck (TGAME sq64, register int who, register int l, register int c
    // tour ou reine menace
    for (i = l+1; i < N; i++) {
       w = sq64 [i][c];
-// printf ("Tour u Reine i=%d l=%d w %d w1 %d\n", i, l, w, w1); 
       if (w == w1 || w == w2) return true;
       if (w != 0) break;
    }
@@ -177,7 +175,7 @@ bool LCkingInCheck (TGAME sq64, register int who, register int l, register int c
 #include "buildlistsimple.c"
 
 bool fKingInCheck (TGAME sq64, int who) { /* */
-   /* retourne vrai si 'who' est en echec */
+   /* retourne vrai si le roi "who" est en echec */
    register int l, c;
    for (l = 0; l < N; l++)
       for (c = 0; c < N; c++) 
@@ -189,8 +187,8 @@ bool fKingInCheck (TGAME sq64, int who) { /* */
 }
 
 bool kingCannotMove (TGAME sq64, register int who) { /* */
-   /* vrai si le roi du joueur 'who' ne peut plus bouger sans se mettre echec au roi */
-   /* 'who' est la couleur du roi who est attaque */
+   /* vrai si le roi du joueur "who" ne peut plus bouger sans se mettre echec au roi */
+   /* "who" est la couleur du roi qui est attaque */
    /* on essaye tous les jeux possibles. Si dans tous les cas on est echec au roi */
    /* c'est perdu. Noter que si le roi a le trait et qu'il n'est pas echec au roi il est Pat */
    /* si le roi est echec au roi il est mat */
@@ -203,56 +201,10 @@ bool kingCannotMove (TGAME sq64, register int who) { /* */
    return true;
 }
 
-void updateInfo (TGAME sq64) { /* */
-   /* met a jour l'objet info a partir de l'objet jeu */
-   int l, c, v;
-   info.gamerKingState = info.computerKingState = NOEXIST;
-   info.castleComputer = info.castleGamer = false;
-   info.nGamerPieces = info.nComputerPieces = 0;
-   for (l = 0; l < N; l++) {
-      for (c = 0; c < N; c++) {
-         v = - sq64 [l][c] * info.gamerColor;
-         if (v > 0) info.nComputerPieces += 1;
-         else if (v < 0) info.nGamerPieces += 1;
-         if (v == KING || v == CASTLEKING) {
-            info.lComputerKing = l;
-            info.cComputerKing = c;
-            info.computerKingState = EXIST;
-         }
-         if (v == CASTLEKING) info.castleComputer = true;
-         if (v == -KING || v == -CASTLEKING) {
-            info.lGamerKing = l;
-            info.cGamerKing = c;
-            info.gamerKingState = EXIST;
-         }
-         if (v == -CASTLEKING) info.castleGamer = true;
-      }
-   }
-   if (info.gamerKingState == EXIST) {
-      if (LCkingInCheck(sq64, info.gamerColor, info.lGamerKing, info.cGamerKing))
-         info.gamerKingState = ISINCHECK;
-      if (kingCannotMove(sq64, info.gamerColor)) {
-         if (info.gamerKingState == ISINCHECK) info.gamerKingState = ISMATE;
-         else info.gamerKingState = ISPAT;
-      }
-   }
-   if (info.computerKingState == EXIST) {
-      if (LCkingInCheck(sq64, -info.gamerColor, info.lComputerKing, info.cComputerKing))
-         info.computerKingState = ISINCHECK;
-      if (kingCannotMove(sq64, -info.gamerColor)) {
-         if (info.computerKingState == ISINCHECK) info.computerKingState = ISMATE;
-         else info.computerKingState = ISPAT;
-      }
-   }
-   info.nValidGamerPos = buildList(sq64, info.gamerColor, list);
-   info.nValidComputerPos = buildList(sq64, -info.gamerColor, list);
-   info.end = ((info.gamerKingState != EXIST && info.gamerKingState != ISINCHECK) ||
-               (info.computerKingState != EXIST && info.computerKingState != ISINCHECK));
-}
 
 int evaluation (TGAME sq64, register int who) { /* */
    /* fonction d'evaluation retournant MATE si Ordinateur gagne, */
-   /* -MATE si joueur gagne, 0 si nul,... */
+   /* -MAT si joueur gagne, 0 si nul,... */
    register int l, c, v, eval;
    int lwho, cwho, ladverse, cadverse, dist;
    bool kingInCheck;
@@ -347,6 +299,53 @@ void *fThread (void *arg) { /* */
    pthread_exit (NULL);
 }
 
+void updateInfo (TGAME sq64) { /* */
+   /* met a jour l'objet info a partir de l'objet jeu */
+   int l, c, v;
+   info.gamerKingState = info.computerKingState = NOEXIST;
+   info.castleComputer = info.castleGamer = false;
+   info.nGamerPieces = info.nComputerPieces = 0;
+   for (l = 0; l < N; l++) {
+      for (c = 0; c < N; c++) {
+         v = - sq64 [l][c] * info.gamerColor;
+         if (v > 0) info.nComputerPieces += 1;
+         else if (v < 0) info.nGamerPieces += 1;
+         if (v == KING || v == CASTLEKING) {
+            info.lComputerKing = l;
+            info.cComputerKing = c;
+            info.computerKingState = EXIST;
+         }
+         if (v == CASTLEKING) info.castleComputer = true;
+         if (v == -KING || v == -CASTLEKING) {
+            info.lGamerKing = l;
+            info.cGamerKing = c;
+            info.gamerKingState = EXIST;
+         }
+         if (v == -CASTLEKING) info.castleGamer = true;
+      }
+   }
+   if (info.gamerKingState == EXIST) {
+      if (LCkingInCheck(sq64, info.gamerColor, info.lGamerKing, info.cGamerKing))
+         info.gamerKingState = ISINCHECK;
+      if (kingCannotMove(sq64, info.gamerColor)) {
+         if (info.gamerKingState == ISINCHECK) info.gamerKingState = ISMATE;
+         else info.gamerKingState = ISPAT;
+      }
+   }
+   if (info.computerKingState == EXIST) {
+      if (LCkingInCheck(sq64, -info.gamerColor, info.lComputerKing, info.cComputerKing))
+         info.computerKingState = ISINCHECK;
+      if (kingCannotMove(sq64, -info.gamerColor)) {
+         if (info.computerKingState == ISINCHECK) info.computerKingState = ISMATE;
+         else info.computerKingState = ISPAT;
+      }
+   }
+   info.nValidGamerPos = buildList(sq64, info.gamerColor, list);
+   info.nValidComputerPos = buildList(sq64, -info.gamerColor, list);
+   info.end = ((info.gamerKingState != EXIST && info.gamerKingState != ISINCHECK) ||
+               (info.computerKingState != EXIST && info.computerKingState != ISINCHECK));
+}
+
 int find (TGAME sq64, TGAME bestSq64, int *bestNote, int color) { /* */
    /* ordinateur joue renvoie le meilleur jeu possible et le nombre de jeux possibles */
    TGAME localSq64;
@@ -374,7 +373,7 @@ int find (TGAME sq64, TGAME bestSq64, int *bestNote, int color) { /* */
    memcpy (localSq64, sq64, GAMESIZE);
    gameToFen (localSq64, fen, color, ' ', false, info.epComputer, 0, 0);
 
-   // recherche de fin de partie voir  https://syzygy-tables.info/
+   // recherche de fin de partie voir https://syzygy-tables.info/
    if ((info.nGamerPieces + info.nComputerPieces) <= MAXPIECESSYZYGY) {
       sprintf (fen, "%s - - %d %d", fen, info.cpt50, info.nb); // pour regle des 50 coups
       if (syzygyRR (PATHTABLE, fen, &info.wdl, info.move, info.endName)) {
@@ -385,7 +384,6 @@ int find (TGAME sq64, TGAME bestSq64, int *bestNote, int color) { /* */
    }
      
    // ouvertures
-   // if (opening ((color == 1) ? F_OUVB: F_OUVW, fen, info.comment, info.move)) {   
    if (info.nb < MAXNBOPENINGS) {
       if (openingAll (OPENINGDIR, (color == 1) ? ".b.fen": ".w.fen", fen, info.comment, info.move)) {
          moveGame (localSq64, color, info.move);

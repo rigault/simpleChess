@@ -1,4 +1,5 @@
-inline char *pushList (TGAME refJeu, TLIST list, int nListe, char *pl, int l1, int c1, int l2, int c2, int u) {
+inline char *pushList (TGAME refJeu, TLIST list, int nListe, char *pl, int l1, int c1, int l2, int c2, int u) { /* */
+   /* pousse le jeu refJeu dans la liste avec les modifications specifiees */
    memcpy (pl, refJeu, GAMESIZE);
    list [nListe][l2][c2] = u;
    list [nListe][l1][c1] = 0;
@@ -6,7 +7,7 @@ inline char *pushList (TGAME refJeu, TLIST list, int nListe, char *pl, int l1, i
 }
 
 int buildListEnPassant (TGAME refJeu, register int who, char *epGamer, TLIST list, int nextL) { /* */
-   /* apporte le complement de positions avec en Passant */
+   /* apporte le complement de positions a buildList prenant en compte en Passant suggere par le joueur */
    char *pl = &list [nextL][0][0];
    int nListe = nextL;
    if (epGamer [0] == '-') return nListe;
@@ -93,13 +94,13 @@ int buildList (TGAME refJeu, register int who, TLIST list) { /* */
          switch (v) { // v est la valeur absolue car u < 0 ==> who < 0
          case PAWN:
          // deplacements du pion
-            if (who == -1 && l == 1 && 0 == refJeu [l+1][c] && 0 == refJeu[l+2][c]) { // coup initial saut de 2 cases 
+            if (who == -1 && l == 1 && 0 == refJeu [l+1][c] && 0 == refJeu[l+2][c]) {  // coup initial saut de 2 cases 
                pl = pushList (refJeu, list, nListe++, pl, l, c, l+2, c, -PAWN);
             }
-            if (who == 1 && l == 6 && 0 == refJeu [l-1][c] && 0 == refJeu [l-2][c]) { // coup initial saut de 2 cases
+            if (who == 1 && l == 6 && 0 == refJeu [l-1][c] && 0 == refJeu [l-2][c]) {  // coup initial saut de 2 cases
                pl = pushList (refJeu, list, nListe++, pl, l, c, l-2, c, PAWN);
             }
-            if (((l-who) >= 0) && ((l-who) < 8) && (0 == refJeu [l-who][c])) { // normal
+            if (((l-who) >= 0) && ((l-who) < 8) && (0 == refJeu [l-who][c])) {         // normal
                memcpy (pl, refJeu, GAMESIZE);
                if (l-1 == 0 && who == 1)  list [nListe][l-1][c] = QUEEN;
                else if (l+1 == 7 && who == -1) list [nListe][l+1][c] = -QUEEN;
@@ -108,7 +109,7 @@ int buildList (TGAME refJeu, register int who, TLIST list) { /* */
                pl += GAMESIZE; nListe += 1;
             }
             // prise a droite
-            if (c < 7 && (l-who) >=0 && (l-who) < N && refJeu [l-who][c+1]*who < 0) { // signes opposes
+            if (c < 7 && (l-who) >=0 && (l-who) < N && refJeu [l-who][c+1]*who < 0) {  // signes opposes
                memcpy (pl, refJeu, GAMESIZE);
                if (l-1 == 0 && who == 1) list [nListe][l-1][c+1] = QUEEN;
                else if (l+1 == 7 && who == -1) list [nListe][l+1][c+1] = -QUEEN;
