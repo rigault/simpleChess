@@ -16,16 +16,11 @@
 /*   Blancs : -1 (Majuscules) */
 
 #include <stdio.h>
-#include <limits.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
 #include <sys/time.h>
-#include <ctype.h>
 #include <pthread.h>
 #include <stdbool.h>
-#include <unistd.h>
-#include <math.h>
 
 #include "chessUtil.h"
 #include "syzygy.h"
