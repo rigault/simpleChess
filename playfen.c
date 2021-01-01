@@ -15,7 +15,7 @@
 void process (FILE *fe) { /* */
    /* lit le fichier FEN */
    /* ce fichier est au format CSV : FENstring ; dep ; commentaire */
-   /* dep contient le deplacement en notation algebrique complete Xe2:e4[Y] | O-O | O-O-O */
+   /* dep contient le deplacement en notation algebrique complete Xe2-e4[=Y] | O-O | O-O-O */
    /* X : piece joue. Y : promotion,  O-O : petit roque,  O-O-O : grand roque */
    char line [MAXLEN];
    char *sFEN, *ptDep, *ptEval, *ptComment;
