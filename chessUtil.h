@@ -1,6 +1,6 @@
 #define MILLION 1000000
 #define VERSION "2.1"
-#define DESCRIPTION "Chess Rene Rigault 2020"
+#define DESCRIPTION "Chess Rene Rigault 2021"
 #define PATHTABLE "/var/www/html/chessdata"           // table de fin de jeux SYZYGY.
 #define OPENINGDIR "/home/rr/git/simplechess/bigfen"  // repetoire des ouvertures
 
@@ -16,7 +16,6 @@ typedef char TLIST [MAXSIZELIST][N][N];
 
 enum {VOID, PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING, CASTLEKING};
 enum kingState {NOEXIST, EXIST, ISINCHECK, UNVALIDINCHECK, ISMATE, ISPAT};
-
 TLIST list;
 int nextL;
 

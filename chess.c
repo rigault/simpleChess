@@ -174,13 +174,12 @@ bool LCkingInCheck (TGAME sq64, register int who, register int l, register int c
 
 #include "buildlistsimple.c"
 
-bool fKingInCheck (TGAME sq64, int who) { /* */
+bool fKingInCheck (TGAME sq64, register int who) { /* */
    /* retourne vrai si le roi "who" est en echec */
-   register int l, c;
-   for (l = 0; l < N; l++)
-      for (c = 0; c < N; c++) 
+   for (register int l = 0; l < N; l++)
+      for (register int c = 0; c < N; c++) 
          if ((who * sq64 [l][c]) >= KING) { // match KING et CASTLEKING
-            if (LCkingInCheck(sq64, who, l, c)) return true;
+            if (LCkingInCheck (sq64, who, l, c)) return true;
             else return false;
 	 }
    return false;
@@ -192,15 +191,13 @@ bool kingCannotMove (TGAME sq64, register int who) { /* */
    /* on essaye tous les jeux possibles. Si dans tous les cas on est echec au roi */
    /* c'est perdu. Noter que si le roi a le trait et qu'il n'est pas echec au roi il est Pat */
    /* si le roi est echec au roi il est mat */
-   register int k;
    TLIST list;
-   register int maxList = buildList(sq64, who, list);
-   for (k = 0; k < maxList; k++) {
+   register int maxList = buildList (sq64, who, list);
+   for (register int k = 0; k < maxList; k++) {
       if (! fKingInCheck (list [k], who)) return false;
    }
    return true;
 }
-
 
 int evaluation (TGAME sq64, register int who) { /* */
    /* fonction d'evaluation retournant MATE si Ordinateur gagne, */
@@ -302,6 +299,7 @@ void *fThread (void *arg) { /* */
 void updateInfo (TGAME sq64) { /* */
    /* met a jour l'objet info a partir de l'objet jeu */
    int l, c, v;
+   info.note = evaluation(sq64, info.gamerColor);
    info.gamerKingState = info.computerKingState = NOEXIST;
    info.castleComputer = info.castleGamer = false;
    info.nGamerPieces = info.nComputerPieces = 0;
@@ -334,7 +332,7 @@ void updateInfo (TGAME sq64) { /* */
    }
    if (info.computerKingState == EXIST) {
       if (LCkingInCheck(sq64, -info.gamerColor, info.lComputerKing, info.cComputerKing))
-         info.computerKingState = ISINCHECK;
+         info.computerKingState = ISINCHECK; // pas le droit d'etre ehec apres avoir joue
       if (kingCannotMove(sq64, -info.gamerColor)) {
          if (info.computerKingState == ISINCHECK) info.computerKingState = ISMATE;
          else info.computerKingState = ISPAT;
@@ -344,6 +342,7 @@ void updateInfo (TGAME sq64) { /* */
    info.nValidComputerPos = buildList(sq64, -info.gamerColor, list);
    info.end = ((info.gamerKingState != EXIST && info.gamerKingState != ISINCHECK) ||
                (info.computerKingState != EXIST && info.computerKingState != ISINCHECK));
+   
 }
 
 int find (TGAME sq64, TGAME bestSq64, int *bestNote, int color) { /* */
@@ -405,13 +404,12 @@ int find (TGAME sq64, TGAME bestSq64, int *bestNote, int color) { /* */
           perror ("pthread_join");
           return EXIT_FAILURE;
       }
-   // printGame (sq64, 0);
-   // printf ("===============================\n");
-   // for (int k = 0; k < nextL; k++) printGame (list [k], tEval [k]);
+    printGame (sq64, 0);
+    printf ("===============================\n");
+    for (int k = 0; k < nextL; k++) printGame (list [k], tEval [k]);
    // tEval contient les évaluations de toutes les possibilites
    // recherche de la meilleure note
    for (k = 0; k < nextL; k++) {
-      if (kingCannotMove (list [k], -color) && tEval [k] != color*MATE) tEval [k] = 0; // verrue
       if (color == 1 && tEval [k] > *bestNote)
          *bestNote = tEval [k];
       if (color == -1 && tEval [k] < *bestNote)
@@ -432,22 +430,17 @@ int find (TGAME sq64, TGAME bestSq64, int *bestNote, int color) { /* */
    return nextL;
 }
 
-bool computerPlay (TGAME sq64, int color) { /* */
+void computerPlay (TGAME sq64, int color) { /* */
    /* prepare le lancement de la recherche avec find */
    struct timeval tRef;
    TGAME bestSq64;
-   updateInfo(sq64);
-   if (info.computerKingState == NOEXIST || info.computerKingState == ISMATE) 
-      return false; // le roi est pris... 
-   info.note = evaluation(sq64, -color);
-   updateInfo(sq64);
-   if (info.gamerKingState == ISINCHECK) {
+   updateInfo (sq64);
+   if (info.gamerKingState == ISINCHECK)
       info.gamerKingState = UNVALIDINCHECK; // le joueur n'a pas le droit d'etre en echec
-      return false;
-   }
-   if (info.computerKingState == ISMATE || info.computerKingState == ISPAT || 
+   
+   if (info.computerKingState == ISMATE || info.computerKingState == ISPAT ||
       info.computerKingState == NOEXIST || info.gamerKingState == UNVALIDINCHECK)
-      return false;
+      return;
 
    info.maxDepth = fMaxDepth (getInfo.level, info);
    gettimeofday (&tRef, NULL);
@@ -455,27 +448,23 @@ bool computerPlay (TGAME sq64, int color) { /* */
    info.nClock = clock ();
 
    // lancement de la recherche par l'ordi
-   info.nValidComputerPos = find (sq64, bestSq64, &info.evaluation, color);
-   if (info.nValidComputerPos == 0) 
-      return false;
-  
+   if ((info.nValidComputerPos = find (sq64, bestSq64, &info.evaluation, color)) != 0) {
+      difference (sq64, bestSq64, color, &info.lastCapturedByComputer, info.computerPlayC, info.computerPlayA, 
+         info.epGamer, info.epComputer);
+      printf ("nvald :%d\n", info.nValidComputerPos);
+      if (color == 1) info.nb += 1;
+      if (abs (info.computerPlayC [0] == 'P') ||  info.computerPlayC [3] == 'x') // si un pion bouge ou si prise
+         info.cpt50 = 0;
+      else info.cpt50 += 1;
+      memcpy(sq64, bestSq64, GAMESIZE);
+   }
    info.nClock = clock () - info.nClock;
    gettimeofday (&tRef, NULL);
    info.computeTime = tRef.tv_sec * MILLION + tRef.tv_usec - info.computeTime;
-   difference (sq64, bestSq64, color, &info.lastCapturedByComputer, info.computerPlayC, info.computerPlayA, 
-      info.epGamer, info.epComputer);
-   if (info.gamerColor == -1) info.nb += 1;
-   if (abs (info.computerPlayC [0] == 'P') ||  info.computerPlayC [3] == 'x')
-      info.cpt50 = 0;
-   else info.cpt50 += 1;
-   memcpy(sq64, bestSq64, GAMESIZE);
-   info.note = evaluation(sq64, color);
    updateInfo(sq64);
-   if (fKingInCheck(sq64, color)) {       // pas le droit d etre en echec apres avoir joue
+   if (info.computerKingState == ISINCHECK) // pas le droit d'etre ehec apres avoir joue
       info.computerKingState = UNVALIDINCHECK;
-      return false;
-   }
-   return true;
+   return;
 }
 
 void cgi () { /* */
@@ -552,24 +541,22 @@ int main (int argc, char *argv[]) { /* */
          sendGame (fen, info, getInfo.reqType);
          break;
       case 'r':
-         memcpy (oldSq64, sq64, GAMESIZE);
          computerPlay (sq64, -info.gamerColor);
          printf ("--------resultat--------------\n");
          printGame (sq64, evaluation (sq64, -info.gamerColor));
-         difference (oldSq64, sq64, -info.gamerColor, &info.lastCapturedByComputer, 
-            info.computerPlayC, info.computerPlayA, info.epGamer, info.epComputer);
          gameToFen (sq64, fen, info.gamerColor, '+', true, info.epComputer, info.cpt50, info.nb);
          printf ("clockTime: %ld, time: %ld, note: %d, eval: %d, computerStatus: %d, playerStatus: %d\n", 
                  info.nClock, info.computeTime, info.note, info.evaluation, info.computerKingState, info.gamerKingState); 
          printf ("comment: %s%s\n", info.comment, info.endName);
          printf ("fen: %s\n", fen);
-         printf ("move: %s %s %c\n", info.computerPlayC, (info.lastCapturedByComputer != ' ') ? "taken:": "", 
+         printf ("move: %s %s %c\n", info.computerPlayC, (info.lastCapturedByComputer != '\0') ? "taken:": "", 
                  info.lastCapturedByComputer);
          printf ("etat: %s\n", (info.end) ? "END" : "ONGOING");
          break;
       case 'd': // test difference
          fenToGame ("2k5/8/8/8/4Pp2/8/8/2K5+b+-+e3+50+1", oldSq64, info.epGamer, &info.cpt50, &info.nb);
-         fenToGame ("2k5/8/8/8/8/4p3/8/2K5+b+-+e3+50+1", sq64, info.epGamer, &info.cpt50, &info.nb);
+         fenToGame ("2k5/8/8/8/4Pp2/8/8/2K5+b+-+e3+50+1", sq64, info.epGamer, &info.cpt50, &info.nb);
+         // fenToGame ("2k5/8/8/8/8/4p3/8/2K5+b+-+e3+50+1", sq64, info.epGamer, &info.cpt50, &info.nb);
          printGame (oldSq64, 0);
          printGame (sq64, 0);
          difference (oldSq64, sq64, 1, &info.lastCapturedByComputer, info.computerPlayC, 

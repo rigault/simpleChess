@@ -18,6 +18,7 @@
 
 const char dict [] = {'-', 'P', 'N', 'B', 'R', 'Q', 'K', 'K'};
 const char *unicode [] = {" ", "♟", "♞", "♝", "♜", "♛", "♚", "♚"};
+const char *strStatus [] = {"NO_EXIST", "EXIST", "IS_IN_CHECK", "UNVALID_IN_CHECK", "IS_MATE", "IS_PAT"};
 
 int charToInt (int c) { /* */
    /* traduit la piece au format RNBQR... en nombre entier */
@@ -28,7 +29,7 @@ int charToInt (int c) { /* */
 }
 
 void printGame (TGAME jeu, int eval) { /* */
-   /* imprime le jeu a la conole pour Debug */
+   /* imprime le jeu a la console pour Debug */
    int l, c;
    int v;
    bool normal = true;
@@ -79,7 +80,7 @@ int fenToGame (char *fenComplete, TGAME sq64, char *ep, int *cpt50, int *nb) { /
    if ((strNb = strtok (NULL, "+ ")) != NULL)  
       *nb = atoi (strNb);                            // nbcoup
    
-   for (unsigned i = 0; i < strlen (fen) ; i++) {
+   for (unsigned i = 0; fen [i] != '\0'; i++) {
       cChar = fen [i];
       if (isspace (cChar)) break;
       if (cChar == '/') continue;
@@ -142,14 +143,14 @@ void moveGame (TGAME sq64, int color, char *move) { /* */
    int base = (color == -1) ? 0 : 7; // Roque non teste
    int cDep, lDep, cDest, lDest, i, j;
    
-   if ((strcmp (move, "O-O-O") == 0) || (strcmp (move, "0-0-0") == 0)) {   // grand Roque
+   if (strcmp (move, "O-O-O") == 0) {   // grand Roque
       sq64 [base][4] = VOID;
       sq64 [base][3] = ROOK * color;
       sq64 [base][2] = KING * color;
       sq64 [base][0] = VOID;
       return;
    }
-   if ((strcmp (move, "O-O") == 0) || (strcmp (move, "0-0") == 0)) {       // petit Roque
+   if (strcmp (move, "O-O") == 0) {     // petit Roque
       sq64 [base][4] = VOID;
       sq64 [base][5] = ROOK * color;
       sq64 [base][6] = KING * color;
@@ -180,7 +181,7 @@ bool openingAll (const char *dir, const char *filter, char *gameFen, char *sComm
    int n;
    char fileName [MAXLEN];
    char comment [MAXLEN];
-   n = scandir(dir, &namelist, 0, alphasort);
+   n = scandir (dir, &namelist, 0, alphasort);
    if (n < 0) return false;
    for (int i = 0; i < n; i++) {
       if (strstr (namelist [i]->d_name, filter) != NULL) {
@@ -348,7 +349,7 @@ char *difference (TGAME sq64_1, TGAME sq64_2, int color, char *prise, char *comp
    char promotion [3] = "";
    char cCharPiece = ' ';
    int v = 0;
-   *prise = ' ';
+   *prise = '\0';
    sprintf (complete, "%s", "");
    l1 = c1 = l2 = c2 = NIL;
    lCastling = (color == -1) ? 0 : 7;
@@ -406,6 +407,11 @@ char *difference (TGAME sq64_1, TGAME sq64_2, int color, char *prise, char *comp
          }
       }
    }
+   if (l1 == NIL) {
+      strcpy (complete, "NONE");
+      strcpy (abbr, "NONE");
+      return complete;
+   }
    if ((l1 < N) && (l1 >=0) && (c1 < N) && (c1 >= 0)) 
       v = sq64_1 [l1][c1];
    if ((v >= -CASTLEKING) && (v <= CASTLEKING))
@@ -415,8 +421,9 @@ char *difference (TGAME sq64_1, TGAME sq64_2, int color, char *prise, char *comp
    if (((sq64_1 [l1][c1] == PAWN) && (sq64_2 [l2][c2] > PAWN) && (l2 == 0)) || 
        ((sq64_1 [l1][c1] == -PAWN) && (sq64_2 [l2][c2] < -PAWN) && (l2 == 7)))
       sprintf (promotion, "=%c", dict [abs (sq64_2 [l2][c2])]);
+
    sprintf (complete, "%c%c%d%c%c%d%s", cCharPiece, c1 + 'a', l1 + 1, 
-      ((*prise != ' ') ? 'x' : '-'), c2 + 'a', l2 + 1, promotion);
+         ((*prise != '\0') ? 'x' : '-'), c2 + 'a', l2 + 1, promotion);
    abbrev (sq64_1, complete, abbr);
    enPassant (color, complete, epComputer);
    return complete;
@@ -436,8 +443,8 @@ void sendGame (const char *fen, struct sinfo info, int reqType) { /* */
       printf ("\"time\" : \"%lf\",\n", (double) info.computeTime/MILLION);
       printf ("\"note\" : \"%d\",\n", info.note);
       printf ("\"eval\" : \"%d\",\n", info.evaluation);
-      printf ("\"computerStatus\" : \"%d\",\n", info.computerKingState);
-      printf ("\"playerStatus\" : \"%d\",\n", info.gamerKingState);
+      printf ("\"computerStatus\" : \"%d : %s\",\n", info.computerKingState, strStatus [info.computerKingState]);
+      printf ("\"playerStatus\" : \"%d : %s\",\n", info.gamerKingState, strStatus [info.gamerKingState]);
       printf ("\"fen\" : \"%s\",\n", fen);
       if (info.lastCapturedByComputer >= ' ' && info.lastCapturedByComputer <= 'z')
          printf ("\"lastTake\" : \"%c\",\n", info.lastCapturedByComputer);

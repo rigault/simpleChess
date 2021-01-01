@@ -33,59 +33,33 @@ int buildList (TGAME refJeu, register int who, TLIST list) { /* */
    register int nListe = 0;
    char *pl = &list [0][0][0];
    info.nBuildListCall += 1;
+   int base = (who == -1) ? 0 : 7;
 
-   if (who == 1) {
-      if (refJeu [7][4] == KING) {
-         if (refJeu [7][0] == ROOK && 0 == refJeu [7][1] && 0 == refJeu [7][2] && 0 == refJeu [7][3] &&
-            !LCkingInCheck (refJeu, who, 7, 2) &&  ! LCkingInCheck (refJeu, who, 7, 3) && !LCkingInCheck (refJeu, who, 7, 4)) {
-            // les cases traversees par le roi ne sont pas echec au roi
-            memcpy (pl, refJeu, GAMESIZE);
-            list [nListe][7][0] = 0;
-            list [nListe][7][2] = CASTLEKING;
-            list [nListe][7][3] = ROOK;
-            list [nListe++][7][4] = 0; 
-            pl += GAMESIZE;
-         }
-         // Roque ordi droit
-         if (refJeu [7][7] == ROOK && 0 == refJeu [7][5] && 0  == refJeu [7][6] &&
-            !LCkingInCheck (refJeu, who, 7, 4) && LCkingInCheck (refJeu, who, 7, 5) && !LCkingInCheck (refJeu, who, 7, 6)) {
-            // les cases traversees par le roi ne sont pas echec au roi
-            memcpy (pl, refJeu, GAMESIZE);
-            list [nListe][7][4] = 0;
-            list [nListe][7][5] = ROOK;
-            list [nListe][7][6] = CASTLEKING;
-            list [nListe++][7][7] = 0;
-            pl += GAMESIZE;
-         }
+   // Roque
+   if (refJeu [base][4] == KING) {
+      // roque gauche
+      if (refJeu [base][0] == ROOK && 0 == refJeu [base][1] && 0 == refJeu [base][2] && 0 == refJeu [base][3] &&
+         !LCkingInCheck (refJeu, who, base, 2) &&  !LCkingInCheck (refJeu, who, base, 3) && !LCkingInCheck (refJeu, who, base, 4)) {
+         // les cases traversees par le roi ne sont pas echec au roi
+         memcpy (pl, refJeu, GAMESIZE);
+         list [nListe][base][0] = 0;
+         list [nListe][base][2] = CASTLEKING;
+         list [nListe][base][3] = ROOK;
+         list [nListe++][base][4] = 0; 
+         pl += GAMESIZE;
+      }
+      // Roque droit
+      if (refJeu [base][7] == ROOK && 0 == refJeu [base][5] && 0  == refJeu [base][6] &&
+         !LCkingInCheck (refJeu, who, base, 4) && !LCkingInCheck (refJeu, who, base, 5) && !LCkingInCheck (refJeu, who, base, 6)) {
+         // les cases traversees par le roi ne sont pas echec au roi
+         memcpy (pl, refJeu, GAMESIZE);
+         list [nListe][base][4] = 0;
+         list [nListe][base][5] = ROOK;
+         list [nListe][base][6] = CASTLEKING;
+         list [nListe++][base][7] = 0;
+         pl += GAMESIZE;
       }
    }
-   // Roque opposant gauche
-   else { // who == -1
-      if (refJeu [0][4] == -KING) {
-         if (refJeu [0][0] == -ROOK && 0 == refJeu [0][1] && 0 == refJeu [0][2] && 0 == refJeu [0][3] &&
-            !LCkingInCheck (refJeu, who, 0, 2) &&  ! LCkingInCheck (refJeu, who, 0, 3) &&! LCkingInCheck (refJeu, who, 0, 4)) {
-            // les cases traversees par le roi ne sont pas echec au roi
-            memcpy (pl, refJeu, GAMESIZE);
-            list [nListe][0][0] = 0;
-            list [nListe][0][2] = -CASTLEKING;
-            list [nListe][0][3] = -ROOK;
-            list [nListe++][0][4] = 0;
-            pl += GAMESIZE;
-         }
-         // Roque opposant droit
-         if (refJeu [0][7] == -ROOK && 0 == refJeu [0][5] && 0 == refJeu [0][6] &&
-            !LCkingInCheck (refJeu, who, 0, 4) && ! LCkingInCheck (refJeu, who, 0, 5) && !LCkingInCheck (refJeu, who, 0, 6)) {
-            // les cases traversees par le roi ne sont pas echec au roi
-            memcpy (pl, refJeu, GAMESIZE);
-            list [nListe][0][4] = 0;
-            list [nListe][0][5] = -ROOK;
-            list [nListe][0][6] = -CASTLEKING;
-            list [nListe++][0][7] = 0;
-            pl += GAMESIZE;
-         }
-      }
-   }
-
    for (l = 0; l < N; l++) {
       for (c = 0; c < N; c++) {
          u = refJeu [l][c];
