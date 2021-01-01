@@ -1,7 +1,4 @@
 #define _DEFAULT_SOURCE // pour scandir
-#define NIL -9999999
-#define MAXLENBIG 10000
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -16,9 +13,11 @@
 // FEN notation
 // White : Majuscules, negatives. Black: Minuscules, positives. 
 
-const char dict [] = {'-', 'P', 'N', 'B', 'R', 'Q', 'K', 'K'};
-const char *unicode [] = {" ", "♟", "♞", "♝", "♜", "♛", "♚", "♚"};
-const char *strStatus [] = {"NO_EXIST", "EXIST", "IS_IN_CHECK", "UNVALID_IN_CHECK", "IS_MATE", "IS_PAT"};
+static const char dict [] = {'-', 'P', 'N', 'B', 'R', 'Q', 'K', 'K'};
+static const char *unicode [] = {" ", "♟", "♞", "♝", "♜", "♛", "♚", "♚"};
+static const char *strStatus [] = {"NO_EXIST", "EXIST", "IS_IN_CHECK", "UNVALID_IN_CHECK", "IS_MATE", "IS_PAT"};
+static const char *scoreToStr [] = {"-", "0-1","1/2-1/2","1-0"};
+
 
 int charToInt (int c) { /* */
    /* traduit la piece au format RNBQR... en nombre entier */
@@ -46,6 +45,8 @@ void printGame (TGAME jeu, int eval) { /* */
       normal =! normal; 
    }
    printf ("%s\n", NORMAL);
+   printf ("score: %s\n", scoreToStr [info.score]);
+
 }
 
 int fenToGame (char *fenComplete, TGAME sq64, char *ep, int *cpt50, int *nb) { /* */
@@ -60,7 +61,7 @@ int fenToGame (char *fenComplete, TGAME sq64, char *ep, int *cpt50, int *nb) { /
    int k, l = 7, c = 0;
    char *fen, cChar;
    char *sColor, *sCastle, *strNb, *str50, *strEp;
-   char copyFen [MAXLEN];
+   char copyFen [MAXBUFFER];
    bool bCastleW = false;  
    bool bCastleB = false;
    int activeColor = 1; //par defaut : noir
@@ -86,7 +87,7 @@ int fenToGame (char *fenComplete, TGAME sq64, char *ep, int *cpt50, int *nb) { /
       if (cChar == '/') continue;
       if (isdigit (cChar)) {
          for (k = 0; k < cChar - '0'; k++) {
-            sq64 [l][c] = VOID;
+            sq64 [l][c] = 0;
             c += 1;
          }
       }
@@ -116,13 +117,13 @@ char *gameToFen (TGAME sq64, char *fen, int color, char sep, bool complete, char
    bool castleB = false;
    for (int l = N-1; l >=  0; l--) {
       for (int c = 0; c < N; c++) {
-         if ((v = sq64 [l][c]) != VOID) {
+         if ((v = sq64 [l][c]) != 0) {
             if (v == CASTLEKING) castleB = true;
             if (v == -CASTLEKING) castleW = true;
             fen [i++] = (v >= 0) ? tolower (dict [v]) : dict [-v];
          }
          else {
-            for (n = 0; (c+n < N) && (sq64 [l][c+n] == VOID); n++);
+            for (n = 0; (c+n < N) && (sq64 [l][c+n] == 0); n++);
             fen [i++] = '0' + n;
             c += n - 1;
          }
@@ -144,17 +145,17 @@ void moveGame (TGAME sq64, int color, char *move) { /* */
    int cDep, lDep, cDest, lDest, i, j;
    
    if (strcmp (move, "O-O-O") == 0) {   // grand Roque
-      sq64 [base][4] = VOID;
+      sq64 [base][4] = 0;
       sq64 [base][3] = ROOK * color;
       sq64 [base][2] = KING * color;
-      sq64 [base][0] = VOID;
+      sq64 [base][0] = 0;
       return;
    }
    if (strcmp (move, "O-O") == 0) {     // petit Roque
-      sq64 [base][4] = VOID;
+      sq64 [base][4] = 0;
       sq64 [base][5] = ROOK * color;
       sq64 [base][6] = KING * color;
-      sq64 [base][7] = VOID;
+      sq64 [base][7] = 0;
       return;
    }
    i = isupper (move[0]) ? 1 : 0; // nom de piece optionnel. S'il existe c'est une Majuscule.
@@ -167,7 +168,36 @@ void moveGame (TGAME sq64, int color, char *move) { /* */
   
    // on regarde si promotion comme dans : Pf2-f1=Q
    sq64 [lDest][cDest] = (move [strlen (move)-2] == '=') ? -color*(charToInt (move[strlen (move)-1])) : sq64 [lDep][cDep];
-   sq64 [lDep][cDep] = VOID;
+   sq64 [lDep][cDep] = 0;
+}
+
+bool opening (const char *fileName, char *gameFen, char *sComment, char *move) { /* */
+   /* lit le fichier des ouvertures et produit le jeu final */
+   /* ce fichier est au forma CSV : FENstring ; dep ; commentaire */
+   /* dep contient le deplacement en notation algebrique complete Xe2:e4[Y] | O-O | O-O-O */
+   /* X : piece joue. Y : promotion,  O-O : petit roque,  O-O-O : grand roque */
+   /* renseihne la chaine move (deplacement choisi) et le commentaire associe */
+   /* renvoie vrai si ouverture trouvee dans le fichier, faux sinon */
+   FILE *fe;
+   char line [MAXBUFFER];
+   char *ptComment = sComment;
+   char *ptDep = move;
+   char *sFEN;
+   unsigned int lenGameFen = strlen (gameFen);
+   if ((fe = fopen (fileName, "r")) == NULL) return false;
+   while (fgets (line, MAXBUFFER, fe) != NULL) {
+      // les deux fen string matchent si l'un commence par le debut de l'autre. MIN des longueurs.
+      if (((sFEN = strtok (line, ";")) != NULL) && 
+           (strncmp (sFEN, gameFen, MIN(strlen (sFEN), lenGameFen)) == 0)) {
+         if ((ptDep = strtok (NULL, ";")) != NULL) {
+            ptComment = strtok (NULL, "\n");
+            strcpy (sComment, (ptComment != NULL) ? ptComment : "");
+         }
+         strcpy (move, ptDep);
+         return true;
+      }
+   }
+   return false;
 }
 
 bool openingAll (const char *dir, const char *filter, char *gameFen, char *sComment, char *move) {
@@ -179,8 +209,8 @@ bool openingAll (const char *dir, const char *filter, char *gameFen, char *sComm
 
    struct dirent **namelist;
    int n;
-   char fileName [MAXLEN];
-   char comment [MAXLEN];
+   char fileName [MAXBUFFER];
+   char comment [MAXBUFFER];
    n = scandir (dir, &namelist, 0, alphasort);
    if (n < 0) return false;
    for (int i = 0; i < n; i++) {
@@ -194,35 +224,6 @@ bool openingAll (const char *dir, const char *filter, char *gameFen, char *sComm
       free (namelist [i]);
    }
    free (namelist);
-   return false;
-}
-
-bool opening (const char *fileName, char *gameFen, char *sComment, char *move) { /* */
-   /* lit le fichier des ouvertures et produit le jeu final */
-   /* ce fichier est au forma CSV : FENstring ; dep ; commentaire */
-   /* dep contient le deplacement en notation algebrique complete Xe2:e4[Y] | O-O | O-O-O */
-   /* X : piece joue. Y : promotion,  O-O : petit roque,  O-O-O : grand roque */
-   /* renseihne la chaine move (deplacement choisi) et le commentaire associe */
-   /* renvoie vrai si ouverture trouvee dans le fichier, faux sinon */
-   FILE *fe;
-   char line [MAXLEN];
-   char *ptComment = sComment;
-   char *ptDep = move;
-   char *sFEN;
-   unsigned int lenGameFen = strlen (gameFen);
-   if ((fe = fopen (fileName, "r")) == NULL) return false;
-   while (fgets (line, MAXLEN, fe) != NULL) {
-      // les deux fen string matchent si l'un commence par le debut de l'autre. MIN des longueurs.
-      if (((sFEN = strtok (line, ";")) != NULL) && 
-           (strncmp (sFEN, gameFen, MIN(strlen (sFEN), lenGameFen)) == 0)) {
-         if ((ptDep = strtok (NULL, ";")) != NULL) {
-            ptComment = strtok (NULL, "\n");
-            strcpy (sComment, (ptComment != NULL) ? ptComment : "");
-         }
-         strcpy (move, ptDep);
-         return true;
-      }
-   }
    return false;
 }
 
@@ -273,7 +274,7 @@ char *abbrev (TGAME sq64, char *complete, char *abbr) { /* */
                sprintf (spec, "%c", c1 + 'a');  // Trouve. on donne la colonne
                break;
             }
-            if (sq64 [l2][i] != VOID) break;
+            if (sq64 [l2][i] != 0) break;
          }
       }
       if ((l1 == l2) && (c1 > c2)) {            // meme ligne, recherche a droite  
@@ -282,7 +283,7 @@ char *abbrev (TGAME sq64, char *complete, char *abbr) { /* */
                sprintf (spec, "%c", c1 + 'a');  // Trouve. On donne la colonne
                break;
             }
-            if (sq64 [l2][i] != VOID) break;
+            if (sq64 [l2][i] != 0) break;
          }
       }
       if ((c1 == c2) && (l1 < l2)) {            // meme colonne, recherche en bas 
@@ -291,7 +292,7 @@ char *abbrev (TGAME sq64, char *complete, char *abbr) { /* */
                sprintf (spec, "%c", l1 + '1');
                break;
             }
-            if (sq64 [i][c2] != VOID) break;
+            if (sq64 [i][c2] != 0) break;
          }
       }
       if ((c1 == c2) && (l1 > l2)) {            // meme colonne, recherce en haut  
@@ -300,7 +301,7 @@ char *abbrev (TGAME sq64, char *complete, char *abbr) { /* */
                sprintf (spec, "%c", l1 + '1');
                break;
             }
-            if (sq64 [i][c2] != VOID) break;
+            if (sq64 [i][c2] != 0) break;
          }
       }
       break;
@@ -353,14 +354,14 @@ char *difference (TGAME sq64_1, TGAME sq64_2, int color, char *prise, char *comp
    sprintf (complete, "%s", "");
    l1 = c1 = l2 = c2 = NIL;
    lCastling = (color == -1) ? 0 : 7;
-   if (sq64_1[lCastling][4] == color*KING && sq64_2[lCastling][4] == VOID && // roque gauche
-      sq64_1[lCastling][0] == color*ROOK && sq64_2 [lCastling][0] == VOID) {
+   if (sq64_1[lCastling][4] == color*KING && sq64_2[lCastling][4] == 0 && // roque gauche
+      sq64_1[lCastling][0] == color*ROOK && sq64_2 [lCastling][0] == 0) {
       sprintf (complete, "%s", "O-O-O");
       sprintf (abbr, "%s", "O-O-O");
       return complete;
    }
-   if (sq64_1[lCastling][4] == color*KING && sq64_2[lCastling][4] == VOID && // roque droit
-      sq64_1[lCastling][7] == color*ROOK && sq64_2 [lCastling][7] == VOID) {
+   if (sq64_1[lCastling][4] == color*KING && sq64_2[lCastling][4] == 0 && // roque droit
+      sq64_1[lCastling][7] == color*ROOK && sq64_2 [lCastling][7] == 0) {
       sprintf (complete, "%s", "O-O");
       sprintf (abbr, "%s", "O-O");
       return complete;
@@ -370,8 +371,8 @@ char *difference (TGAME sq64_1, TGAME sq64_2, int color, char *prise, char *comp
       lEp = epGamer [1] - '1';
       cEp = epGamer [0] - 'a';
       if ((cEp > 0) && (sq64_1 [lEp+color][cEp-1] == color * PAWN) &&      // vers droite
-         (sq64_1[lEp][cEp] == VOID) && (sq64_1 [lEp+color][cEp] == -color * PAWN) &&
-         (sq64_2 [lEp+color][cEp-1] == VOID) && 
+         (sq64_1[lEp][cEp] == 0) && (sq64_1 [lEp+color][cEp] == -color * PAWN) &&
+         (sq64_2 [lEp+color][cEp-1] == 0) && 
          (sq64_2 [lEp][cEp] == color * PAWN) && (sq64_2 [lEp+color][cEp] == 0)) {
          *prise = (color == 1) ? dict [PAWN] : tolower (dict [PAWN]);      // on prend la couleur opposee
          sprintf (complete, "%c%c%d%c%c%d .e.p.", cCharPiece, cEp-1+'a', lEp+color+ 1 , 'x', cEp + 'a', lEp + 1);
@@ -379,8 +380,8 @@ char *difference (TGAME sq64_1, TGAME sq64_2, int color, char *prise, char *comp
          return complete;
       }
       if ((cEp < N) && (sq64_1 [lEp+color][cEp+1] == color * PAWN) &&      // vers gauche
-         (sq64_1 [lEp][cEp] == VOID) && (sq64_1 [lEp+color][cEp] == -color * PAWN) &&
-         (sq64_2 [lEp+color][cEp+1] == VOID) && 
+         (sq64_1 [lEp][cEp] == 0) && (sq64_1 [lEp+color][cEp] == -color * PAWN) &&
+         (sq64_2 [lEp+color][cEp+1] == 0) && 
          (sq64_2 [lEp][cEp] == color * PAWN) && (sq64_2 [lEp+color][cEp] == 0)) {
          *prise = (color == 1) ? dict [PAWN] : tolower (dict [PAWN]);      // on prend la couleur opposee
          sprintf (complete, "%c%c%d%c%c%d .e.p.", cCharPiece, cEp+1+'a', lEp+color+ 1 , 'x', cEp + 'a', lEp + 1);
@@ -453,14 +454,15 @@ void sendGame (const char *fen, struct sinfo info, int reqType) { /* */
       printf ("\"endName\" : \"%s\",\n", info.endName);
       printf ("\"wdl\" : \"%u\",\n", info.wdl);
       printf ("\"computePlayC\" : \"%s\",\n", info.computerPlayC);
-      printf ("\"computePlayA\" : \"%s\"", info.computerPlayA);
+      printf ("\"computePlayA\" : \"%s\",\n", info.computerPlayA);
+      printf ("\"score\" : \"%s\"", scoreToStr [info.score]);
    }
    if (reqType > 1) {
       printf (",\n\"dump\" : \"");
       printf ("  maxDepth=%d  nEvalCall=%d  nLCKingInCheck=%d", info.maxDepth, 
          info.nEvalCall, info.nLCKingInCheckCall);
       printf ("  nBuildList=%d  nValidComputerPos=%d", info.nBuildListCall, info.nValidComputerPos);
-      printf ("  nValidPlayerPos=%d\"", info.nValidGamerPos);
+      printf ("  nValidPlayerPos=%d  nMaxList=%d\"", info.nValidGamerPos, info.nMaxList);
    }
    printf ("\n}\n");
 }

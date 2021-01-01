@@ -14,12 +14,12 @@ int buildListEnPassant (TGAME refJeu, register int who, char *epGamer, TLIST lis
    int lEp = epGamer [1] - '1';
    int cEp = epGamer [0] - 'a';
    if ((cEp > 0) && (refJeu [lEp+who][cEp-1] == who * PAWN) &&      // vers droite
-      (refJeu[lEp][cEp] == VOID) && (refJeu [lEp+who][cEp] == -who * PAWN)) {
+      (refJeu[lEp][cEp] == 0) && (refJeu [lEp+who][cEp] == -who * PAWN)) {
       pl = pushList (refJeu, list, nListe++, pl, lEp+who, cEp-1, lEp, cEp, who * PAWN);
       list [nListe -1][lEp+who][cEp] = 0;
    }
    if ((cEp < N) && (refJeu [lEp+who][cEp+1] == who * PAWN) &&      // vers gauche
-      (refJeu [lEp][cEp] == VOID) && (refJeu [lEp+who][cEp] == -who * PAWN)) { 
+      (refJeu [lEp][cEp] == 0) && (refJeu [lEp+who][cEp] == -who * PAWN)) { 
       pl = pushList (refJeu, list, nListe++, pl, lEp+who, cEp+1, lEp, cEp, who * PAWN);
       list [nListe -1][lEp+who][cEp] = 0;
    }
@@ -220,6 +220,7 @@ int buildList (TGAME refJeu, register int who, TLIST list) { /* */
          } //fin du switch
       }    // fin des deux for imbriques
    }
+   if ((nextL + nListe) > info.nMaxList) info.nMaxList = nextL + nListe;
    return nListe;
 }
 

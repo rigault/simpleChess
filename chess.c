@@ -27,19 +27,10 @@
 #include <unistd.h>
 #include <math.h>
 
-#define HELP "Syntax; sudo ./chess.cgi -i|-r|-h|-p|-t [FEN string] [level]"
-
-#define NDEPTH 3                   // pour fMaxDepth ()
-#define MAXPIECESSYZYGY 6
-#define MAXNBOPENINGS 8            // on ne regarde pas la biblio ouverture a partir de ce nb de coups
-#define MAXTHREADS 128             // nombre max de thread
-#define KINGINCHECKEVAL 1          // evaluation du gain d'un echec au roi..
-#define MATE 1000000
-#define MAXBUFFER 10000            // tampon de caracteres pour longues chaines
-#define MAXLENGTH 255              // pour ligne
-
 #include "chessUtil.h"
 #include "syzygy.h"
+
+FILE *flog;
 
 struct sGetInfo {                  // description de la requete emise par le client
    char fenString [MAXLENGTH];     // le jeu
@@ -59,13 +50,15 @@ int tEval [MAXTHREADS];
 TGAME sq64 = {
    {-ROOK, -KNIGHT, -BISHOP, -QUEEN, -KING, -BISHOP, -KNIGHT, -ROOK},
    {-PAWN, -PAWN, -PAWN, -PAWN, -PAWN, -PAWN, -PAWN, -PAWN},
-   {VOID, VOID, VOID, VOID, VOID, VOID, VOID, VOID},
-   {VOID, VOID, VOID, VOID, VOID, VOID, VOID, VOID},
-   {VOID, VOID, VOID, VOID, VOID, VOID, VOID, VOID},
-   {VOID, VOID, VOID, VOID, VOID, VOID, VOID, VOID},
+   {0, 0, 0, 0, 0, 0, 0, 0},
+   {0, 0, 0, 0, 0, 0, 0, 0},
+   {0, 0, 0, 0, 0, 0, 0, 0},
+   {0, 0, 0, 0, 0, 0, 0, 0},
    {PAWN, PAWN, PAWN, PAWN, PAWN, PAWN, PAWN, PAWN},
    {ROOK, KNIGHT, BISHOP, QUEEN, KING, BISHOP, KNIGHT, ROOK}
 };
+TLIST list;
+int nextL; // nombre total utilisé dans la pile
 
 int fMaxDepth (int lev, struct sinfo info) { /* */
    /* renvoie la profondeur du jeu en fonction du niveau choisi et */
@@ -203,13 +196,15 @@ int evaluation (TGAME sq64, register int who) { /* */
    /* fonction d'evaluation retournant MATE si Ordinateur gagne, */
    /* -MAT si joueur gagne, 0 si nul,... */
    register int l, c, v, eval;
-   int lwho, cwho, ladverse, cadverse, dist;
+   int lwho, cwho, ladverse, cadverse, nBishopPlus, nBishopMinus;
    bool kingInCheck;
    lwho = cwho = ladverse = cadverse = 0;
    eval = 0;
+   nBishopPlus = nBishopMinus = 0;
    info.nEvalCall += 1;
    for (l = 0; l < N; l++) {
       for (c = 0; c < N; c++) {
+        // eval des pieces
          eval += ((v = sq64 [l][c]) > 0 ? val [v] : -val [-v]);
          switch (v) {
          case KING : case CASTLEKING :
@@ -220,25 +215,42 @@ int evaluation (TGAME sq64, register int who) { /* */
             if (who == 1) { ladverse = l; cadverse = c; }
             else  {lwho = l; cwho = c;}
             break;
-         case PAWN: case KNIGHT: // on privilégie les pions et cavaliers au centre
-            if (c >= 2 && c <= 5 && l >= 2 && l <= 5) eval += 1;
-            // eval += 5-l; // plus on est proche de la dame plus le pion a de la valeur
+         case KNIGHT: // on privilégie cavaliers au centre
+            if (c >= 2 && c <= 5 && l >= 2 && l <= 5) eval += BONUSCENTER;
             break;
-         case -PAWN: case -KNIGHT:
-            if (c >= 2 && c <= 5 && l >= 2 && l <= 5) eval -= 1;
-            // eval -= l-2;
+         case -KNIGHT:
+            if (c >= 2 && c <= 5 && l >= 2 && l <= 5) eval -= BONUSCENTER;
+            break;
+         case BISHOP: // on atribue un bonus si deux fous de la meme couleur
+            nBishopPlus += 1;
+            break;
+         case -BISHOP:
+            nBishopMinus += 1;
+            break;
+         case ROOK: // bonus si tour mobile
+            if (l == 7) {
+              if (((c == 0) && sq64 [6][0] == 0) || ((c == 7) && sq64 [6][7] == 0)) 
+                 eval += BONUSMOVEROOK;   
+            }
+            break;
+         case -ROOK:
+            if (l == 0) {
+              if (((c == 0) && sq64 [1][0] == 0) || ((c == 7) && sq64 [1][7] == 0)) 
+               eval -= BONUSMOVEROOK;   
+            }
+            break;
+         case PAWN: // Bonus si pion avance
+            eval += l * BONUSPAWNAHEAD; //  
+            break;
+         case -PAWN: // Bonus si pion avance
+            eval -= (N - l) * BONUSPAWNAHEAD; //  
             break;
          default:;
          }
      }
    }
-   dist = 0;
-   for (l = 0; l < N; l++) // on calcule la somme des distances au roi adverse
-      for (c = 0; c < N; c++)
-         if (sq64 [l][c] * who > 1)
-             dist += abs (cadverse - c) + abs (ladverse - l);
-
-   eval += -who * dist;
+   if (nBishopPlus >= 2) eval += BONUSBISHOP;
+   if (nBishopMinus >= 2) eval -= BONUSBISHOP;
    if (LCkingInCheck(sq64, who, lwho, cwho)) return -who * MATE; // who ne peut pas jouer et se mettre en echec
    kingInCheck = LCkingInCheck(sq64, -who, ladverse, cadverse);
    if (kingCannotMove(sq64, -who)) { 
@@ -332,7 +344,7 @@ void updateInfo (TGAME sq64) { /* */
    }
    if (info.computerKingState == EXIST) {
       if (LCkingInCheck(sq64, -info.gamerColor, info.lComputerKing, info.cComputerKing))
-         info.computerKingState = ISINCHECK; // pas le droit d'etre ehec apres avoir joue
+         info.computerKingState = ISINCHECK;
       if (kingCannotMove(sq64, -info.gamerColor)) {
          if (info.computerKingState == ISINCHECK) info.computerKingState = ISMATE;
          else info.computerKingState = ISPAT;
@@ -340,9 +352,13 @@ void updateInfo (TGAME sq64) { /* */
    }
    info.nValidGamerPos = buildList(sq64, info.gamerColor, list);
    info.nValidComputerPos = buildList(sq64, -info.gamerColor, list);
-   info.end = ((info.gamerKingState != EXIST && info.gamerKingState != ISINCHECK) ||
-               (info.computerKingState != EXIST && info.computerKingState != ISINCHECK));
-   
+
+   if (info.computerKingState == ISMATE) 
+      info.score = (info.gamerColor == -1) ? WHITEWIN : BLACKWIN;
+   else if (info.gamerKingState == ISMATE)
+      info.score = (info.gamerColor == -1) ? BLACKWIN: WHITEWIN;
+   else if (info.computerKingState == ISPAT || info.gamerKingState == ISPAT || info.cpt50 > 50)
+      info.score = DRAW;
 }
 
 int find (TGAME sq64, TGAME bestSq64, int *bestNote, int color) { /* */
@@ -352,7 +368,7 @@ int find (TGAME sq64, TGAME bestSq64, int *bestNote, int color) { /* */
    long k;
    pthread_t tThread [MAXTHREADS];
    int possible [MAXSIZELIST]; // tableau contenant les indice de jeux ayant la meilleure note
-   char fen [MAXLEN] = "";
+   char fen [MAXBUFFER] = "";
    
    *bestNote = 0; 
    nextL = buildList(sq64, color, list);
@@ -404,9 +420,9 @@ int find (TGAME sq64, TGAME bestSq64, int *bestNote, int color) { /* */
           perror ("pthread_join");
           return EXIT_FAILURE;
       }
-    printGame (sq64, 0);
-    printf ("===============================\n");
-    for (int k = 0; k < nextL; k++) printGame (list [k], tEval [k]);
+   // printGame (sq64, 0);
+   // printf ("===============================\n");
+   // for (int k = 0; k < nextL; k++) printGame (list [k], tEval [k]);
    // tEval contient les évaluations de toutes les possibilites
    // recherche de la meilleure note
    for (k = 0; k < nextL; k++) {
@@ -451,7 +467,6 @@ void computerPlay (TGAME sq64, int color) { /* */
    if ((info.nValidComputerPos = find (sq64, bestSq64, &info.evaluation, color)) != 0) {
       difference (sq64, bestSq64, color, &info.lastCapturedByComputer, info.computerPlayC, info.computerPlayA, 
          info.epGamer, info.epComputer);
-      printf ("nvald :%d\n", info.nValidComputerPos);
       if (color == 1) info.nb += 1;
       if (abs (info.computerPlayC [0] == 'P') ||  info.computerPlayC [3] == 'x') // si un pion bouge ou si prise
          info.cpt50 = 0;
@@ -526,7 +541,7 @@ int main (int argc, char *argv[]) { /* */
    TGAME oldSq64;
    // preparation du fichier log 
    flog = fopen (F_LOG, "a");
-   info.wdl = 9;           // valeur inateignable montrant que syzygy n'a pas ete appelee
+   info.wdl = 9;           // aleur inateignable montrant que syzygy n'a pas ete appelee
    srand (time (NULL));    // initialise le generateur aleatoire
    info.gamerColor = 1;
    if (argc >= 2 && argv [1][0] == '-') {
@@ -551,7 +566,6 @@ int main (int argc, char *argv[]) { /* */
          printf ("fen: %s\n", fen);
          printf ("move: %s %s %c\n", info.computerPlayC, (info.lastCapturedByComputer != '\0') ? "taken:": "", 
                  info.lastCapturedByComputer);
-         printf ("etat: %s\n", (info.end) ? "END" : "ONGOING");
          break;
       case 'd': // test difference
          fenToGame ("2k5/8/8/8/4Pp2/8/8/2K5+b+-+e3+50+1", oldSq64, info.epGamer, &info.cpt50, &info.nb);
@@ -566,6 +580,20 @@ int main (int argc, char *argv[]) { /* */
          printf ("Dep Abrege: %s\n", info.computerPlayA);
          printf ("ep Gamer: %s\n", info.epGamer);
          break;
+      case 'e': // endurance
+         while (info.score == ONGOING) {
+            info.lastCapturedByComputer = '\0';
+            printGame (sq64, evaluation (sq64, -info.gamerColor));
+            computerPlay (sq64, -info.gamerColor);
+            printf ("clockTime: %ld, time: %ld, note: %d, eval: %d, computerStatus: %d, playerStatus: %d\n", 
+                 info.nClock, info.computeTime, info.note, info.evaluation, info.computerKingState, info.gamerKingState); 
+            printf ("comment: %s%s\n", info.comment, info.endName);
+            printf ("move: %s\n", info.computerPlayC);
+            info.gamerColor *= -1;
+         }
+         printf ("final\n");
+         printGame (sq64,  evaluation (sq64, -info.gamerColor));
+         break;      
       case 't':
          // tests
          printGame (sq64, evaluation (sq64, -info.gamerColor));
@@ -580,7 +608,7 @@ int main (int argc, char *argv[]) { /* */
          printf ("whe have the: %s\n", (info.gamerColor == -1) ? "Whites" : "Blacks");
          printGame (sq64, evaluation (sq64, -info.gamerColor));
          bool player = (info.gamerColor == -1); 
-         while (! info.end) {
+         while (info.score == ONGOING) {
             if (player) { // joueur joue
                printf ("gamer move: ");
                while (scanf ("%s", strMove) != 1);

@@ -3,7 +3,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
 #include "tbprobe.h"
 
 #define BOARD_RANK_1  0x00000000000000FFull
@@ -13,7 +12,7 @@
 #define file(s)       ((s) & 0x07)
 #define board(s)      ((uint64_t)1 << (s))
 
-static const char *wdl_to_str[5] = {
+static const char *wdl_to_str[] = {
    "0-1",
    "1/2-1/2",
    "1/2-1/2",
