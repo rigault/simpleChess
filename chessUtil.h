@@ -3,7 +3,7 @@
 #define VERSION "2.1"
 #define DESCRIPTION "Chess Rene Rigault 2021"
 #define PATHTABLE "/var/www/html/chessdata"           // table de fin de jeux SYZYGY.
-#define OPENINGDIR "/home/rr/git/simplechess/bigfen"  // repetoire des ouvertures
+#define OPENINGDIR "/home/rr/git/simplechess/bigfen"  // repertoire des ouvertures
 #define N 8
 #define MAXSIZELIST 128            // taille max liste des jeux
 #define MAXTHREADS 128             // nombre max de thread. Garder ces deux valeurs egales.
@@ -17,12 +17,14 @@
 #define MAXNBOPENINGS 8            // on ne regarde pas la biblio ouverture a partir de ce nb de coups
 #define KINGINCHECKEVAL 1          // evaluation du gain d'un echec au roi..
 #define BONUSCENTER 10             // evaluation du gain d'avoir un cavalier au centre
-#define BONUSPAWNAHEAD 1           // evaluation du gain d'avoir un pion avance
+#define BONUSPAWNAHEAD 4           // evaluation du gain d'avoir un pion avance
 #define BONUSBISHOP 10             // evaluation du gain d'avoir deux fous
 #define BONUSMOVEROOK 10           // evaluation du gain d'avoir une tour non bloquee
 #define MATE 1000000
 
-#define MIN(x,y) ((x<y)?(x):(y))
+#define MIN(x,y)      ((x<y)?(x):(y))
+#define LINE(z)       ((z) >> 3)   // z / 8 ligne
+#define COL(z)        ((z) & 0x07) // z % 8 colonne
 
 typedef char TGAME [N][N];  // jeu de 8 x 8 cases codant une piece sur un entier 8 bits avec signe
 typedef char TLIST [MAXSIZELIST][N][N];
@@ -30,7 +32,6 @@ typedef char TLIST [MAXSIZELIST][N][N];
 enum {VOID, PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING, CASTLEKING};
 enum KingState {NOEXIST, EXIST, ISINCHECK, UNVALIDINCHECK, ISMATE, ISPAT};
 enum Score {ONGOING, BLACKWIN, DRAW, WHITEWIN};
-
 
 struct sinfo {
    int nb;                       // nb de coup recus
@@ -68,6 +69,7 @@ struct sinfo {
    char epComputer [3];
    char epGamer [3];
    enum Score score;
+   int  nBestNote;               // nombre de podsibilites ayant la meilleure eval
 } info;
 
 extern int fenToGame (char *fenComplete, TGAME sq64, char *ep, int *cpt50, int *nb);

@@ -18,7 +18,6 @@ static const char *unicode [] = {" ", "♟", "♞", "♝", "♜", "♛", "♚", 
 static const char *strStatus [] = {"NO_EXIST", "EXIST", "IS_IN_CHECK", "UNVALID_IN_CHECK", "IS_MATE", "IS_PAT"};
 static const char *scoreToStr [] = {"-", "0-1","1/2-1/2","1-0"};
 
-
 int charToInt (int c) { /* */
    /* traduit la piece au format RNBQR... en nombre entier */
    int sign = islower (c) ? 1 : -1;
@@ -46,7 +45,6 @@ void printGame (TGAME jeu, int eval) { /* */
    }
    printf ("%s\n", NORMAL);
    printf ("score: %s\n", scoreToStr [info.score]);
-
 }
 
 int fenToGame (char *fenComplete, TGAME sq64, char *ep, int *cpt50, int *nb) { /* */
@@ -462,7 +460,8 @@ void sendGame (const char *fen, struct sinfo info, int reqType) { /* */
       printf ("  maxDepth=%d  nEvalCall=%d  nLCKingInCheck=%d", info.maxDepth, 
          info.nEvalCall, info.nLCKingInCheckCall);
       printf ("  nBuildList=%d  nValidComputerPos=%d", info.nBuildListCall, info.nValidComputerPos);
-      printf ("  nValidPlayerPos=%d  nMaxList=%d\"", info.nValidGamerPos, info.nMaxList);
+      printf ("  nValidPlayerPos=%d  nMaxList=%d", info.nValidGamerPos, info.nMaxList);
+      printf ("  nBestNote=%d\"", info.nBestNote);
    }
    printf ("\n}\n");
 }

@@ -60,11 +60,12 @@ int buildList (TGAME refJeu, register int who, TLIST list) { /* */
          pl += GAMESIZE;
       }
    }
-   for (l = 0; l < N; l++) {
-      for (c = 0; c < N; c++) {
-         u = refJeu [l][c];
-         v = who * u; // v = abs (u)
-         if (v > 0)
+   for (register int z =0; z < GAMESIZE; z++) { 
+      u = *(&refJeu[0][0] + z);
+      v = who * u; // v = abs (u)
+      if (v > 0) {
+         l = LINE (z);
+         c = COL (z);  
          switch (v) { // v est la valeur absolue car u < 0 ==> who < 0
          case PAWN:
          // deplacements du pion
@@ -218,8 +219,8 @@ int buildList (TGAME refJeu, register int who, TLIST list) { /* */
             break;
          default:;
          } //fin du switch
-      }    // fin des deux for imbriques
-   }
+      }    // fin du if
+   }       // fin du for sur z
    if ((nextL + nListe) > info.nMaxList) info.nMaxList = nextL + nListe;
    return nListe;
 }

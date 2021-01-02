@@ -26,6 +26,7 @@
 #include "syzygy.h"
 
 FILE *flog;
+bool test = false;
 
 struct sGetInfo {                  // description de la requete emise par le client
    char fenString [MAXLENGTH];     // le jeu
@@ -39,7 +40,6 @@ struct sGetInfo {                  // description de la requete emise par le cli
 // Le roi qui a roque a le code 7, le roi normal code 6
 // Voir fonction d'evaluation
 int val [] = {0, 1000, 3000, 3000, 5000, 9000, 0, 100};
-
 int tEval [MAXTHREADS];
 
 TGAME sq64 = {
@@ -197,53 +197,55 @@ int evaluation (TGAME sq64, register int who) { /* */
    eval = 0;
    nBishopPlus = nBishopMinus = 0;
    info.nEvalCall += 1;
-   for (l = 0; l < N; l++) {
-      for (c = 0; c < N; c++) {
+   for (register int z = 0; z < GAMESIZE; z++) {
         // eval des pieces
-         eval += ((v = sq64 [l][c]) > 0 ? val [v] : -val [-v]);
-         switch (v) {
-         case KING : case CASTLEKING :
-            if (who == 1) { lwho = l; cwho = c; }
-            else  { ladverse = l; cadverse = c; }
-            break;
-         case -KING: case -CASTLEKING :
-            if (who == 1) { ladverse = l; cadverse = c; }
-            else  {lwho = l; cwho = c;}
-            break;
-         case KNIGHT: // on privilégie cavaliers au centre
-            if (c >= 2 && c <= 5 && l >= 2 && l <= 5) eval += BONUSCENTER;
-            break;
-         case -KNIGHT:
-            if (c >= 2 && c <= 5 && l >= 2 && l <= 5) eval -= BONUSCENTER;
-            break;
-         case BISHOP: // on atribue un bonus si deux fous de la meme couleur
-            nBishopPlus += 1;
-            break;
-         case -BISHOP:
-            nBishopMinus += 1;
-            break;
-         case ROOK: // bonus si tour mobile
-            if (l == 7) {
-              if (((c == 0) && sq64 [6][0] == 0) || ((c == 7) && sq64 [6][7] == 0)) 
-                 eval += BONUSMOVEROOK;   
-            }
-            break;
-         case -ROOK:
-            if (l == 0) {
-              if (((c == 0) && sq64 [1][0] == 0) || ((c == 7) && sq64 [1][7] == 0)) 
-               eval -= BONUSMOVEROOK;   
-            }
-            break;
-         case PAWN: // Bonus si pion avance
-            eval += l * BONUSPAWNAHEAD; //  
-            break;
-         case -PAWN: // Bonus si pion avance
-            eval -= (N - l) * BONUSPAWNAHEAD; //  
-            break;
-         default:;
+      if (*(&sq64 [0][0] + z) == 0) continue;
+      l = LINE (z);
+      c = COL (z);
+      eval += ((v = sq64 [l][c]) > 0 ? val [v] : -val [-v]);
+      switch (v) {
+      case KING : case CASTLEKING :
+         if (who == 1) { lwho = l; cwho = c; }
+         else  { ladverse = l; cadverse = c; }
+         break;
+      case -KING: case -CASTLEKING :
+         if (who == 1) { ladverse = l; cadverse = c; }
+         else  {lwho = l; cwho = c;}
+         break;
+      case KNIGHT: // on privilégie cavaliers au centre
+         if (c >= 2 && c <= 5 && l >= 2 && l <= 5) eval += BONUSCENTER;
+         break;
+      case -KNIGHT:
+         if (c >= 2 && c <= 5 && l >= 2 && l <= 5) eval -= BONUSCENTER;
+         break;
+      case BISHOP: // on attribue un bonus si deux fous de la meme couleur
+         nBishopPlus += 1;
+         break;
+      case -BISHOP:
+         nBishopMinus += 1;
+         break;
+      case ROOK: // bonus si tour mobile
+         if (l == 7) {
+           if (((c == 0) && sq64 [6][0] == 0) || ((c == 7) && sq64 [6][7] == 0)) 
+              eval += BONUSMOVEROOK;   
          }
-     }
+         break;
+      case -ROOK:
+         if (l == 0) {
+           if (((c == 0) && sq64 [1][0] == 0) || ((c == 7) && sq64 [1][7] == 0)) 
+            eval -= BONUSMOVEROOK;   
+         }
+         break;
+      case PAWN: // Si noir, plus on est pres de la ligne 0, mieuxx c'est
+         eval += ((N - 1) - l) * BONUSPAWNAHEAD;  
+         break;
+      case -PAWN: // Si blanc, le contraire
+         eval -= l * BONUSPAWNAHEAD;
+         break;
+      default:;
+      }
    }
+   // printf ("eval 1 : %d\n", eval);
    if (nBishopPlus >= 2) eval += BONUSBISHOP;
    if (nBishopMinus >= 2) eval -= BONUSBISHOP;
    if (LCkingInCheck(sq64, who, lwho, cwho)) return -who * MATE; // who ne peut pas jouer et se mettre en echec
@@ -415,9 +417,11 @@ int find (TGAME sq64, TGAME bestSq64, int *bestNote, int color) { /* */
           perror ("pthread_join");
           return EXIT_FAILURE;
       }
-   // printGame (sq64, 0);
-   // printf ("===============================\n");
-   // for (int k = 0; k < nextL; k++) printGame (list [k], tEval [k]);
+   if (test) {
+      printGame (sq64, 0);
+      printf ("===============================\n");
+      for (int k = 0; k < nextL; k++) printGame (list [k], tEval [k]);
+   }
    // tEval contient les évaluations de toutes les possibilites
    // recherche de la meilleure note
    for (k = 0; k < nextL; k++) {
@@ -426,13 +430,13 @@ int find (TGAME sq64, TGAME bestSq64, int *bestNote, int color) { /* */
       if (color == -1 && tEval [k] < *bestNote)
          *bestNote = tEval [k];
    }
-   // printf ("bestNote : %d\n", *bestNote); 
    // construction de la liste des jeux aillant la meilleure note
    i = 0;
    for (k = 0; k < nextL; k++)
       if (tEval [k] == *bestNote)
          possible [i++] = k; // liste des indice de jeux ayant la meilleure note
-
+   if (test) printf ("Nb de jeu : %d ayant la meilleure note : %d \n", i, *bestNote); 
+   info.nBestNote = i;
    random  = rand () % i; // renvoie un entier >=  0 et strictement inferieur a i
    k = possible [random]; // indice du jeu choisi au hasard
    // k = possible [0];      // deterministe A ENLEVER SI RANDOM PREFERE
@@ -536,14 +540,17 @@ int main (int argc, char *argv[]) { /* */
    TGAME oldSq64;
    // preparation du fichier log 
    flog = fopen (F_LOG, "a");
-   info.wdl = 9;           // aleur inateignable montrant que syzygy n'a pas ete appelee
+   info.wdl = 9;           // valeur inateignable montrant que syzygy n'a pas ete appelee
    srand (time (NULL));    // initialise le generateur aleatoire
    info.gamerColor = 1;
-   if (argc >= 2 && argv [1][0] == '-') {
+
+   // si pas de parametres on va au cgi (fin se programme)
+   if (argc >= 2 && argv [1][0] == '-') { // si il y a des parametres. On choidi un test
       if (argc > 2) info.gamerColor = -fenToGame (argv [2], sq64, info.epGamer, &info.cpt50, &info.nb);
       if (argc > 3) getInfo.level = atoi (argv [3]);
       switch (argv [1][1]) {
-      case 'i':
+      case 'i': case 'I' :
+         test = (argv [1][1] == 'I');
          printf ("fen: %s, level: %d\n", 
             gameToFen (sq64, fen, -info.gamerColor, '+', true, info.epComputer, info.cpt50, info.nb), getInfo.level);
          computerPlay (sq64, -info.gamerColor);
@@ -574,6 +581,27 @@ int main (int argc, char *argv[]) { /* */
          printf ("Dep Complet: %s\n", info.computerPlayC);
          printf ("Dep Abrege: %s\n", info.computerPlayA);
          printf ("ep Gamer: %s\n", info.epGamer);
+         break;
+      case 'f': //performance
+         info.nClock = clock ();
+         for (int i = 0; i < getInfo.level * MILLION; i++)
+            LCkingInCheck (sq64, -1, 0, 4);
+         printf ("LCKingInCheck. clock: %lf\n", (double) (clock () - info.nClock)/CLOCKS_PER_SEC);
+         
+         info.nClock = clock ();
+         for (int i = 0; i < getInfo.level * MILLION; i++)
+            nextL = buildList(sq64, -info.gamerColor, list);         
+         printf ("buildList. clock: %lf\n", (double) (clock () - info.nClock)/CLOCKS_PER_SEC);
+         
+         info.nClock = clock ();
+         for (int i = 0; i < getInfo.level * MILLION; i++)
+            kingCannotMove (sq64, -1);
+         printf ("kingCannotMove. clock: %lf\n", (double) (clock () - info.nClock)/CLOCKS_PER_SEC);
+         
+         info.nClock = clock ();
+         for (int i = 0; i < getInfo.level * MILLION; i++)
+            evaluation (sq64, 1);
+         printf ("evaluation. clock: %lf\n", (double) (clock () - info.nClock)/CLOCKS_PER_SEC);
          break;
       case 'e': // endurance
          while (info.score == ONGOING) {
@@ -633,12 +661,16 @@ int main (int argc, char *argv[]) { /* */
          }
          else printf ("KO\n");
          break;
-      case 'm':
+      case 'm': 
          printf ("%d\n", fMaxDepth (atoi (argv [2]), info));
          break;
       case 'h':
          printf ("%s\n", HELP);
          break;
+      case 'v':
+         printf ("Eval: %d\n", evaluation (sq64, -info.gamerColor));
+         break;
+         
       default: break;
       }
    }
