@@ -460,7 +460,7 @@ void sendGame (const char *fen, struct sinfo info, int reqType) { /* */
       printf ("  maxDepth=%d  nEvalCall=%d  nLCKingInCheck=%d", info.maxDepth, 
          info.nEvalCall, info.nLCKingInCheckCall);
       printf ("  nBuildList=%d  nValidComputerPos=%d", info.nBuildListCall, info.nValidComputerPos);
-      printf ("  nValidPlayerPos=%d  nMaxList=%d", info.nValidGamerPos, info.nMaxList);
+      printf ("  nValidPlayerPos=%d", info.nValidGamerPos);
       printf ("  nBestNote=%d\"", info.nBestNote);
    }
    printf ("\n}\n");

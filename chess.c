@@ -54,6 +54,7 @@ TGAME sq64 = {
 };
 TLIST list;
 int nextL; // nombre total utilisé dans la pile
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 int fMaxDepth (int lev, struct sinfo info) { /* */
    /* renvoie la profondeur du jeu en fonction du niveau choisi et */
@@ -69,98 +70,385 @@ int fMaxDepth (int lev, struct sinfo info) { /* */
    return lev;
 }
 
-bool LCkingInCheck (TGAME sq64, register int who, register int l, register int c) { /* */
-   /* vrai si le roi situe case l, c est echec au roi */
-   /* "who" est la couleur du roi qui est attaque */
-   register int w, w1, w2, i, j, k;
-   info.nLCKingInCheckCall += 1;
+bool LCBlackKingInCheck (TGAME sq64, register int l, register int c) { /* */
+   /* vrai si le roi Noir situe case l, c est echec au roi */
+   register int w, k;
+   //pthread_mutex_lock (&mutex);
+   //info.nLCKingInCheckCall += 1;
+   //pthread_mutex_unlock (&mutex);
 
-   // pion menace
-   if (who == -1) {
-      if (l < 7) {
-         if (c < 7 && sq64 [l+1][c+1] == PAWN) return true;
-         if (c > 0 && sq64 [l+1][c-1] == PAWN) return true;
-      }
-   }
-   else { //  who == 1
-      if (l > 0) {
-         if (c < 7 && sq64 [l-1][c+1] == -PAWN) return true;
-         if (c > 0 && sq64 [l-1][c-1] == -PAWN) return true;
-      }
-   } // fin if (who...
-   w1 = -who * KING;
-   w2 = -who * CASTLEKING;
-   // roi adverse  menace
-   if (l < 7 && (sq64 [l+1][c] == w1 || sq64 [l+1][c] == w2)) return true;
-   if (l > 0 && (sq64 [l-1][c] == w1 || sq64 [l-1][c] == w2)) return true;
-   if (c < 7 && (sq64 [l][c+1] == w1 || sq64 [l][c+1] == w2)) return true;
-   if (c > 0 && (sq64 [l][c-1] == w1 || sq64 [l][c-1] == w2)) return true;
-   if (l < 7 && c < 7 &&(sq64 [l+1][c+1] == w1 || sq64 [l+1][c+1] == w2)) return true;
-   if (l < 7 && c > 0 &&(sq64 [l+1][c-1] == w1 || sq64 [l+1][c-1] == w2)) return true;
-   if (l > 0 && c < 7 &&(sq64 [l-1][c+1] == w1 || sq64 [l-1][c+1] == w2)) return true;
-   if (l > 0 && c > 0 &&(sq64 [l-1][c-1] == w1 || sq64 [l-1][c-1] == w2)) return true;
+   // roi adverse  menace.  Matche -KING et -CASTLEKING
+   if (l < 7 && (-sq64 [l+1][c] >= KING)) return true;
+   if (l > 0 && (-sq64 [l-1][c] >= KING)) return true;
+   if (c < 7 && (-sq64 [l][c+1] >= KING)) return true;
+   if (c > 0 && (-sq64 [l][c-1] >= KING)) return true;
+   if (l < 7 && c < 7 && (-sq64 [l+1][c+1] >= KING)) return true;
+   if (l < 7 && c > 0 && (-sq64 [l+1][c-1] >= KING)) return true;
+   if (l > 0 && c < 7 && (-sq64 [l-1][c+1] >= KING || -sq64 [l-1][c+1] == PAWN)) return true;
+   if (l > 0 && c > 0 && (-sq64 [l-1][c-1] >= KING || -sq64 [l-1][c-1] == PAWN)) return true;
 
-   w = -who * KNIGHT;
    // cavalier menace
-   if (l < 7 && c < 6 && sq64 [l+1][c+2] == w) return true;
-   if (l < 7 && c > 1 && sq64 [l+1][c-2] == w) return true;
-   if (l < 6 && c < 7 && sq64 [l+2][c+1] == w) return true;
-   if (l < 6 && c > 0 && sq64 [l+2][c-1] == w) return true;
-   if (l > 0 && c < 6 && sq64 [l-1][c+2] == w) return true;
-   if (l > 0 && c > 1 && sq64 [l-1][c-2] == w) return true;
-   if (l > 1 && c < 7 && sq64 [l-2][c+1] == w) return true;
-   if (l > 1 && c > 0 && sq64 [l-2][c-1] == w) return true;
+   if (l < 7 && c < 6 && (-sq64 [l+1][c+2] == KNIGHT)) return true;
+   if (l < 7 && c > 1 && (-sq64 [l+1][c-2] == KNIGHT)) return true;
+   if (l < 6 && c < 7 && (-sq64 [l+2][c+1] == KNIGHT)) return true;
+   if (l < 6 && c > 0 && (-sq64 [l+2][c-1] == KNIGHT)) return true;
+   if (l > 0 && c < 6 && (-sq64 [l-1][c+2] == KNIGHT)) return true;
+   if (l > 0 && c > 1 && (-sq64 [l-1][c-2] == KNIGHT)) return true;
+   if (l > 1 && c < 7 && (-sq64 [l-2][c+1] == KNIGHT)) return true;
+   if (l > 1 && c > 0 && (-sq64 [l-2][c-1] == KNIGHT)) return true;
 
-   w1 = -who * QUEEN;
-   w2 = -who * ROOK;
    // tour ou reine menace
-   for (i = l+1; i < N; i++) {
-      w = sq64 [i][c];
-      if (w == w1 || w == w2) return true;
+   for (k = l+1; k < N; k++) {
+      w = -sq64 [k][c];
+      if (w == ROOK || w == QUEEN) return true;
       if (w != 0) break;
    }
-   for (i = l-1; i >= 0; i--) {
-      w = sq64 [i][c];
-      if (w == w1 || w == w2) return true;
+   for (k = l-1; k >= 0; k--) {
+      w = -sq64 [k][c];
+      if (w == ROOK || w == QUEEN) return true;
       if (w != 0) break;
    }
-   for (j = c+1; j < N; j++) {
-      w = sq64 [l][j];
-      if (w == w1 || w == w2) return true;
+   for (k = c+1; k < N; k++) {
+      w = -sq64 [l][k];
+      if (w == ROOK || w == QUEEN) return true;
       if (w != 0) break;
    }
-   for (j = c-1; j >= 0; j--) {
-      w = sq64 [l][j];
-      if (w == w1 || w == w2) return true;
+   for (k = c-1; k >= 0; k--) {
+      w = -sq64 [l][k];
+      if (w == ROOK || w == QUEEN) return true;
       if (w != 0) break;
    }
 
    // fou ou reine menace
-   w2 = -who * BISHOP;
    for (k = 0; k < MIN (7-l, 7-c); k++) { // vers haut droit
-      w = sq64 [l+k+1][c+k+1];
-      if (w == w1 || w == w2) return true;
+      w = -sq64 [l+k+1][c+k+1];
+      if ((w == BISHOP || w == QUEEN) != 0) return true;
       if (w != 0) break;
    }
    for (k = 0; k < MIN (7-l, c); k++) {// vers haut gauche
-      w = sq64 [l+k+1][c-k-1];
-      if (w == w1 || w == w2) return true;
+      w = -sq64 [l+k+1][c-k-1];
+      if ((w == BISHOP || w == QUEEN) != 0) return true;
       if (w != 0) break;
    }
    for (k = 0; k < MIN (l, 7-c); k++) { // vers bas droit
-      w = sq64 [l-k-1][c+k+1];
-      if (w == w1 || w == w2) return true;
+      w = -sq64 [l-k-1][c+k+1];
+      if ((w == BISHOP || w == QUEEN) != 0) return true;
       if (w != 0) break;
    }
    for (k = 0; k < MIN (l, c); k++) { // vers bas gauche
-      w = sq64 [l-k-1] [c-k-1];
-      if (w == w1 || w == w2) return true;
+      w = -sq64 [l-k-1] [c-k-1];
+      if ((w == BISHOP || w == QUEEN) != 0) return true;
       if (w != 0) break;
    }
    return false;
 }
 
-#include "buildlistsimple.c"
+bool LCWhiteKingInCheck (TGAME sq64, register int l, register int c) { /* */
+   /* vrai si le roi Blanc situe case l, c est echec au roi */
+   register int w, k;
+   //pthread_mutex_lock (&mutex);
+   //info.nLCKingInCheckCall += 1;
+   //pthread_mutex_unlock (&mutex);
+
+   // who : -1
+   // roi adverse  menace. >= KING marche KING et CASTLELING
+   if (l < 7 && (sq64 [l+1][c] >= KING)) return true;
+   if (l > 0 && (sq64 [l-1][c] >= KING)) return true;
+   if (c < 7 && (sq64 [l][c+1] >= KING)) return true;
+   if (c > 0 && (sq64 [l][c-1] >= KING)) return true;
+   if (l < 7 && c < 7 && (sq64 [l+1][c+1] >= KING || sq64 [l+1][c+1] == PAWN)) return true;
+   if (l < 7 && c > 0 && (sq64 [l+1][c-1] >= KING || sq64 [l+1][c-1] == PAWN)) return true;
+   if (l > 0 && c < 7 && (sq64 [l-1][c+1] >= KING)) return true;
+   if (l > 0 && c > 0 && (sq64 [l-1][c-1] >= KING)) return true;
+
+   // cavalier menace
+   if (l < 7 && c < 6 && (sq64 [l+1][c+2] == KNIGHT)) return true;
+   if (l < 7 && c > 1 && (sq64 [l+1][c-2] == KNIGHT)) return true;
+   if (l < 6 && c < 7 && (sq64 [l+2][c+1] == KNIGHT)) return true;
+   if (l < 6 && c > 0 && (sq64 [l+2][c-1] == KNIGHT)) return true;
+   if (l > 0 && c < 6 && (sq64 [l-1][c+2] == KNIGHT)) return true;
+   if (l > 0 && c > 1 && (sq64 [l-1][c-2] == KNIGHT)) return true;
+   if (l > 1 && c < 7 && (sq64 [l-2][c+1] == KNIGHT)) return true;
+   if (l > 1 && c > 0 && (sq64 [l-2][c-1] == KNIGHT)) return true;
+
+   // tour ou reine menace
+   for (k = l+1; k < N; k++) {
+      w = sq64 [k][c];
+      if (w == ROOK || w == QUEEN) return true;
+      if (w != 0) break;
+   }
+   for (k = l-1; k >= 0; k--) {
+      w = sq64 [k][c];
+      if (w == ROOK || w == QUEEN) return true;
+      if (w != 0) break;
+   }
+   for (k = c+1; k < N; k++) {
+      w = sq64 [l][k];
+      if (w == ROOK || w == QUEEN) return true;
+      if (w != 0) break;
+   }
+   for (k = c-1; k >= 0; k--) {
+      w = sq64 [l][k];
+      if (w == ROOK || w == QUEEN) return true;
+      if (w != 0) break;
+   }
+
+   // fou ou reine menace
+   for (k = 0; k < MIN (7-l, 7-c); k++) { // vers haut droit
+      w = sq64 [l+k+1][c+k+1];
+      if (w == BISHOP || w == QUEEN) return true;
+      if (w != 0) break;
+   }
+   for (k = 0; k < MIN (7-l, c); k++) {// vers haut gauche
+      w = sq64 [l+k+1][c-k-1];
+      if (w == BISHOP || w == QUEEN) return true;
+      if (w != 0) break;
+   }
+   for (k = 0; k < MIN (l, 7-c); k++) { // vers bas droit
+      w = sq64 [l-k-1][c+k+1];
+      if (w == BISHOP || w == QUEEN) return true;
+      if (w != 0) break;
+   }
+   for (k = 0; k < MIN (l, c); k++) { // vers bas gauche
+      w = sq64 [l-k-1] [c-k-1];
+      if (w == BISHOP || w == QUEEN) return true;
+      if (w != 0) break;
+   }
+   return false;
+}
+
+bool LCkingInCheck (TGAME sq64, register int who, register int l, register int c) { /* */
+   /* vrai si le roi situe case l, c est echec au roi */
+   /* "who" est la couleur du roi qui est attaque */
+   return (who == 1) ? LCBlackKingInCheck (sq64, l, c) : LCWhiteKingInCheck (sq64, l, c);
+}
+
+inline char *pushList (TGAME refJeu, TLIST list, int nListe, char *pl, int l1, int c1, int l2, int c2, int u) { /* */
+   /* pousse le jeu refJeu dans la liste avec les modifications specifiees */
+   memcpy (pl, refJeu, GAMESIZE);
+   list [nListe][l2][c2] = u;
+   list [nListe][l1][c1] = 0;
+   return (pl + GAMESIZE); 
+}
+
+int buildListEnPassant (TGAME refJeu, register int who, char *epGamer, TLIST list, int nextL) { /* */
+   /* apporte le complement de positions a buildList prenant en compte en Passant suggere par le joueur */
+   char *pl = &list [nextL][0][0];
+   int nListe = nextL;
+   if (epGamer [0] == '-') return nListe;
+   int lEp = epGamer [1] - '1';
+   int cEp = epGamer [0] - 'a';
+   if ((cEp > 0) && (refJeu [lEp+who][cEp-1] == who * PAWN) &&      // vers droite
+      (refJeu[lEp][cEp] == 0) && (refJeu [lEp+who][cEp] == -who * PAWN)) {
+      pl = pushList (refJeu, list, nListe++, pl, lEp+who, cEp-1, lEp, cEp, who * PAWN);
+      list [nListe -1][lEp+who][cEp] = 0;
+   }
+   if ((cEp < N) && (refJeu [lEp+who][cEp+1] == who * PAWN) &&      // vers gauche
+      (refJeu [lEp][cEp] == 0) && (refJeu [lEp+who][cEp] == -who * PAWN)) { 
+      pl = pushList (refJeu, list, nListe++, pl, lEp+who, cEp+1, lEp, cEp, who * PAWN);
+      list [nListe -1][lEp+who][cEp] = 0;
+   }
+   return nListe;
+}
+
+int buildList (TGAME refJeu, register int who, TLIST list) { /* */
+   /* construit la liste des jeux possibles a partir de jeu. */
+   /* 'who' joue */
+   register int u, v, k, l, c;
+   register int nListe = 0;
+   char *pl = &list [0][0][0];
+   char *pr = &refJeu [0][0];
+   // info.nBuildListCall += 1;
+   int base = (who == -1) ? 0 : 7;
+
+   // Roque
+   if (refJeu [base][4] == KING) {
+      // roque gauche
+      if (refJeu [base][0] == ROOK && 0 == refJeu [base][1] && 0 == refJeu [base][2] && 0 == refJeu [base][3] &&
+         !LCkingInCheck (refJeu, who, base, 3) && !LCkingInCheck (refJeu, who, base, 4)) {
+         // la case traversee par le roi et le roi ne sont pas echec au roi
+         memcpy (pl, refJeu, GAMESIZE);
+         list [nListe][base][0] = 0;
+         list [nListe][base][2] = CASTLEKING;
+         list [nListe][base][3] = ROOK;
+         list [nListe++][base][4] = 0; 
+         pl += GAMESIZE;
+      }
+      // Roque droit
+      if (refJeu [base][7] == ROOK && 0 == refJeu [base][5] && 0  == refJeu [base][6] &&
+         !LCkingInCheck (refJeu, who, base, 4) && !LCkingInCheck (refJeu, who, base, 5)) {
+         // la case traversee par le roi et le roi ne sont pas echec au roi
+         memcpy (pl, refJeu, GAMESIZE);
+         list [nListe][base][4] = 0;
+         list [nListe][base][5] = ROOK;
+         list [nListe][base][6] = CASTLEKING;
+         list [nListe++][base][7] = 0;
+         pl += GAMESIZE;
+      }
+   }
+   for (register int z = 0; z < GAMESIZE; z++) { 
+      u = *(pr++); // u est la valeur courante dans refJeu
+      v = who * u; // v = abs (u)
+      if (v > 0) {
+         l = LINE (z);
+         c = COL (z);  
+         switch (v) { // v est la valeur absolue car u < 0 ==> who < 0
+         case PAWN:
+         // deplacements du pion
+            if (who == -1 && l == 1 && 0 == refJeu [l+1][c] && 0 == refJeu[l+2][c]) {  // coup initial saut de 2 cases 
+               pl = pushList (refJeu, list, nListe++, pl, l, c, l+2, c, -PAWN);
+            }
+            if (who == 1 && l == 6 && 0 == refJeu [l-1][c] && 0 == refJeu [l-2][c]) {  // coup initial saut de 2 cases
+               pl = pushList (refJeu, list, nListe++, pl, l, c, l-2, c, PAWN);
+            }
+            if (((l-who) >= 0) && ((l-who) < 8) && (0 == refJeu [l-who][c])) {         // normal
+               memcpy (pl, refJeu, GAMESIZE);
+               if (l-1 == 0 && who == 1)  list [nListe][l-1][c] = QUEEN;
+               else if (l+1 == 7 && who == -1) list [nListe][l+1][c] = -QUEEN;
+               else list [nListe][l-who][c] = PAWN * who;
+               list [nListe][l][c] = 0;
+               pl += GAMESIZE; nListe += 1;
+            }
+            // prise a droite
+            if (c < 7 && (l-who) >=0 && (l-who) < N && refJeu [l-who][c+1]*who < 0) {  // signes opposes
+               memcpy (pl, refJeu, GAMESIZE);
+               if (l-1 == 0 && who == 1) list [nListe][l-1][c+1] = QUEEN;
+               else if (l+1 == 7 && who == -1) list [nListe][l+1][c+1] = -QUEEN;
+               else list [nListe][l-who][c+1] = PAWN * who;
+               list [nListe][l][c] = 0;
+               pl += GAMESIZE; nListe += 1;
+            }
+            // prise a gauche
+            if (c > 0 && (l-who) >= 0 && (l-who) < N && refJeu [l-who][c-1]*who < 0) { // signes opposes
+               memcpy (pl, refJeu, GAMESIZE);
+               if (l-1 == 0 && who == 1) list [nListe][l-1][c-1] = QUEEN;
+               else if (l+1 == 7 && who == -1) list [nListe][l+1][c-1] = -QUEEN;
+               else list [nListe][l-who][c-1] = PAWN * who;
+               list [nListe][l][c] = 0;
+               pl += GAMESIZE; nListe += 1;
+            }
+            break;
+         case KING: case CASTLEKING:
+            if (c < 7 && (u * refJeu [l][c+1] <= 0)) {
+               pl = pushList (refJeu, list, nListe++, pl, l, c, l, c+1, who * CASTLEKING);
+            }
+            if (c > 0 && (u * refJeu [l][c-1] <= 0)) {
+               pl = pushList (refJeu, list, nListe++, pl, l, c, l, c-1, who * CASTLEKING);
+            }
+            if (l < 7 && (u * refJeu [l+1][c] <= 0)) {
+               pl = pushList (refJeu, list, nListe++, pl, l, c, l+1, c, who * CASTLEKING);
+            }
+            if (l > 0 && (u * refJeu [l-1][c] <= 0)) {
+               pl = pushList (refJeu, list, nListe++, pl, l, c, l-1, c, who * CASTLEKING);
+            }
+            if ((l < 7) && (c < 7) && (u * refJeu [l+1][c+1] <= 0)) {
+               pl = pushList (refJeu, list, nListe++, pl, l, c, l+1, c+1, who * CASTLEKING);
+            }
+            if ((l < 7) && (c > 0) && (u * refJeu [l+1][c-1] <= 0)) {
+               pl = pushList (refJeu, list, nListe++, pl, l, c, l+1, c-1, who * CASTLEKING);
+            }
+            if ((l > 0) && (c < 7) && (u * refJeu [l-1][c+1] <= 0)) {
+               pl = pushList (refJeu, list, nListe++, pl, l, c, l-1, c+1, who * CASTLEKING);
+            }
+            if ((l > 0) && (c > 0) && (u * refJeu [l-1][c-1] <= 0)) {
+               pl = pushList (refJeu, list, nListe++, pl, l, c, l-1, c-1, who * CASTLEKING);
+            }
+            break;
+
+         case KNIGHT:
+            if (l < 7 && c < 6 && (u * refJeu [l+1][c+2] <= 0)) {
+               pl = pushList (refJeu, list, nListe++, pl, l, c, l+1, c+2, u);
+            }
+            if (l < 7 && c > 1 && (u * refJeu [l+1][c-2] <= 0)) {
+               pl = pushList (refJeu, list, nListe++, pl, l, c, l+1, c-2, u);
+            }
+            if (l < 6 && c < 7 && (u * refJeu [l+2][c+1] <= 0)) {
+               pl = pushList (refJeu, list, nListe++, pl, l, c, l+2, c+1, u);
+            }
+            if (l < 6 && c > 0 && (u * refJeu [l+2][c-1] <= 0)) {
+               pl = pushList (refJeu, list, nListe++, pl, l, c, l+2, c-1, u);
+            }
+            if (l > 0 && c < 6 && (u * refJeu [l-1][c+2] <= 0)) {
+               pl = pushList (refJeu, list, nListe++, pl, l, c, l-1, c+2, u);
+            }
+            if (l > 0  && c > 1 && (u * refJeu [l-1][c-2] <= 0)) {
+               pl = pushList (refJeu, list, nListe++, pl, l, c, l-1, c-2, u);
+            }
+            if (l > 1 && c < 7 && (u * refJeu [l-2][c+1] <= 0)) {
+               pl = pushList (refJeu, list, nListe++, pl, l, c, l-2, c+1, u);
+            }
+            if (l > 1 && c > 0 && (u * refJeu [l-2][c-1] <= 0)) {
+               pl = pushList (refJeu, list, nListe++, pl, l, c, l-2, c-1, u);
+            }
+            break;
+
+         case ROOK: case QUEEN:
+            for (k = l+1; k < N; k++) { // en haut
+               if (u * refJeu [k][c] <= 0) {
+                  pl = pushList (refJeu, list, nListe++, pl, l, c, k, c, u);
+                  if (refJeu [k][c] != 0)  break;
+               }
+               else break;
+            }
+            for (k = l-1; k >=0; k--) { // en bas
+               if (u * refJeu [k][c] <= 0) {
+                  pl = pushList (refJeu, list, nListe++, pl, l, c, k, c, u);
+                  if (refJeu [k][c] != 0) break;
+               }
+               else break;
+            }
+            for (k = c+1; k < N; k++) {  // a droite
+               if (u * refJeu [l][k] <= 0) {
+                  pl = pushList (refJeu, list, nListe++, pl, l, c, l, k, u);
+                  if (refJeu [l][k] != 0) break;
+               }
+               else break;
+            }
+            for (k = c-1; k >=0; k--)  { // a gauche
+               if (u * refJeu [l][k] <= 0) {
+                  pl = pushList (refJeu, list, nListe++, pl, l, c, l, k, u);
+                  if (refJeu [l][k] != 0) break;
+               }
+               else break;
+            }
+            if (v == ROOK) break;
+         // surtout pas de break pour la reine
+         case BISHOP : // valable aussi pour QUEEN
+            for (k = 0; k < MIN (7-l, 7-c); k++) { // vers haut droit
+               if (u * refJeu [l+k+1][c+k+1] <=0) {
+                  pl = pushList (refJeu, list, nListe++, pl, l, c, l+k+1, c+k+1, u);
+                  if (refJeu [l+k+1][c+k+1] != 0) break;
+               }
+               else break;
+            }
+            for (k = 0; k < MIN (7-l, c); k++) { // vers haut gauche
+               if (u * refJeu [l+k+1][c-k-1] <=0) {
+                  pl = pushList (refJeu, list, nListe++, pl, l, c, l+k+1, c-k-1, u);
+                  if (refJeu [l+k+1][c-k-1] != 0) break;
+               }
+               else break;
+            }
+            for (k = 0; k < MIN (l, 7-c); k++) { // vers bas droit
+               if (u * refJeu [l-k-1][c+k+1] <=0) {
+                  pl = pushList (refJeu, list, nListe++, pl, l, c, l-k-1, c+k+1, u);
+                  if (refJeu [l-k-1][c+k+1] != 0) break;
+               }
+               else break;
+            }
+            for (k = 0; k < MIN (l, c); k++) { // vers bas gauche
+               if (u * refJeu [l-k-1][c-k-1] <=0) {
+                  pl = pushList (refJeu, list, nListe++, pl, l, c, l-k-1, c-k-1, u);
+                  if (refJeu [l-k-1][c-k-1] != 0) break;
+               }
+               else break;
+            }
+            break;
+         default:;
+         } //fin du switch
+      }    // fin du if
+   }       // fin du for sur z
+   return nListe;
+}
 
 bool fKingInCheck (TGAME sq64, register int who) { /* */
    /* retourne vrai si le roi "who" est en echec */
@@ -187,22 +475,25 @@ bool kingCannotMove (TGAME sq64, register int who) { /* */
    return true;
 }
 
-int evaluation (TGAME sq64, register int who) { /* */
+int evaluation (TGAME sq64, int who) { /* */
    /* fonction d'evaluation retournant MATE si Ordinateur gagne, */
    /* -MAT si joueur gagne, 0 si nul,... */
-   register int l, c, v, eval;
+   int l, c, v, eval;
+   char *p64 = &sq64 [0][0];
    int lwho, cwho, ladverse, cadverse, nBishopPlus, nBishopMinus;
    bool kingInCheck;
    lwho = cwho = ladverse = cadverse = 0;
    eval = 0;
    nBishopPlus = nBishopMinus = 0;
-   info.nEvalCall += 1;
+   // info.nEvalCall += 1;
    for (register int z = 0; z < GAMESIZE; z++) {
         // eval des pieces
-      if (*(&sq64 [0][0] + z) == 0) continue;
+      if ((v = (*p64++)) == 0) continue;
+      // v est la valeur courante
       l = LINE (z);
       c = COL (z);
-      eval += ((v = sq64 [l][c]) > 0 ? val [v] : -val [-v]);
+      eval += ((v > 0) ? val [v] : -val [-v]);
+       
       switch (v) {
       case KING : case CASTLEKING :
          if (who == 1) { lwho = l; cwho = c; }
@@ -246,10 +537,11 @@ int evaluation (TGAME sq64, register int who) { /* */
       }
    }
    // printf ("eval 1 : %d\n", eval);
+   // printf ("lwho: %d, cwho : %d, ladverse : %d, cadverse : %d\n", lwho, cwho, ladverse, cadverse);
    if (nBishopPlus >= 2) eval += BONUSBISHOP;
    if (nBishopMinus >= 2) eval -= BONUSBISHOP;
-   if (LCkingInCheck(sq64, who, lwho, cwho)) return -who * MATE; // who ne peut pas jouer et se mettre en echec
-   kingInCheck = LCkingInCheck(sq64, -who, ladverse, cadverse);
+   if (LCkingInCheck (sq64, who, lwho, cwho)) return -who * MATE; // who ne peut pas jouer et se mettre en echec
+   kingInCheck = LCkingInCheck (sq64, -who, ladverse, cadverse);
    if (kingCannotMove(sq64, -who)) { 
       if (kingInCheck) return who * MATE;
       else return 0; // Pat
@@ -266,33 +558,33 @@ int alphaBeta (TGAME sq64, int who, int p, int refAlpha, int refBeta) { /* */
    int val;
    int alpha = refAlpha;
    int beta = refBeta;
-   note = evaluation(sq64, who);
+   note = evaluation (sq64, who);
    if (info.calculatedMaxDepth < p) info.calculatedMaxDepth = p;
 
    // conditions de fin de jeu
    if (p >= info.maxDepth) return note;
-   if (note == MATE) return note-p;    // -p pour favoriser le choix avec faible profondeur
-   if (note == -MATE) return note+p;  // +p idem
+   if (note == MATE) return note-p;      // -p pour favoriser le choix avec faible profondeur
+   if (note == -MATE) return note+p;     // +p idem
    // pire des notes a ameliorer
    if (who == 1) {
       val = MATE;
-      maxList = buildList(sq64, -1, list);
+      maxList = buildList (sq64, -1, list);
       for (k = 0; k < maxList; k++) {
          note = alphaBeta (list [k], -1, p+1, alpha, beta);
-         if (note < val) val = note;  // val = minimum...
+         if (note < val) val = note;    // val = minimum...
          if (alpha > val) return val;
-         if (val < beta) beta = val;  // beta = MIN (beta, val);
+         if (val < beta) beta = val;    // beta = MIN (beta, val);
       }
    }
    else {
    // recherche du maximum
       val = -MATE;
-      maxList = buildList(sq64, 1, list);
+      maxList = buildList (sq64, 1, list);
       for (k = 0; k < maxList; k++) {
          note = alphaBeta (list [k], 1, p+1, alpha, beta);
-         if (note > val) val = note; // val = maximum...
+         if (note > val) val = note;    // val = maximum...
          if (beta < val) return val;
-         if (val > alpha) alpha = val; // alpha = max (alpha, val);
+         if (val > alpha) alpha = val;  // alpha = max (alpha, val);
       }
    }
    return val;
@@ -417,6 +709,10 @@ int find (TGAME sq64, TGAME bestSq64, int *bestNote, int color) { /* */
           perror ("pthread_join");
           return EXIT_FAILURE;
       }
+   /*
+   for (k = 0; k < nextL; k++)
+      tEval [k] = alphaBeta (list [k], -info.gamerColor, 0, -MATE, MATE);
+   */
    if (test) {
       printGame (sq64, 0);
       printf ("===============================\n");
@@ -585,7 +881,7 @@ int main (int argc, char *argv[]) { /* */
       case 'f': //performance
          info.nClock = clock ();
          for (int i = 0; i < getInfo.level * MILLION; i++)
-            LCkingInCheck (sq64, -1, 0, 4);
+            LCkingInCheck (sq64, 1, 7, 4);
          printf ("LCKingInCheck. clock: %lf\n", (double) (clock () - info.nClock)/CLOCKS_PER_SEC);
          
          info.nClock = clock ();

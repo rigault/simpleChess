@@ -44,7 +44,6 @@ struct sinfo {
    int nBuildListCall;
    int nValidGamerPos;
    int nValidComputerPos;
-   int nMaxList;                 // taille max liste
    int note;                     // evaluation du jeu ourant
    int evaluation;               // evaluation rendue par le minimax
    char computerPlayC [15];      // dernier jeu ordi reconstruit par la fonction difference. Notation Alg. complete
@@ -69,7 +68,7 @@ struct sinfo {
    char epComputer [3];
    char epGamer [3];
    enum Score score;
-   int  nBestNote;               // nombre de podsibilites ayant la meilleure eval
+   int  nBestNote;               // nombre de possibilites ayant la meilleure eval
 } info;
 
 extern int fenToGame (char *fenComplete, TGAME sq64, char *ep, int *cpt50, int *nb);
