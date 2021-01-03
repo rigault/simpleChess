@@ -12,13 +12,7 @@
 #define file(s)       ((s) & 0x07)
 #define board(s)      ((uint64_t)1 << (s))
 
-static const char *wdl_to_str[] = {
-   "0-1",
-   "1/2-1/2",
-   "1/2-1/2",
-   "1/2-1/2",
-   "1-0"
-};
+static const char *wdl_to_str[] = { "0-1", "1/2-1/2", "1/2-1/2", "1/2-1/2", "1-0" };
 
 struct pos {
    uint64_t white;
@@ -236,8 +230,8 @@ bool syzygyRR (const char* path, const char *fen, unsigned *wdl, char *bestMove,
       return true;
    }
    *wdl = TB_GET_WDL(move);
-   moveToStr (pos, move, bestMove);
    // Output
+   moveToStr (pos, move, bestMove);
    sprintf (comment, "WIN: %s; BESTMOVE: %s; WDL: %u; DTZ: %u", 
       wdl_to_str[(pos->turn? *wdl: 4-*wdl)], bestMove, *wdl, TB_GET_DTZ(move));
    return true;

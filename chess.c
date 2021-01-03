@@ -4,6 +4,7 @@
 /*   ./chess.cgi -r [FENGame] [profondeur] : CLI avec sortie raw */
 /*   ./chess.cgi -t : test unitaire */
 /*   ./chess.cgi -p [FENGame] [profondeur] : play mode CLI */
+/*   ./chess.cgi -e [FENGame] [profondeur] : endurance. joue contre lui même */
 /*   ./chess.cgi -h : help */
 /*   autrement CGI */
 /*   script CGI gérant une API restful (GET) avec les réponses au format JSON */
