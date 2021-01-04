@@ -1,3 +1,4 @@
+#include <stdint.h>
 #define NIL -9999999
 #define MILLION 1000000
 #define VERSION "2.1"
@@ -5,31 +6,30 @@
 #define PATHTABLE "/var/www/html/chessdata"           // table de fin de jeux SYZYGY.
 #define OPENINGDIR "/home/rr/git/simplechess/bigfen"  // repertoire des ouvertures
 #define N 8
-#define MAXSIZELIST 128            // taille max liste des jeux
-#define MAXTHREADS 128             // nombre max de thread. Garder ces deux valeurs egales.
-#define GAMESIZE 64                // taille du jeu = N * N * sizeeof (char) = 8 * 8 * 1 ATTENTION PORTABILITE
-#define F_LOG "chess.log"          // log des jeux
+#define MAXSIZELIST 128                // taille max liste des jeux
+#define MAXTHREADS 128                 // nombre max de thread. Garder ces deux valeurs egales.
+#define GAMESIZE 64                    // taille du jeu = N * N * sizeeof (char) = 8 * 8 * 1 ATTENTION PORTABILITE
+#define F_LOG "chess.log"              // log des jeux
 #define HELP "Syntax; sudo ./chess.cgi -i|-r|-h|-p|-t [FEN string] [level]"
-#define MAXBUFFER 10000            // tampon de caracteres pour longues chaines
-#define MAXLENGTH 255              // pour ligne
-#define NDEPTH 3                   // pour fMaxDepth ()
+#define MAXBUFFER 10000                // tampon de caracteres pour longues chaines
+#define MAXLENGTH 255                  // pour ligne
+#define NDEPTH 3                       // pour fMaxDepth ()
 #define MAXPIECESSYZYGY 6
-#define MAXNBOPENINGS 8            // on ne regarde pas la biblio ouverture a partir de ce nb de coups
-#define KINGINCHECKEVAL 1          // evaluation du gain d'un echec au roi..
-#define BONUSCENTER 10             // evaluation du gain d'avoir un cavalier au centre
-#define BONUSPAWNAHEAD 4           // evaluation du gain d'avoir un pion avance
-#define BONUSBISHOP 10             // evaluation du gain d'avoir deux fous
-#define BONUSMOVEROOK 10           // evaluation du gain d'avoir une tour non bloquee
+#define MAXNBOPENINGS 8                // on ne regarde pas la biblio ouverture a partir de ce nb de coups
+#define KINGINCHECKEVAL 1              // evaluation du gain d'un echec au roi..
+#define BONUSCENTER 10                 // evaluation du gain d'avoir un cavalier au centre
+#define BONUSPAWNAHEAD 4               // evaluation du gain d'avoir un pion avance
+#define BONUSBISHOP 10                 // evaluation du gain d'avoir deux fous
+#define BONUSMOVEROOK 10               // evaluation du gain d'avoir une tour non bloquee
 #define MATE 1000000
-
 #define MIN(x,y)      ((x<y)?(x):(y))
-#define LINE(z)       ((z) >> 3)   // z / 8 ligne
-#define COL(z)        ((z) & 0x07) // z % 8 colonne
+#define LINE(z)       ((z) >> 3)       // z / 8 ligne
+#define COL(z)        ((z) & 0x07)     // z % 8 colonne
 
-typedef char TGAME [N][N];  // jeu de 8 x 8 cases codant une piece sur un entier 8 bits avec signe
-typedef char TLIST [MAXSIZELIST][N][N];
+typedef int8_t TGAME [N][N];           // jeu de 8 x 8 cases codant une piece sur un entier 8 bits avec signe
+typedef int8_t TLIST [MAXSIZELIST][N][N];
 
-enum {VOID, PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING, CASTLEKING};
+enum {VOID, PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING, CASTLEKING}; // VOID pour faciliter define
 enum KingState {NOEXIST, EXIST, ISINCHECK, UNVALIDINCHECK, ISMATE, ISPAT};
 enum Score {ONGOING, BLACKWIN, DRAW, WHITEWIN};
 
