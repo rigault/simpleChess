@@ -31,8 +31,8 @@ struct pos {
 };
 
 static bool parseFEN (struct pos *pos, const char *fen) { /* */
-   /* traduit la chaine fau format FEN en une structure pos */
-   /* ATTENTION CASTLING NE MARCHE PAS */
+   /* traduit la chaine au format FEN en une structure pos */
+   /* ATTENTION DOUTE SUR CASTLING */
    uint64_t white = 0, black = 0;
    uint64_t kings, queens, rooks, bishops, knights, pawns;
    bool turn;
@@ -99,8 +99,6 @@ static bool parseFEN (struct pos *pos, const char *fen) { /* */
       fen--;
    }
    c = *fen++;
-   // if (c == '-') c = *fen++; // ajoute par RR pour supporter --
-   // castling = 0;             // ajoute par RR pour supporter KQkq
    if (c != ' ') return false;
    c = *fen++;
    if (c >= 'a' && c <= 'h') {
