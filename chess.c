@@ -16,6 +16,7 @@
 /*   Noirs : 1 (Minuscules) */
 /*   Blancs : -1 (Majuscules) */
 
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -288,30 +289,21 @@ int buildList (TGAME refJeu, register int who, TLIST list) { /* */
                pl = pushList (refJeu, list, nListe++, pl, l, c, l-2, c, PAWN);
             }
             if (((l-who) >= 0) && ((l-who) < 8) && (0 == refJeu [l-who][c])) {         // normal
-               memcpy (pl, refJeu, GAMESIZE);
-               if (l-1 == 0 && who == 1)  list [nListe][l-1][c] = QUEEN;
-               else if (l+1 == 7 && who == -1) list [nListe][l+1][c] = -QUEEN;
-               else list [nListe][l-who][c] = PAWN * who;
-               list [nListe][l][c] = 0;
-               pl += GAMESIZE; nListe += 1;
+               if (l-1 == 0 && who == 1) pl = pushList (refJeu, list, nListe++, pl, l, c, l-1, c, QUEEN);
+               else if (l+1 == 7 && who == -1) pl = pushList (refJeu, list, nListe++, pl, l, c, l+1, c, -QUEEN);
+               else pl = pushList (refJeu, list, nListe++, pl, l, c, l-who, c, PAWN * who);
             }
             // prise a droite
             if (c < 7 && (l-who) >=0 && (l-who) < N && refJeu [l-who][c+1]*who < 0) {  // signes opposes
-               memcpy (pl, refJeu, GAMESIZE);
-               if (l-1 == 0 && who == 1) list [nListe][l-1][c+1] = QUEEN;
-               else if (l+1 == 7 && who == -1) list [nListe][l+1][c+1] = -QUEEN;
-               else list [nListe][l-who][c+1] = PAWN * who;
-               list [nListe][l][c] = 0;
-               pl += GAMESIZE; nListe += 1;
+               if (l-1 == 0 && who == 1) pl = pushList (refJeu, list, nListe++, pl, l, c, l-1, c+1, QUEEN);
+               else if (l+1 == 7 && who == -1) pl = pushList (refJeu, list, nListe++, pl, l, c, l+1, c+1, -QUEEN);
+               else pl = pushList (refJeu, list, nListe++, pl, l, c, l-who, c+1, PAWN * who);
             }
             // prise a gauche
             if (c > 0 && (l-who) >= 0 && (l-who) < N && refJeu [l-who][c-1]*who < 0) { // signes opposes
-               memcpy (pl, refJeu, GAMESIZE);
-               if (l-1 == 0 && who == 1) list [nListe][l-1][c-1] = QUEEN;
-               else if (l+1 == 7 && who == -1) list [nListe][l+1][c-1] = -QUEEN;
-               else list [nListe][l-who][c-1] = PAWN * who;
-               list [nListe][l][c] = 0;
-               pl += GAMESIZE; nListe += 1;
+               if (l-1 == 0 && who == 1) pl = pushList (refJeu, list, nListe++, pl, l, c, l-1, c-1, QUEEN);
+               else if (l+1 == 7 && who == -1) pl = pushList (refJeu, list, nListe++, pl, l, c, l+1, c-1, -QUEEN);
+               else pl = pushList (refJeu, list, nListe++, pl, l, c, l-who, c-1, PAWN * who);
             }
             break;
          case KING: case CASTLEKING:
@@ -419,7 +411,6 @@ int buildList (TGAME refJeu, register int who, TLIST list) { /* */
    }       // fin du for sur z
    return nListe;
 }
-
 
 bool fKingInCheck (TGAME sq64, register int who) { /* */
    /* retourne vrai si le roi "who" est en echec */
@@ -635,7 +626,6 @@ int find (TGAME sq64, TGAME bestSq64, int *bestNote, int color) { /* */
    nextL = buildListEnPassant (sq64, color, info.epGamer, list, nextL);
    strcpy (info.comment, "");
 
-   
    if (nextL == 0) return 0;
 
    // Hasard Total
@@ -818,6 +808,7 @@ int main (int argc, char *argv[]) { /* */
       switch (argv [1][1]) {
       case 'i': case 'I' :
          test = (argv [1][1] == 'I');
+         if (test) printf ("Test\n");
          printf ("fen: %s, level: %d\n", 
             gameToFen (sq64, fen, -info.gamerColor, '+', true, info.epComputer, info.cpt50, info.nb), getInfo.level);
          computerPlay (sq64, -info.gamerColor);
@@ -928,9 +919,6 @@ int main (int argc, char *argv[]) { /* */
          break;
       case 'h':
          printf ("%s\n", HELP);
-         break;
-      case 'v':
-         printf ("Eval: %d\n", evaluation (sq64, -info.gamerColor));
          break;
          
       default: break;

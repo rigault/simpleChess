@@ -38,7 +38,8 @@ void printGame (TGAME jeu, int eval) { /* */
          printf ("%s", (normal ? BG_CYAN : BG_BLACK));
          normal =! normal; 
          v = jeu [l][c];
-         printf ("%s %s %s",  (v > 0) ? C_RED : C_WHITE, unicode [abs (v)], DEFAULT_COLOR);
+         if ((v < -CASTLEKING) || v > CASTLEKING) printf ("Error: l c v = %d %d %d\n ", l, c, v); 
+         else printf ("%s %s %s",  (v > 0) ? C_RED : C_WHITE, unicode [abs (v)], DEFAULT_COLOR);
       }
       printf ("  %d\n", l+1);
       normal =! normal; 

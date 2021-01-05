@@ -1,8 +1,8 @@
 chess.cgi: chess.o chessUtil.o tbprobe.o syzygy.o
-	gcc -pthread -std=c99 -O2 -Wall -D TB_NO_THREADS -I.. syzygy.o tbprobe.c chessUtil.c chess.c -o chess.cgi 
+	gcc -pthread -O2 -Wall -D TB_NO_THREADS -I.. syzygy.o tbprobe.c chessUtil.c chess.c -o chess.cgi 
 
 chess.o: chess.c chessUtil.h 
-	gcc -c -O2 -Wall -pedantic -std=c99 chess.c
+	gcc -c -O2 -Wall -pedantic chess.c
 
 chessUtil.o: chessUtil.c chessUtil.h
 	gcc -c -Wall -Wextra -pedantic -std=c99 chessUtil.c
