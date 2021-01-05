@@ -100,45 +100,37 @@ bool LCBlackKingInCheck (TGAME sq64, register int l, register int c) { /* */
 
    // tour ou reine menace
    for (k = l+1; k < N; k++) {
-      w = -sq64 [k][c];
-      if (w == ROOK || w == QUEEN) return true;
+      if ((w = -sq64 [k][c]) == ROOK || w == QUEEN) return true;
       if (w) break;
    }
    for (k = l-1; k >= 0; k--) {
-      w = -sq64 [k][c];
-      if (w == ROOK || w == QUEEN) return true;
+      if ((w= -sq64 [k][c]) == ROOK || w == QUEEN) return true;
       if (w) break;
    }
    for (k = c+1; k < N; k++) {
-      w = -sq64 [l][k];
-      if (w == ROOK || w == QUEEN) return true;
+      if ((w = -sq64 [l][k]) == ROOK || w == QUEEN) return true;
       if (w) break;
    }
    for (k = c-1; k >= 0; k--) {
-      w = -sq64 [l][k];
-      if (w == ROOK || w == QUEEN) return true;
+      if ((w = -sq64 [l][k]) == ROOK || w == QUEEN) return true;
       if (w) break;
    }
 
    // fou ou reine menace
    for (k = 0; k < MIN (7-l, 7-c); k++) { // vers haut droit
-      w = -sq64 [l+k+1][c+k+1];
-      if ((w == BISHOP || w == QUEEN) != 0) return true;
+      if ((w = -sq64 [l+k+1][c+k+1]) == BISHOP || w == QUEEN) return true;
       if (w) break;
    }
    for (k = 0; k < MIN (7-l, c); k++) {// vers haut gauche
-      w = -sq64 [l+k+1][c-k-1];
-      if ((w == BISHOP || w == QUEEN) != 0) return true;
+      if ((w = -sq64 [l+k+1][c-k-1]) == BISHOP || w == QUEEN) return true;
       if (w) break;
    }
    for (k = 0; k < MIN (l, 7-c); k++) { // vers bas droit
-      w = -sq64 [l-k-1][c+k+1];
-      if ((w == BISHOP || w == QUEEN) != 0) return true;
+      if ((w = -sq64 [l-k-1][c+k+1]) == BISHOP || w == QUEEN) return true;
       if (w) break;
    }
    for (k = 0; k < MIN (l, c); k++) { // vers bas gauche
-      w = -sq64 [l-k-1] [c-k-1];
-      if ((w == BISHOP || w == QUEEN) != 0) return true;
+      if ((w = -sq64 [l-k-1] [c-k-1]) == BISHOP || w == QUEEN) return true;
       if (w) break;
    }
    return false;
@@ -174,45 +166,38 @@ bool LCWhiteKingInCheck (TGAME sq64, register int l, register int c) { /* */
 
    // tour ou reine menace
    for (k = l+1; k < N; k++) {
-      w = sq64 [k][c];
-      if (w == ROOK || w == QUEEN) return true;
+      if ((w = sq64 [k][c]) == ROOK || w == QUEEN) return true;
       if (w) break; // si w != 0...
    }
    for (k = l-1; k >= 0; k--) {
-      w = sq64 [k][c];
-      if (w == ROOK || w == QUEEN) return true;
+      if ((w = sq64 [k][c]) == ROOK || w == QUEEN) return true;
       if (w) break;
    }
    for (k = c+1; k < N; k++) {
-      w = sq64 [l][k];
-      if (w == ROOK || w == QUEEN) return true;
+      if ((w = sq64 [l][k]) == ROOK || w == QUEEN) return true;
       if (w) break;
    }
    for (k = c-1; k >= 0; k--) {
-      w = sq64 [l][k];
-      if (w == ROOK || w == QUEEN) return true;
+      if ((w = sq64 [l][k]) == ROOK || w == QUEEN) return true;
       if (w) break;
    }
 
    // fou ou reine menace
    for (k = 0; k < MIN (7-l, 7-c); k++) { // vers haut droit
-      w = sq64 [l+k+1][c+k+1];
-      if (w == BISHOP || w == QUEEN) return true;
+      if ((w = sq64 [l+k+1][c+k+1]) == BISHOP || w == QUEEN) return true;
       if (w) break;
    }
    for (k = 0; k < MIN (7-l, c); k++) {// vers haut gauche
-      w = sq64 [l+k+1][c-k-1];
-      if (w == BISHOP || w == QUEEN) return true;
+      if ((w = sq64 [l+k+1][c-k-1]) == BISHOP || w == QUEEN) return true;
       if (w) break;
    }
    for (k = 0; k < MIN (l, 7-c); k++) { // vers bas droit
-      w = sq64 [l-k-1][c+k+1];
-      if (w == BISHOP || w == QUEEN) return true;
+      if ((w = sq64 [l-k-1][c+k+1]) == BISHOP || w == QUEEN) return true;
       if (w) break;
    }
    for (k = 0; k < MIN (l, c); k++) { // vers bas gauche
       w = sq64 [l-k-1] [c-k-1];
-      if (w == BISHOP || w == QUEEN) return true;
+      if ((w = sq64 [l-k-1] [c-k-1]) == BISHOP || w == QUEEN) return true;
       if (w) break;
    }
    return false;
@@ -865,11 +850,6 @@ int main (int argc, char *argv[]) { /* */
          printf ("ep Gamer: %s\n", info.epGamer);
          break;
       case 'f': //performance
-         info.nClock = clock ();
-         for (int i = 0; i < getInfo.level * MILLION; i++)
-            LCkingInCheck (sq64, 1, 7, 4);
-         printf ("LCKingInCheck. clock: %lf\n", (double) (clock () - info.nClock)/CLOCKS_PER_SEC);
-         
          info.nClock = clock ();
          for (int i = 0; i < getInfo.level * MILLION; i++)
             nextL = buildList(sq64, -info.gamerColor, list);         
