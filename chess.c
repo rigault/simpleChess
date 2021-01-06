@@ -212,6 +212,7 @@ inline bool LCkingInCheck (TGAME sq64, register int who, register int l, registe
 
 inline int8_t *pushList (TGAME refJeu, TLIST list, int nListe, int8_t *pl, int l1, int c1, int l2, int c2, int u) { /* */
    /* pousse le jeu refJeu dans la liste avec les modifications specifiees */
+   // asm volatile ("movl $8, %%ecx; rep movsq" : "+D" (pl) : "S"(refJeu) : "ecx", "cc", "memory");
    memcpy (pl, refJeu, GAMESIZE);
    list [nListe][l2][c2] = u;
    list [nListe][l1][c1] = 0;
@@ -841,6 +842,13 @@ int main (int argc, char *argv[]) { /* */
          printf ("ep Gamer: %s\n", info.epGamer);
          break;
       case 'f': //performance
+         info.nClock = clock ();
+         for (int i = 0; i < 1000 * MILLION; i++)
+            for (int j = 0; j <  1000; j++)
+               LCBlackKingInCheck (sq64, 7, 4);         
+         printf ("%s\n", LCBlackKingInCheck (sq64, 7, 4) ? "echec" : "non ");         
+         printf ("LCBlackKingInCheck. clock: %lf\n", (double) (clock () - info.nClock)/CLOCKS_PER_SEC);
+         
          info.nClock = clock ();
          for (int i = 0; i < getInfo.level * MILLION; i++)
             nextL = buildList(sq64, -info.gamerColor, list);         
