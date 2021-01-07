@@ -50,15 +50,9 @@ struct sinfo {
    char computerPlayA [15];      // dernier jeu ordi reconstruit par la fonction difference. Notation Alg. abegee
    char lastCapturedByComputer;  // derniere piece prise par Ordi
    int calculatedMaxDepth;
-   int lGamerKing;
-   int cGamerKing;
-   int lComputerKing;
-   int cComputerKing;
    int gamerColor;               // -1 si joueur blanc (defaut), 1 si joueur noir
    enum KingState gamerKingState;
    enum KingState computerKingState;
-   bool castleGamer;
-   bool castleComputer;
    char comment [MAXBUFFER];     // nom de l'ouverture si trouvee ou fin de partie
    char endName [MAXBUFFER];     // nom de la database de fermeture si trouvee
    long computeTime;
@@ -67,10 +61,10 @@ struct sinfo {
    unsigned wdl;                 // retour de syzygy - end table
    char epComputer [3];
    char epGamer [3];
-   bool rightCastleGamerOK;
-   bool leftCastleGamerOK;
-   bool rightCastleComputerOK;
-   bool leftCastleComputerOK;
+   bool kingCastleGamerOK;
+   bool queenCastleGamerOK;
+   bool kingCastleComputerOK;
+   bool queenCastleComputerOK;
    enum Score score;
    int  nBestNote;               // nombre de possibilites ayant la meilleure eval
 } info;

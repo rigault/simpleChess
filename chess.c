@@ -14,8 +14,8 @@
 /*     - jeu represente dans un table a 2 dimensions : TGAME sq64 */
 /*     - liste de jeux qui est un tableau de jeux :  TLIST list */
 /*     - nextL est un entier pointant sur le prochain jeux a inserer dans la liste */
-/*   Noirs : 1 (Minuscules) */
-/*   Blancs : -1 (Majuscules) */
+/*   Noirs : > 0 (Minuscules) */
+/*   Blancs : < 0  (Majuscules) */
 
 #include <stdint.h>
 #include <stdio.h>
@@ -195,7 +195,7 @@ bool LCWhiteKingInCheck (TGAME sq64, register int l, register int c) { /* */
    return false;
 }
 
-inline bool LCkingInCheck (TGAME sq64, register int who, register int l, register int c) { /* */
+bool LCkingInCheck (TGAME sq64, register int who, register int l, register int c) { /* */
    /* vrai si le roi situe case l, c est echec au roi */
    /* "who" est la couleur du roi qui est attaque */
    return (who == 1) ? LCBlackKingInCheck (sq64, l, c) : LCWhiteKingInCheck (sq64, l, c);
@@ -230,41 +230,45 @@ int buildListEnPassant (TGAME refJeu, register int who, char *epGamer, TLIST lis
    return nListe;
 }
 
-int buildList (TGAME refJeu, register int who, TLIST list) { /* */
+int buildList (TGAME refJeu, register int who, bool kingSide, bool queenSide, TLIST list) { /* */
    /* construit la liste des jeux possibles a partir de jeu. */
    /* 'who' joue */
+   /* kingSide vrai si roque autorise cote roi */
+   /* quenSide vrai si roque autorise cote roi */
    register int u, v, w, k, l, c;
    register int nListe = 0;
    int8_t *pl = &list [0][0][0];
    int8_t *pr = &refJeu [0][0];
-   // info.nBuildListCall += 1;
    int base = (who == -1) ? 0 : 7;
-
-   // Roque
-   if (refJeu [base][4] == KING) {
-      // roque gauche
-      if (refJeu [base][0] == ROOK && 0 == refJeu [base][1] && 0 == refJeu [base][2] && 0 == refJeu [base][3] &&
+   // info.nBuildListCall += 1;
+  
+   if (who * refJeu [base][4] == KING) {
+      // roque cote reine
+      if (queenSide && (who * refJeu [base][0]) == ROOK &&  (refJeu [base][1] == 0) && 
+         (refJeu [base][2] == 0) && (refJeu [base][3] == 0) &&
          !LCkingInCheck (refJeu, who, base, 3) && !LCkingInCheck (refJeu, who, base, 4)) {
          // la case traversee par le roi et le roi ne sont pas echec au roi
          memcpy (pl, refJeu, GAMESIZE);
          list [nListe][base][0] = 0;
-         list [nListe][base][2] = CASTLEKING;
-         list [nListe][base][3] = ROOK;
+         list [nListe][base][2] = who * CASTLEKING;
+         list [nListe][base][3] = who * ROOK;
          list [nListe++][base][4] = 0; 
          pl += GAMESIZE;
       }
-      // Roque droit
-      if (refJeu [base][7] == ROOK && 0 == refJeu [base][5] && 0  == refJeu [base][6] &&
+      // Roque cote roi
+      if (kingSide && (who * refJeu [base][7] == ROOK) && (refJeu [base][5] == 0) && 
+         (refJeu [base][6] == 0) &&
          !LCkingInCheck (refJeu, who, base, 4) && !LCkingInCheck (refJeu, who, base, 5)) {
          // la case traversee par le roi et le roi ne sont pas echec au roi
          memcpy (pl, refJeu, GAMESIZE);
          list [nListe][base][4] = 0;
-         list [nListe][base][5] = ROOK;
-         list [nListe][base][6] = CASTLEKING;
+         list [nListe][base][5] = who * ROOK;
+         list [nListe][base][6] = who * CASTLEKING;
          list [nListe++][base][7] = 0;
          pl += GAMESIZE;
       }
    }
+    
    for (register int z = 0; z < GAMESIZE; z++) { 
       u = *(pr++); // u est la valeur courante dans refJeu
       v = who * u; // v = abs (u)
@@ -422,7 +426,7 @@ bool kingCannotMove (TGAME sq64, register int who) { /* */
    /* c'est perdu. Noter que si le roi a le trait et qu'il n'est pas echec au roi il est Pat */
    /* si le roi est echec au roi il est mat */
    TLIST list;
-   register int maxList = buildList (sq64, who, list);
+   register int maxList = buildList (sq64, who, true, true, list);
    for (register int k = 0; k < maxList; k++) {
       if (! fKingInCheck (list [k], who)) return false;
    }
@@ -441,7 +445,7 @@ int evaluation (TGAME sq64, int who) { /* */
    nBishopPlus = nBishopMinus = 0;
    info.nEvalCall += 1;
    for (register int z = 0; z < GAMESIZE; z++) {
-        // eval des pieces
+      // eval des pieces
       if ((v = (*p64++)) == 0) continue;
       // v est la valeur courante
       l = LINE (z);
@@ -522,7 +526,7 @@ int alphaBeta (TGAME sq64, int who, int p, int refAlpha, int refBeta) { /* */
    // pire des notes a ameliorer
    if (who == 1) {
       val = MATE;
-      maxList = buildList (sq64, -1, list);
+      maxList = buildList (sq64, -1, true, true, list);
       for (k = 0; k < maxList; k++) {
          note = alphaBeta (list [k], -1, p+1, alpha, beta);
          if (note < val) val = note;    // val = minimum...
@@ -533,7 +537,7 @@ int alphaBeta (TGAME sq64, int who, int p, int refAlpha, int refBeta) { /* */
    else {
    // recherche du maximum
       val = -MATE;
-      maxList = buildList (sq64, 1, list);
+      maxList = buildList (sq64, 1, true, true, list);
       for (k = 0; k < maxList; k++) {
          note = alphaBeta (list [k], 1, p+1, alpha, beta);
          if (note > val) val = note;    // val = maximum...
@@ -554,9 +558,10 @@ void *fThread (void *arg) { /* */
 void updateInfo (TGAME sq64) { /* */
    /* met a jour l'objet info a partir de l'objet jeu */
    int l, c, v;
+   int lGamerKing, cGamerKing, lComputerKing, cComputerKing;
+   lGamerKing = cGamerKing = lComputerKing = cComputerKing = -1;
    info.note = evaluation(sq64, info.gamerColor);
    info.gamerKingState = info.computerKingState = NOEXIST;
-   info.castleComputer = info.castleGamer = false;
    info.nGamerPieces = info.nComputerPieces = 0;
    for (l = 0; l < N; l++) {
       for (c = 0; c < N; c++) {
@@ -564,21 +569,19 @@ void updateInfo (TGAME sq64) { /* */
          if (v > 0) info.nComputerPieces += 1;
          else if (v < 0) info.nGamerPieces += 1;
          if (v == KING || v == CASTLEKING) {
-            info.lComputerKing = l;
-            info.cComputerKing = c;
+            lComputerKing = l;
+            cComputerKing = c;
             info.computerKingState = EXIST;
          }
-         if (v == CASTLEKING) info.castleComputer = true;
          if (v == -KING || v == -CASTLEKING) {
-            info.lGamerKing = l;
-            info.cGamerKing = c;
+            lGamerKing = l;
+            cGamerKing = c;
             info.gamerKingState = EXIST;
          }
-         if (v == -CASTLEKING) info.castleGamer = true;
       }
    }
    if (info.gamerKingState == EXIST) {
-      if (LCkingInCheck(sq64, info.gamerColor, info.lGamerKing, info.cGamerKing))
+      if (LCkingInCheck(sq64, info.gamerColor, lGamerKing, cGamerKing))
          info.gamerKingState = ISINCHECK;
       if (kingCannotMove(sq64, info.gamerColor)) {
          if (info.gamerKingState == ISINCHECK) info.gamerKingState = ISMATE;
@@ -586,15 +589,15 @@ void updateInfo (TGAME sq64) { /* */
       }
    }
    if (info.computerKingState == EXIST) {
-      if (LCkingInCheck(sq64, -info.gamerColor, info.lComputerKing, info.cComputerKing))
+      if (LCkingInCheck(sq64, -info.gamerColor, lComputerKing, cComputerKing))
          info.computerKingState = ISINCHECK;
       if (kingCannotMove(sq64, -info.gamerColor)) {
          if (info.computerKingState == ISINCHECK) info.computerKingState = ISMATE;
          else info.computerKingState = ISPAT;
       }
    }
-   info.nValidGamerPos = buildList(sq64, info.gamerColor, list);
-   info.nValidComputerPos = buildList(sq64, -info.gamerColor, list);
+   info.nValidGamerPos = buildList (sq64, info.gamerColor, info.kingCastleGamerOK, info.queenCastleGamerOK, list);
+   info.nValidComputerPos = buildList (sq64, -info.gamerColor, info.kingCastleComputerOK, info.queenCastleComputerOK, list);
 
    if (info.computerKingState == ISMATE) 
       info.score = (info.gamerColor == -1) ? WHITEWIN : BLACKWIN;
@@ -614,7 +617,8 @@ int find (TGAME sq64, TGAME bestSq64, int *bestNote, int color) { /* */
    char fen [MAXBUFFER] = "";
    
    *bestNote = 0; 
-   nextL = buildList(sq64, color, list);
+   if (color == 1) nextL = buildList (sq64, color, info.kingCastleComputerOK, info.queenCastleComputerOK, list);
+   else nextL = buildList (sq64, color, info.kingCastleGamerOK, info.queenCastleGamerOK, list);
    nextL = buildListEnPassant (sq64, color, info.epGamer, list, nextL);
    strcpy (info.comment, "");
 
@@ -824,7 +828,7 @@ int main (int argc, char *argv[]) { /* */
          
          info.nClock = clock ();
          for (int i = 0; i < getInfo.level * MILLION; i++)
-            nextL = buildList(sq64, -info.gamerColor, list);         
+            nextL = buildList (sq64, -info.gamerColor, true, true, list);         
          printf ("buildList. clock: %lf\n", (double) (clock () - info.nClock)/CLOCKS_PER_SEC);
          
          info.nClock = clock ();
@@ -855,7 +859,7 @@ int main (int argc, char *argv[]) { /* */
          // tests
          printGame (sq64, evaluation (sq64, -info.gamerColor));
          printf ("==============================================================\n");
-         nextL = buildList(sq64, -info.gamerColor, list);         
+         nextL = buildList (sq64, -info.gamerColor, info.kingCastleComputerOK, info.queenCastleComputerOK, list);         
          nextL = buildListEnPassant (sq64, -info.gamerColor, info.epGamer, list, nextL);
          printf ("Nombre de possibilites : %d\n", nextL);
          for (int i = 0; i < nextL; i++) printGame (list [i], evaluation (list [i], -info.gamerColor));

@@ -53,23 +53,23 @@ char *castleToStr (struct sinfo info, bool whiteIsCastled, bool blackIsCastled, 
    strcpy (str, "");
 
    if (((whiteIsCastled) && (info.gamerColor == -1)) || ((blackIsCastled) && (info.gamerColor == 1))) { 
-      info.rightCastleGamerOK = info.leftCastleGamerOK = false;
+      info.kingCastleGamerOK = info.queenCastleGamerOK = false;
    }
    if (((whiteIsCastled) && (info.gamerColor == 1)) || ((blackIsCastled) && (info.gamerColor == -1))) {
-      info.rightCastleComputerOK = info.leftCastleComputerOK = false;
+      info.kingCastleComputerOK = info.queenCastleComputerOK = false;
    }
 
    if (info.gamerColor == -1) {
-      if (info.rightCastleGamerOK) strcat (str, "K");
-      if (info.leftCastleGamerOK) strcat (str, "Q");
-      if (info.rightCastleComputerOK) strcat (str, "k");
-      if (info.leftCastleComputerOK) strcat (str, "q");
+      if (info.kingCastleGamerOK) strcat (str, "K");
+      if (info.queenCastleGamerOK) strcat (str, "Q");
+      if (info.kingCastleComputerOK) strcat (str, "k");
+      if (info.queenCastleComputerOK) strcat (str, "q");
    }
    else {
-      if (info.rightCastleComputerOK) strcat (str, "K");
-      if (info.leftCastleComputerOK) strcat (str, "Q");
-      if (info.rightCastleGamerOK) strcat (str, "k");
-      if (info.leftCastleGamerOK) strcat (str, "q");
+      if (info.kingCastleComputerOK) strcat (str, "K");
+      if (info.queenCastleComputerOK) strcat (str, "Q");
+      if (info.kingCastleGamerOK) strcat (str, "k");
+      if (info.queenCastleGamerOK) strcat (str, "q");
    }
    if (strlen (str) == 0) strcpy (str, "-");
    return str;
@@ -80,23 +80,23 @@ void strToCastle (char *str, int color, bool *whiteCanCastle, bool *blackCanCast
    char car;
    *whiteCanCastle = false;
    *blackCanCastle = false;
-   info.rightCastleGamerOK = info.rightCastleComputerOK = info.leftCastleGamerOK = info.leftCastleComputerOK = false;
+   info.kingCastleGamerOK = info.kingCastleComputerOK = info.queenCastleGamerOK = info.queenCastleComputerOK = false;
    while ((car = *str++) != '\0') {
       switch (car) {
-      case 'K': if (color == 1) info.rightCastleGamerOK = true;
-                else info.rightCastleComputerOK = true;
+      case 'K': if (color == 1) info.kingCastleGamerOK = true;
+                else info.kingCastleComputerOK = true;
                 *whiteCanCastle = true;
                 break;
-      case 'k': if (color == -1) info.rightCastleGamerOK = true;
-                else info.rightCastleComputerOK = true;
+      case 'k': if (color == -1) info.kingCastleGamerOK = true;
+                else info.kingCastleComputerOK = true;
                 *blackCanCastle = true;
                 break;
-      case 'Q': if (color == 1) info.leftCastleGamerOK = true;
-                else info.leftCastleComputerOK = true;
+      case 'Q': if (color == 1) info.queenCastleGamerOK = true;
+                else info.queenCastleComputerOK = true;
                 *whiteCanCastle = true;
                 break;
-      case 'q': if (color == -1) info.leftCastleGamerOK = true;
-                else info.leftCastleComputerOK = true;
+      case 'q': if (color == -1) info.queenCastleGamerOK = true;
+                else info.queenCastleComputerOK = true;
                 *blackCanCastle = true;
                 break;
       default:;
@@ -394,7 +394,7 @@ char *enPassant (int color, char *complete, char *strEp) { /* */
 char *difference (TGAME sq64_1, TGAME sq64_2, int color, char *prise, char *complete, char *abbr, char *epGamer, char *epComputer) { /* */
    /* color = 1 pour les noirs, - 1 pour les blancs */
    /* retrouve le coup joue par Ordi */
-   /* traite le roque. En dehors de ce cas */
+   /* traite le roque. Et met a jour les booleans de la struct. ino liés au Roque */
    /* traite le en passant suggere par le joueur */
    /* en dehors de ces deux cas suppose qu'il n'y a que deux cases differentes (l1,c1) (l2, c2) */
    /* renvoie la chaine decrivant la difference */
@@ -415,12 +415,14 @@ char *difference (TGAME sq64_1, TGAME sq64_2, int color, char *prise, char *comp
       sq64_1[lCastling][0] == color*ROOK && sq64_2 [lCastling][0] == 0) {
       sprintf (complete, "%s", "O-O-O");
       sprintf (abbr, "%s", "O-O-O");
+      info.kingCastleComputerOK = info.queenCastleComputerOK = false; // plus de roque possible
       return complete;
    }
    if (sq64_1[lCastling][4] == color*KING && sq64_2[lCastling][4] == 0 && // roque droit
       sq64_1[lCastling][7] == color*ROOK && sq64_2 [lCastling][7] == 0) {
       sprintf (complete, "%s", "O-O");
       sprintf (abbr, "%s", "O-O");
+      info.kingCastleComputerOK = info.queenCastleComputerOK = false; // plus de roque possible
       return complete;
    }
 
@@ -472,8 +474,16 @@ char *difference (TGAME sq64_1, TGAME sq64_2, int color, char *prise, char *comp
    }
    if ((l1 < N) && (l1 >=0) && (c1 < N) && (c1 >= 0)) 
       v = sq64_1 [l1][c1];
-   if ((v >= -CASTLEKING) && (v <= CASTLEKING))
+   if ((v >= -CASTLEKING) && (v <= CASTLEKING)) {
       cCharPiece = (v > 0) ? dict [v] : tolower(dict [-v]);
+      if ((v * color) == ROOK && l1 == lCastling) { // on bouge une tour. Conseqquences Castling...
+         if (c1 == 7) info.kingCastleComputerOK = false;
+         if (c1 == 0) info.queenCastleComputerOK = false;
+      }
+      if ((v * color) == KING) { // on bouge le roi. PLus e roque possible.
+         info.kingCastleComputerOK = info.queenCastleComputerOK = false;
+      }
+   }
    else cCharPiece = '?';
    cCharPiece = toupper (cCharPiece);
    if (((sq64_1 [l1][c1] == PAWN) && (sq64_2 [l2][c2] > PAWN) && (l2 == 0)) || 
