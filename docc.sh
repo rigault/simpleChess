@@ -1,5 +1,5 @@
 #!/bin/bash
-declare -a StringArray=("chess.c" "syzygy.c" "chessUtil.c" "buildlistsimple.c")
+declare -a StringArray=("chess.c" "syzygy.c" "chessUtil.c")
  
 for file in ${StringArray[@]}; do
    echo "Fichier $file"

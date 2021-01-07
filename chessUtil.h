@@ -1,4 +1,3 @@
-#include <stdint.h>
 #define NIL -9999999
 #define MILLION 1000000
 #define VERSION "2.1"
@@ -10,7 +9,8 @@
 #define MAXTHREADS 128                 // nombre max de thread. Garder ces deux valeurs egales.
 #define GAMESIZE 64                    // taille du jeu = N * N * sizeeof (char) = 8 * 8 * 1 ATTENTION PORTABILITE
 #define F_LOG "chess.log"              // log des jeux
-#define HELP "Syntax; sudo ./chess.cgi -i|-r|-h|-p|-t [FEN string] [level]"
+#define HELP "Synopsys: sudo ./chess.cgi -i|-I|-r|-R|-f|-e|-h|-p|-t [FEN string] [level]\n" \
+    "More help: firefox|google-chrome|lynx ../front/chessdoc.html"
 #define MAXBUFFER 10000                // tampon de caracteres pour longues chaines
 #define MAXLENGTH 255                  // pour ligne
 #define NDEPTH 3                       // pour fMaxDepth ()
@@ -67,6 +67,10 @@ struct sinfo {
    unsigned wdl;                 // retour de syzygy - end table
    char epComputer [3];
    char epGamer [3];
+   bool rightCastleGamerOK;
+   bool leftCastleGamerOK;
+   bool rightCastleComputerOK;
+   bool leftCastleComputerOK;
    enum Score score;
    int  nBestNote;               // nombre de possibilites ayant la meilleure eval
 } info;

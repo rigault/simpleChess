@@ -1,10 +1,11 @@
 /*   Pour produire la doc sur les fonctions : grep "\/\*" chess.c | sed 's/^\([a-zA-Z]\)/\n\1/' */
 /*   Jeu d'echec */
-/*   ./chess.cgi -i [FENGame] [profondeur] : CLI avec sortie JSON */
-/*   ./chess.cgi -r [FENGame] [profondeur] : CLI avec sortie raw */
-/*   ./chess.cgi -t : test unitaire */
-/*   ./chess.cgi -p [FENGame] [profondeur] : play mode CLI */
+/*   ./chess.cgi -i|-I [FENGame] [profondeur] : CLI avec sortie JSON */
+/*   ./chess.cgi -r|-R [FENGame] [profondeur] : CLI avec sortie raw */
+/*   ./chess.cgi -f : test performance */
 /*   ./chess.cgi -e [FENGame] [profondeur] : endurance. joue contre lui même */
+/*   ./chess.cgi -t [FENGame] : test unitaire */
+/*   ./chess.cgi -p [FENGame] [profondeur] : play mode CLI */
 /*   ./chess.cgi -h : help */
 /*   autrement CGI */
 /*   script CGI gérant une API restful (GET) avec les réponses au format JSON */
@@ -28,34 +29,24 @@
 #include "syzygy.h"
 
 FILE *flog;
-bool test = false;
+bool test = false;                 // positionne pour visualiser les possibilits evaluees. Mode CLI
 
 struct sGetInfo {                  // description de la requete emise par le client
    char fenString [MAXLENGTH];     // le jeu
    int reqType;                    // le type de requete : 0 1 ou 2
    int level;                      // la profondeur de la recherche souhaitee
-} getInfo = {"", 2, 3};
+} getInfo = {"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR+w", 2, 3}; // par defaut
 
 // valorisation des pieces dans l'ordre  VOID PAWN KNIGHT BISHOP ROOK QUEEN KING CASTLEKING
 // tour = fou + 2 pions, dame >= fou + tour + pion
-// pion a la valeur 8 suur les cotes, 9 sur les  colonnes centrales et plus importante quand avances 
 // Le roi qui a roque a le code 7, le roi normal code 6
 // Voir fonction d'evaluation
 int val [] = {0, 1000, 3000, 3000, 5000, 9000, 0, 100};
 int tEval [MAXTHREADS];
 
-TGAME sq64 = {
-   {-ROOK, -KNIGHT, -BISHOP, -QUEEN, -KING, -BISHOP, -KNIGHT, -ROOK},
-   {-PAWN, -PAWN, -PAWN, -PAWN, -PAWN, -PAWN, -PAWN, -PAWN},
-   {0, 0, 0, 0, 0, 0, 0, 0},
-   {0, 0, 0, 0, 0, 0, 0, 0},
-   {0, 0, 0, 0, 0, 0, 0, 0},
-   {0, 0, 0, 0, 0, 0, 0, 0},
-   {PAWN, PAWN, PAWN, PAWN, PAWN, PAWN, PAWN, PAWN},
-   {ROOK, KNIGHT, BISHOP, QUEEN, KING, BISHOP, KNIGHT, ROOK}
-};
+TGAME sq64;
 TLIST list;
-int nextL; // nombre total utilisé dans la pile
+int nextL; // nombre total utilisé dans la file
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 int fMaxDepth (int lev, struct sinfo info) { /* */
@@ -448,7 +439,7 @@ int evaluation (TGAME sq64, int who) { /* */
    lwho = cwho = ladverse = cadverse = 0;
    eval = 0;
    nBishopPlus = nBishopMinus = 0;
-   // info.nEvalCall += 1;
+   info.nEvalCall += 1;
    for (register int z = 0; z < GAMESIZE; z++) {
         // eval des pieces
       if ((v = (*p64++)) == 0) continue;
@@ -786,25 +777,19 @@ void cgi () { /* */
 
 int main (int argc, char *argv[]) { /* */
    /* lit la ligne de commande */
-   /* -i [FENGame] [profondeur] : CLI avec sortie JSON */
-   /* -r [FENGame] [profondeur] : CLI avec sortie raw */
-   /* -p [FENGame] [profondeur] : play mode CLI */
-   /* -t : test unitaire */
-   /* -h : help */
-   /* autrement CGI */
+   /* si option "-x" existe on execute */
+   /* si pas d'argument CGI */
    char fen [MAXLENGTH];
    char strMove [15];
-   int color;
    TGAME oldSq64;
    // preparation du fichier log 
    flog = fopen (F_LOG, "a");
    info.wdl = 9;           // valeur inateignable montrant que syzygy n'a pas ete appelee
    srand (time (NULL));    // initialise le generateur aleatoire
-   info.gamerColor = 1;
-
    // si pas de parametres on va au cgi (fin se programme)
    if (argc >= 2 && argv [1][0] == '-') { // si il y a des parametres. On choidi un test
       if (argc > 2) info.gamerColor = -fenToGame (argv [2], sq64, info.epGamer, &info.cpt50, &info.nb);
+      else info.gamerColor = -fenToGame (getInfo.fenString, sq64, info.epGamer, &info.cpt50, &info.nb);
       if (argc > 3) getInfo.level = atoi (argv [3]);
       switch (argv [1][1]) {
       case 'i': case 'I' :
@@ -816,7 +801,8 @@ int main (int argc, char *argv[]) { /* */
          gameToFen (sq64, fen, info.gamerColor, '+', true, info.epComputer, info.cpt50, info.nb); 
          sendGame (fen, info, getInfo.reqType);
          break;
-      case 'r':
+      case 'r': case 'R':
+         test = (argv [1][1] == 'R');
          computerPlay (sq64, -info.gamerColor);
          printf ("--------resultat--------------\n");
          printGame (sq64, evaluation (sq64, -info.gamerColor));
@@ -827,19 +813,6 @@ int main (int argc, char *argv[]) { /* */
          printf ("fen: %s\n", fen);
          printf ("move: %s %s %c\n", info.computerPlayC, (info.lastCapturedByComputer != '\0') ? "taken:": "", 
                  info.lastCapturedByComputer);
-         break;
-      case 'd': // test difference
-         fenToGame ("2k5/8/8/8/4Pp2/8/8/2K5+b+-+e3+50+1", oldSq64, info.epGamer, &info.cpt50, &info.nb);
-         fenToGame ("2k5/8/8/8/4Pp2/8/8/2K5+b+-+e3+50+1", sq64, info.epGamer, &info.cpt50, &info.nb);
-         // fenToGame ("2k5/8/8/8/8/4p3/8/2K5+b+-+e3+50+1", sq64, info.epGamer, &info.cpt50, &info.nb);
-         printGame (oldSq64, 0);
-         printGame (sq64, 0);
-         difference (oldSq64, sq64, 1, &info.lastCapturedByComputer, info.computerPlayC, 
-            info.computerPlayA, info.epGamer, info.epComputer);
-         printf ("last Captured: %c\n", info.lastCapturedByComputer);
-         printf ("Dep Complet: %s\n", info.computerPlayC);
-         printf ("Dep Abrege: %s\n", info.computerPlayA);
-         printf ("ep Gamer: %s\n", info.epGamer);
          break;
       case 'f': //performance
          info.nClock = clock ();
@@ -888,8 +861,7 @@ int main (int argc, char *argv[]) { /* */
          for (int i = 0; i < nextL; i++) printGame (list [i], evaluation (list [i], -info.gamerColor));
          break;
       case 'p':
-         info.gamerColor = -1;
-         printf ("whe have the: %s\n", (info.gamerColor == -1) ? "Whites" : "Blacks");
+         printf ("You have the: %s\n", (info.gamerColor == -1) ? "Whites" : "Blacks");
          printGame (sq64, evaluation (sq64, -info.gamerColor));
          bool player = (info.gamerColor == -1); 
          while (info.score == ONGOING) {
@@ -909,30 +881,13 @@ int main (int argc, char *argv[]) { /* */
             player = !player;
          }
          break;
-      case 'z':
-         for (int i = 0; i < strlen (argv [2]); i++) if (argv [2][i] == '+') argv [2][i] = ' ';
-         printf ("fen : %s\n", argv [2]);
-         syzygyRR (PATHTABLE, argv [2], &info.wdl, info.move, info.endName);
-         printf ("%s\n", info.endName);
-         break;
-      case 'l':
-         color = 1;
-          if (openingAll (OPENINGDIR, (color == 1) ? "b.fen": "w.fen", fen, info.comment, info.move)) {
-            printf ("comment: %s, move; %s\n", info.comment, info.move);
-         }
-         else printf ("KO\n");
-         break;
-      case 'm': 
-         printf ("%d\n", fMaxDepth (atoi (argv [2]), info));
-         break;
-      case 'h':
+      default:
          printf ("%s\n", HELP);
-         break;
-         
-      default: break;
       }
    }
-   else cgi (); // la voie normale : pas de parametre => cgi.
+   else 
+   if (argc <= 1) cgi (); // la voie normale : pas de parametre => cgi.
+   else printf ("%s\n", HELP);
    fclose (flog);
    exit (EXIT_SUCCESS);
 }

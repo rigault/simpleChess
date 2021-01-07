@@ -48,6 +48,62 @@ void printGame (TGAME jeu, int eval) { /* */
    printf ("score: %s\n", scoreToStr [info.score]);
 }
 
+char *castleToStr (struct sinfo info, bool whiteIsCastled, bool blackIsCastled, char *str) { /* */
+   /* traduit booleen decrivant les possibilits de roque en string */
+   strcpy (str, "");
+
+   if (((whiteIsCastled) && (info.gamerColor == -1)) || ((blackIsCastled) && (info.gamerColor == 1))) { 
+      info.rightCastleGamerOK = info.leftCastleGamerOK = false;
+   }
+   if (((whiteIsCastled) && (info.gamerColor == 1)) || ((blackIsCastled) && (info.gamerColor == -1))) {
+      info.rightCastleComputerOK = info.leftCastleComputerOK = false;
+   }
+
+   if (info.gamerColor == -1) {
+      if (info.rightCastleGamerOK) strcat (str, "K");
+      if (info.leftCastleGamerOK) strcat (str, "Q");
+      if (info.rightCastleComputerOK) strcat (str, "k");
+      if (info.leftCastleComputerOK) strcat (str, "q");
+   }
+   else {
+      if (info.rightCastleComputerOK) strcat (str, "K");
+      if (info.leftCastleComputerOK) strcat (str, "Q");
+      if (info.rightCastleGamerOK) strcat (str, "k");
+      if (info.leftCastleGamerOK) strcat (str, "q");
+   }
+   if (strlen (str) == 0) strcpy (str, "-");
+   return str;
+}
+
+void strToCastle (char *str, int color, bool *whiteCanCastle, bool *blackCanCastle) { /* */
+   /* traduit les possibilits de roque en booleens */
+   char car;
+   *whiteCanCastle = false;
+   *blackCanCastle = false;
+   info.rightCastleGamerOK = info.rightCastleComputerOK = info.leftCastleGamerOK = info.leftCastleComputerOK = false;
+   while ((car = *str++) != '\0') {
+      switch (car) {
+      case 'K': if (color == 1) info.rightCastleGamerOK = true;
+                else info.rightCastleComputerOK = true;
+                *whiteCanCastle = true;
+                break;
+      case 'k': if (color == -1) info.rightCastleGamerOK = true;
+                else info.rightCastleComputerOK = true;
+                *blackCanCastle = true;
+                break;
+      case 'Q': if (color == 1) info.leftCastleGamerOK = true;
+                else info.leftCastleComputerOK = true;
+                *whiteCanCastle = true;
+                break;
+      case 'q': if (color == -1) info.leftCastleGamerOK = true;
+                else info.leftCastleComputerOK = true;
+                *blackCanCastle = true;
+                break;
+      default:;
+      }
+   }
+}
+
 int fenToGame (char *fenComplete, TGAME sq64, char *ep, int *cpt50, int *nb) { /* */
    /* Forsyth–Edwards Notation */
    /* le jeu est recu sous la forme d'une chaine de caracteres du navigateur au format fen */
@@ -61,7 +117,7 @@ int fenToGame (char *fenComplete, TGAME sq64, char *ep, int *cpt50, int *nb) { /
    char *fen, cChar;
    char *sColor, *sCastle, *strNb, *str50, *strEp;
    char copyFen [MAXBUFFER];
-   bool bCastleW = false;  
+   bool bCastleW = false; // defaut le roi blanc ne peut pas roquer  
    bool bCastleB = false;
    int activeColor = 1; //par defaut : noir
    *cpt50 = *nb = 0;
@@ -70,8 +126,7 @@ int fenToGame (char *fenComplete, TGAME sq64, char *ep, int *cpt50, int *nb) { /
    if ((sColor = strtok (NULL, "+ ")) != NULL)        // couleur
       activeColor = (sColor [0] == 'b') ? 1 : -1;    
    if ((sCastle = strtok (NULL, "+ ")) != NULL) {     // roques
-      bCastleW = (sCastle [0] == '-');
-      bCastleB = (bCastleW ? sCastle [1] == '-' : sCastle [2] == '-');
+      strToCastle (sCastle, activeColor, &bCastleW, &bCastleB);
    }
    if ((strEp = strtok (NULL, "+ ")) != NULL)         // en passant
       strcpy (ep, strEp);
@@ -92,8 +147,8 @@ int fenToGame (char *fenComplete, TGAME sq64, char *ep, int *cpt50, int *nb) { /
       }
       else {
          sq64 [l][c] = charToInt (cChar);
-         if (cChar == 'K' && bCastleW) sq64 [l][c] = -CASTLEKING; // le roi blanc a deja roque
-         if (cChar == 'k' && bCastleB) sq64 [l][c] = CASTLEKING;  // le roi noir a deja roque
+         if (cChar == 'K' && !bCastleW) sq64 [l][c] = -CASTLEKING; // le roi blanc ne peut plus rioquer
+         if (cChar == 'k' && !bCastleB) sq64 [l][c] = CASTLEKING;  // le roi noir a deja roque
          c += 1;
       }
       if (c == N) {
@@ -112,13 +167,14 @@ char *gameToFen (TGAME sq64, char *fen, int color, char sep, bool complete, char
    /* le compteur des 50 coups et le nb de coups */
    int n, v;
    int i = 0;
-   bool castleW = false;
-   bool castleB = false;
+   char strCastle [4];
+   bool whiteIsCastled = false;
+   bool blackIsCastled = false;
    for (int l = N-1; l >=  0; l--) {
       for (int c = 0; c < N; c++) {
          if ((v = sq64 [l][c]) != 0) {
-            if (v == CASTLEKING) castleB = true;
-            if (v == -CASTLEKING) castleW = true;
+            if (v == CASTLEKING) blackIsCastled = true;
+            if (v == -CASTLEKING) whiteIsCastled = true;
             fen [i++] = (v >= 0) ? tolower (dict [v]) : dict [-v];
          }
          else {
@@ -132,8 +188,10 @@ char *gameToFen (TGAME sq64, char *fen, int color, char sep, bool complete, char
    i -= 1;
    fen [i] = '\0';
    sprintf (fen, "%s%c%c", fen, sep, (color == 1) ? 'b': 'w');
-   if (complete)
-      sprintf (fen, "%s%c%s%s%c%s%c%d%c%d", fen, sep, (castleW ? "-":"KQ"), (castleB ? "-":"kq"), sep, ep, sep, cpt50, sep, nb); 
+   if (complete) {
+      castleToStr (info, whiteIsCastled, blackIsCastled, strCastle);
+      sprintf (fen, "%s%c%s%c%s%c%d%c%d", fen, sep, strCastle, sep, ep, sep, cpt50, sep, nb); 
+   }
    return fen;
 }
 
@@ -341,7 +399,7 @@ char *difference (TGAME sq64_1, TGAME sq64_2, int color, char *prise, char *comp
    /* en dehors de ces deux cas suppose qu'il n'y a que deux cases differentes (l1,c1) (l2, c2) */
    /* renvoie la chaine decrivant la difference */
    /* qui represente le deplacement au format complet Pe2:e4 et au format abregé e4 */
-   /* renvoie aussi prise est la valeur de la piece prise. ' ' si pas de prise */
+   /* renvoie aussi prise, valeur de la piece prise. ' ' si pas de prise */
    /* renvoie aussi epComputer - en passant - pour renseigner les coordonnees eventuelles de prise en passant (sinon : "-") */
    /* epGamer permet de prendre en compte l'indication du gamer pour une prise possible */
    int l1, c1, l2, c2, lCastling;
