@@ -28,33 +28,29 @@
 #include "chessUtil.h"
 #include "syzygy.h"
 
+// valorisation des pieces dans l'ordre  VOID PAWN KNIGHT BISHOP ROOK QUEEN KING CASTLEKING
+// tour = fou + 2 pions, dame >= fou + tour + pion
+// Le roi qui a roque a le code 7, le roi normal code 6
+// Voir fonction d'evaluation
+const int val [] = {0, 1000, 3000, 3000, 5000, 9000, 0, 100};
+int tEval [MAXTHREADS];
+
 FILE *flog;
 bool test = false;                 // positionne pour visualiser les possibilits evaluees. Mode CLI
-
 struct sGetInfo {                  // description de la requete emise par le client
    char fenString [MAXLENGTH];     // le jeu
    int reqType;                    // le type de requete : 0 1 ou 2
    int level;                      // la profondeur de la recherche souhaitee
 } getInfo = {"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR+w", 2, 3}; // par defaut
 
-// valorisation des pieces dans l'ordre  VOID PAWN KNIGHT BISHOP ROOK QUEEN KING CASTLEKING
-// tour = fou + 2 pions, dame >= fou + tour + pion
-// Le roi qui a roque a le code 7, le roi normal code 6
-// Voir fonction d'evaluation
-int val [] = {0, 1000, 3000, 3000, 5000, 9000, 0, 100};
-int tEval [MAXTHREADS];
-
 TGAME sq64;
 TLIST list;
 int nextL; // nombre total utilisé dans la file
-pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 int fMaxDepth (int lev, struct sinfo info) { /* */
    /* renvoie la profondeur du jeu en fonction du niveau choisi et */
    /* de l'etat du jeu */
-   const struct {      
-      int v;
-      int inc;
+   const struct { int v; int inc;
    } val [] = {{200, 3}, {400, 2},  {800, 1}};
 
    int prod = info.nValidComputerPos * info.nValidGamerPos;
@@ -617,8 +613,7 @@ int find (TGAME sq64, TGAME bestSq64, int *bestNote, int color) { /* */
    char fen [MAXBUFFER] = "";
    
    *bestNote = 0; 
-   if (color == 1) nextL = buildList (sq64, color, info.kingCastleComputerOK, info.queenCastleComputerOK, list);
-   else nextL = buildList (sq64, color, info.kingCastleGamerOK, info.queenCastleGamerOK, list);
+   nextL = buildList (sq64, color, info.kingCastleComputerOK, info.queenCastleComputerOK, list);
    nextL = buildListEnPassant (sq64, color, info.epGamer, list, nextL);
    strcpy (info.comment, "");
 
@@ -738,9 +733,9 @@ void cgi () { /* */
    /* MODE CGI
    */
    char fen [MAXLENGTH];
+   char temp [MAXBUFFER];
    char *str;
    char *env;
-   char temp [MAXBUFFER];
    str = temp;
    char buffer [80] = "";
    srand (time (NULL)); // initialise le generateur aleatoire
@@ -754,7 +749,7 @@ void cgi () { /* */
    env = getenv ("REMOTE_ADDR");
    fprintf (flog, "%s; ", env);              // log de l'address IP distante
    env = getenv ("HTTP_USER_AGENT");
-   if (strlen (env) > 8) *(env + 8) = '\0';  // tronque a 10 caracteres
+   if (strlen (env) > 8) *(env + 8) = '\0';  // tronque a x caracteres
    fprintf (flog, "%s; ", env);              // log du user agent distant
 
    // Lecture de la chaine de caractere representant le jeu via la methode post

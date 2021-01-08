@@ -3,7 +3,7 @@
 #define VERSION "2.1"
 #define DESCRIPTION "Chess Rene Rigault 2021"
 #define PATHTABLE "/var/www/html/chessdata"           // table de fin de jeux SYZYGY.
-#define OPENINGDIR "/home/rr/git/simplechess/bigfen"  // repertoire des ouvertures
+#define OPENINGDIR "/var/www/html/bigfen"  // repertoire des ouvertures
 #define N 8
 #define MAXSIZELIST 128                // taille max liste des jeux
 #define MAXTHREADS 128                 // nombre max de thread. Garder ces deux valeurs egales.
