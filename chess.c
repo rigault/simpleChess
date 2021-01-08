@@ -3,12 +3,10 @@
 /*   ./chess.cgi -i|-I [FENGame] [profondeur] : CLI avec sortie JSON */
 /*   ./chess.cgi -r|-R [FENGame] [profondeur] : CLI avec sortie raw */
 /*   ./chess.cgi -f : test performance */
-/*   ./chess.cgi -e [FENGame] [profondeur] : endurance. joue contre lui même */
 /*   ./chess.cgi -t [FENGame] : test unitaire */
 /*   ./chess.cgi -p [FENGame] [profondeur] : play mode CLI */
 /*   ./chess.cgi -h : help */
-/*   autrement CGI */
-/*   script CGI gérant une API restful (GET) avec les réponses au format JSON */
+/*   autrement  CGI gérant une API restful (GET) avec les réponses au format JSON */
 /*   fichiers associes : chess.log, chessB.fen, chessW.fen, chessUtil.c, syzygy.c, tbprobes.c tbcore.c et .h associes  */
 /*   Structures de donnees essentielles */
 /*     - jeu represente dans un table a 2 dimensions : TGAME sq64 */
@@ -28,11 +26,12 @@
 #include "chessUtil.h"
 #include "syzygy.h"
 
-// valorisation des pieces dans l'ordre  VOID PAWN KNIGHT BISHOP ROOK QUEEN KING CASTLEKING
+// valorisation des pieces dans l'ordre PAWN KNIGHT BISHOP ROOK QUEEN KING CASTLEKING
+// Le roi qui a deja roque a le code 7, le roi normal a le code 6
 // tour = fou + 2 pions, dame >= fou + tour + pion
-// Le roi qui a roque a le code 7, le roi normal code 6
+// le roi n'a pas de valeur. Le roi qui a roque a un bonus
 // Voir fonction d'evaluation
-const int val [] = {0, 1000, 3000, 3000, 5000, 9000, 0, 100};
+const int val [] = {0, 1000, 3000, 3000, 5000, 9000, 0, BONUSCASTLE};
 int tEval [MAXTHREADS];
 
 FILE *flog;
@@ -41,7 +40,7 @@ struct sGetInfo {                  // description de la requete emise par le cli
    char fenString [MAXLENGTH];     // le jeu
    int reqType;                    // le type de requete : 0 1 ou 2
    int level;                      // la profondeur de la recherche souhaitee
-} getInfo = {"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR+w", 2, 3}; // par defaut
+} getInfo = {"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR+w+KQkq", 2, 3}; // par defaut
 
 TGAME sq64;
 TLIST list;
@@ -51,10 +50,10 @@ int fMaxDepth (int lev, struct sinfo info) { /* */
    /* renvoie la profondeur du jeu en fonction du niveau choisi et */
    /* de l'etat du jeu */
    const struct { int v; int inc;
-   } val [] = {{200, 3}, {400, 2},  {800, 1}};
+   } val [] = {{12, 7}, {25, 6}, {50, 5}, {100, 4}, {200, 3}, {400, 2},  {800, 1}};
 
    int prod = info.nValidComputerPos * info.nValidGamerPos;
-   for (int i = 0; i < NDEPTH; i++)
+   for (int i = 0; i < 7; i++)
       if (prod < val [i].v) return val [i].inc + lev;
    return lev;
 }
@@ -105,19 +104,19 @@ bool LCBlackKingInCheck (TGAME sq64, register int l, register int c) { /* */
    }
 
    // fou ou reine menace
-   for (k = 0; k < MIN (7-l, 7-c); k++) { // vers haut droit
+   for (k = 0; k < MIN (7-l, 7-c); k++) {       // vers haut droit
       if ((w = -sq64 [l+k+1][c+k+1]) == BISHOP || w == QUEEN) return true;
       if (w) break;
    }
-   for (k = 0; k < MIN (7-l, c); k++) {// vers haut gauche
+   for (k = 0; k < MIN (7-l, c); k++) {         // vers haut gauche
       if ((w = -sq64 [l+k+1][c-k-1]) == BISHOP || w == QUEEN) return true;
       if (w) break;
    }
-   for (k = 0; k < MIN (l, 7-c); k++) { // vers bas droit
+   for (k = 0; k < MIN (l, 7-c); k++) {         // vers bas droit
       if ((w = -sq64 [l-k-1][c+k+1]) == BISHOP || w == QUEEN) return true;
       if (w) break;
    }
-   for (k = 0; k < MIN (l, c); k++) { // vers bas gauche
+   for (k = 0; k < MIN (l, c); k++) {           // vers bas gauche
       if ((w = -sq64 [l-k-1] [c-k-1]) == BISHOP || w == QUEEN) return true;
       if (w) break;
    }
@@ -171,19 +170,19 @@ bool LCWhiteKingInCheck (TGAME sq64, register int l, register int c) { /* */
    }
 
    // fou ou reine menace
-   for (k = 0; k < MIN (7-l, 7-c); k++) { // vers haut droit
+   for (k = 0; k < MIN (7-l, 7-c); k++) {       // vers haut droit
       if ((w = sq64 [l+k+1][c+k+1]) == BISHOP || w == QUEEN) return true;
       if (w) break;
    }
-   for (k = 0; k < MIN (7-l, c); k++) {// vers haut gauche
+   for (k = 0; k < MIN (7-l, c); k++) {         // vers haut gauche
       if ((w = sq64 [l+k+1][c-k-1]) == BISHOP || w == QUEEN) return true;
       if (w) break;
    }
-   for (k = 0; k < MIN (l, 7-c); k++) { // vers bas droit
+   for (k = 0; k < MIN (l, 7-c); k++) {         // vers bas droit
       if ((w = sq64 [l-k-1][c+k+1]) == BISHOP || w == QUEEN) return true;
       if (w) break;
    }
-   for (k = 0; k < MIN (l, c); k++) { // vers bas gauche
+   for (k = 0; k < MIN (l, c); k++) {           // vers bas gauche
       w = sq64 [l-k-1] [c-k-1];
       if ((w = sq64 [l-k-1] [c-k-1]) == BISHOP || w == QUEEN) return true;
       if (w) break;
@@ -191,7 +190,7 @@ bool LCWhiteKingInCheck (TGAME sq64, register int l, register int c) { /* */
    return false;
 }
 
-bool LCkingInCheck (TGAME sq64, register int who, register int l, register int c) { /* */
+bool LCkingInCheck (TGAME sq64, int who, int l, int c) { /* */
    /* vrai si le roi situe case l, c est echec au roi */
    /* "who" est la couleur du roi qui est attaque */
    return (who == 1) ? LCBlackKingInCheck (sq64, l, c) : LCWhiteKingInCheck (sq64, l, c);
@@ -206,7 +205,7 @@ inline int8_t *pushList (TGAME refJeu, TLIST list, int nListe, int8_t *pl, int l
    return (pl + GAMESIZE); 
 }
 
-int buildListEnPassant (TGAME refJeu, register int who, char *epGamer, TLIST list, int nextL) { /* */
+int buildListEnPassant (TGAME refJeu, int who, char *epGamer, TLIST list, int nextL) { /* */
    /* apporte le complement de positions a buildList prenant en compte en Passant suggere par le joueur */
    int8_t *pl = &list [nextL][0][0];
    int nListe = nextL;
@@ -240,8 +239,8 @@ int buildList (TGAME refJeu, register int who, bool kingSide, bool queenSide, TL
   
    if (who * refJeu [base][4] == KING) {
       // roque cote reine
-      if (queenSide && (who * refJeu [base][0]) == ROOK &&  (refJeu [base][1] == 0) && 
-         (refJeu [base][2] == 0) && (refJeu [base][3] == 0) &&
+      if (queenSide && (who * refJeu [base][0]) == ROOK && 
+         (refJeu [base][1] == 0) && (refJeu [base][2] == 0) && (refJeu [base][3] == 0) &&
          !LCkingInCheck (refJeu, who, base, 3) && !LCkingInCheck (refJeu, who, base, 4)) {
          // la case traversee par le roi et le roi ne sont pas echec au roi
          memcpy (pl, refJeu, GAMESIZE);
@@ -252,8 +251,8 @@ int buildList (TGAME refJeu, register int who, bool kingSide, bool queenSide, TL
          pl += GAMESIZE;
       }
       // Roque cote roi
-      if (kingSide && (who * refJeu [base][7] == ROOK) && (refJeu [base][5] == 0) && 
-         (refJeu [base][6] == 0) &&
+      if (kingSide && (who * refJeu [base][7] == ROOK) && 
+         (refJeu [base][5] == 0) && (refJeu [base][6] == 0) &&
          !LCkingInCheck (refJeu, who, base, 4) && !LCkingInCheck (refJeu, who, base, 5)) {
          // la case traversee par le roi et le roi ne sont pas echec au roi
          memcpy (pl, refJeu, GAMESIZE);
@@ -266,12 +265,12 @@ int buildList (TGAME refJeu, register int who, bool kingSide, bool queenSide, TL
    }
     
    for (register int z = 0; z < GAMESIZE; z++) { 
-      u = *(pr++); // u est la valeur courante dans refJeu
-      v = who * u; // v = abs (u)
+      u = *(pr++);      // u est la valeur courante dans refJeu
+      v = who * u;      // v = abs (u)
       if (v > 0) {
          l = LINE (z);
          c = COL (z);  
-         switch (v) { // v est la valeur absolue car u < 0 ==> who < 0
+         switch (v) {   // v est la valeur absolue car u < 0 ==> who < 0
          case PAWN:
          // deplacements du pion
             if (who == -1 && l == 1 && 0 == refJeu [l+1][c] && 0 == refJeu[l+2][c]) {  // coup initial saut de 2 cases 
@@ -337,28 +336,28 @@ int buildList (TGAME refJeu, register int who, bool kingSide, bool queenSide, TL
             break;
 
          case ROOK: case QUEEN:
-            for (k = l+1; k < N; k++) { // en haut
+            for (k = l+1; k < N; k++) {   // en haut
                if ((w = refJeu [k][c]) * u  <= 0) {
                   pl = pushList (refJeu, list, nListe++, pl, l, c, k, c, u);
-                  if (w)  break; // si w != 0...
+                  if (w)  break;          // si w != 0...
                }
                else break;
             }
-            for (k = l-1; k >=0; k--) { // en bas
+            for (k = l-1; k >=0; k--) {   // en bas
                if ((w = refJeu [k][c]) * u <= 0) {
                   pl = pushList (refJeu, list, nListe++, pl, l, c, k, c, u);
                   if (w) break;
                }
                else break;
             }
-            for (k = c+1; k < N; k++) {  // a droite
+            for (k = c+1; k < N; k++) {   // a droite
                if ((w = refJeu [l][k]) * u <= 0) {
                   pl = pushList (refJeu, list, nListe++, pl, l, c, l, k, u);
                   if (w) break;
                }
                else break;
             }
-            for (k = c-1; k >=0; k--)  { // a gauche
+            for (k = c-1; k >=0; k--)  {  // a gauche
                if ((w = refJeu [l][k]) * u <= 0) {
                   pl = pushList (refJeu, list, nListe++, pl, l, c, l, k, u);
                   if (w) break;
@@ -367,7 +366,7 @@ int buildList (TGAME refJeu, register int who, bool kingSide, bool queenSide, TL
             }
             if (v == ROOK) break;
          // surtout pas de break pour la reine
-         case BISHOP : // valable aussi pour QUEEN
+         case BISHOP :                             // valable aussi pour QUEEN
             for (k = 0; k < MIN (7-l, 7-c); k++) { // vers haut droit
                if ((w = refJeu [l+k+1][c+k+1]) * u <= 0) {
                   pl = pushList (refJeu, list, nListe++, pl, l, c, l+k+1, c+k+1, u);
@@ -375,21 +374,21 @@ int buildList (TGAME refJeu, register int who, bool kingSide, bool queenSide, TL
                }
                else break;
             }
-            for (k = 0; k < MIN (7-l, c); k++) { // vers haut gauche
+            for (k = 0; k < MIN (7-l, c); k++) {   // vers haut gauche
                if ((w = refJeu [l+k+1][c-k-1]) * u <= 0) {
                   pl = pushList (refJeu, list, nListe++, pl, l, c, l+k+1, c-k-1, u);
                   if (w) break;
                }
                else break;
             }
-            for (k = 0; k < MIN (l, 7-c); k++) { // vers bas droit
+            for (k = 0; k < MIN (l, 7-c); k++) {   // vers bas droit
                if ((w = refJeu [l-k-1][c+k+1]) * u <= 0) {
                   pl = pushList (refJeu, list, nListe++, pl, l, c, l-k-1, c+k+1, u);
                   if (w) break;
                }
                else break;
             }
-            for (k = 0; k < MIN (l, c); k++) { // vers bas gauche
+            for (k = 0; k < MIN (l, c); k++) {     // vers bas gauche
                if ((w = refJeu [l-k-1][c-k-1]) * u  <= 0) {
                   pl = pushList (refJeu, list, nListe++, pl, l, c, l-k-1, c-k-1, u);
                   if (w) break;
@@ -423,22 +422,24 @@ bool kingCannotMove (TGAME sq64, register int who) { /* */
    /* si le roi est echec au roi il est mat */
    TLIST list;
    register int maxList = buildList (sq64, who, true, true, list);
-   for (register int k = 0; k < maxList; k++) {
+   if (maxList == 0) return true;
+   for (register int k = 0; k < maxList; k++)
       if (! fKingInCheck (list [k], who)) return false;
-   }
    return true;
 }
 
-int evaluation (TGAME sq64, int who) { /* */
-   /* fonction d'evaluation retournant MATE si Ordinateur gagne, */
+int evaluation (TGAME sq64, int who, bool *pat) { /* */
+   /* fonction d'evaluation retournant MAT si Ordinateur gagne, */
    /* -MAT si joueur gagne, 0 si nul,... */
-   int l, c, v, eval;
+   /* position le boolean pat si pat */
+   register int l, c, v, eval;
    int8_t *p64 = &sq64 [0][0];
-   int lwho, cwho, ladverse, cadverse, nBishopPlus, nBishopMinus;
+   int lwho, cwho, ladverse, cadverse, nBBishops, nWBishops;
    bool kingInCheck;
+   *pat = false;
    lwho = cwho = ladverse = cadverse = 0;
    eval = 0;
-   nBishopPlus = nBishopMinus = 0;
+   nBBishops = nWBishops = 0;  // nombre ce fous Black, White.
    info.nEvalCall += 1;
    for (register int z = 0; z < GAMESIZE; z++) {
       // eval des pieces
@@ -449,7 +450,7 @@ int evaluation (TGAME sq64, int who) { /* */
       eval += ((v > 0) ? val [v] : -val [-v]);
        
       switch (v) {
-      case KING : case CASTLEKING :
+      case KING : case CASTLEKING : // on repere ou est le roi
          if (who == 1) { lwho = l; cwho = c; }
          else  { ladverse = l; cadverse = c; }
          break;
@@ -457,19 +458,19 @@ int evaluation (TGAME sq64, int who) { /* */
          if (who == 1) { ladverse = l; cadverse = c; }
          else  {lwho = l; cwho = c;}
          break;
-      case KNIGHT: // on privilégie cavaliers au centre
+      case KNIGHT:   // on privilégie cavaliers au centre
          if (c >= 2 && c <= 5 && l >= 2 && l <= 5) eval += BONUSCENTER;
          break;
-      case -KNIGHT:
+      case -KNIGHT:   
          if (c >= 2 && c <= 5 && l >= 2 && l <= 5) eval -= BONUSCENTER;
          break;
-      case BISHOP: // on attribue un bonus si deux fous de la meme couleur
-         nBishopPlus += 1;
+      case BISHOP:   // on attribue un bonus si deux fous de la meme couleur
+         nBBishops += 1;
          break;
       case -BISHOP:
-         nBishopMinus += 1;
+         nWBishops += 1;
          break;
-      case ROOK: // bonus si tour mobile
+      case ROOK:     // bonus si tour mobile
          if (l == 7) {
            if (((c == 0) && sq64 [6][0] == 0) || ((c == 7) && sq64 [6][7] == 0)) 
               eval += BONUSMOVEROOK;   
@@ -481,24 +482,38 @@ int evaluation (TGAME sq64, int who) { /* */
             eval -= BONUSMOVEROOK;   
          }
          break;
-      case PAWN: // Si noir, plus on est pres de la ligne 0, mieuxx c'est
-         eval += ((N - 1) - l) * BONUSPAWNAHEAD;  
+      case PAWN: // pion noir
+         // plus on est prets de la ligne 0, mieux c'est
+         eval += ((N - 1) - l) * BONUSPAWNAHEAD;
+         // si pion derriere un autre pion (noir ou blanc), pas bon.
+         if (l > 0 && (abs (sq64 [l-1][c])) == PAWN) eval -= MALUSBLOCKEDPAWN;
+         // si pion n'a pas d'ami à droite, gauche et devant-droite ou gauche, pas bon
+         if (l > 0 && c > 1 && c < 7 && (sq64 [l-1][c-1] < PAWN) && 
+            (sq64 [l-1][c+1] < PAWN) && (sq64 [l][c-1] < PAWN) && (sq64 [l][c+1] < PAWN))
+            eval -= MALUSISOLATEDPAWN; 
          break;
-      case -PAWN: // Si blanc, le contraire
+      case -PAWN: // pion blanc : pareil sauf que c'est le contraire
          eval -= l * BONUSPAWNAHEAD;
+         if (l < 7 && (abs (sq64 [l+1][c])) == PAWN) eval -= MALUSBLOCKEDPAWN;
+         if (l < 7 && c > 1 && c < 7 && (sq64 [l+1][c-1] > -PAWN) && 
+            (sq64 [l+1][c+1] != -PAWN) && (sq64 [l][c-1] > -PAWN) && (sq64 [l][c+1] > -PAWN))
+            eval -= MALUSISOLATEDPAWN; 
          break;
       default:;
       }
    }
    // printf ("eval 1 : %d\n", eval);
    // printf ("lwho: %d, cwho : %d, ladverse : %d, cadverse : %d\n", lwho, cwho, ladverse, cadverse);
-   if (nBishopPlus >= 2) eval += BONUSBISHOP;
-   if (nBishopMinus >= 2) eval -= BONUSBISHOP;
+   if (nBBishops >= 2) eval += BONUSBISHOP;
+   if (nWBishops >= 2) eval -= BONUSBISHOP;
    if (LCkingInCheck (sq64, who, lwho, cwho)) return -who * MATE; // who ne peut pas jouer et se mettre en echec
    kingInCheck = LCkingInCheck (sq64, -who, ladverse, cadverse);
-   if (kingCannotMove(sq64, -who)) { 
+   if (kingCannotMove (sq64, -who)) { 
       if (kingInCheck) return who * MATE;
-      else return 0; // Pat
+      else {
+         *pat = true;
+         return 0;   // Pat a distinguer de "0" avec le boolen pat
+      }
    }
    if (kingInCheck) eval += who * KINGINCHECKEVAL;
    return eval;
@@ -509,25 +524,27 @@ int alphaBeta (TGAME sq64, int who, int p, int refAlpha, int refBeta) { /* */
    TLIST list;
    int maxList = 0;
    int k, note;
+   bool pat = false;
    int val;
    int alpha = refAlpha;
    int beta = refBeta;
-   note = evaluation (sq64, who);
+   note = evaluation (sq64, who, &pat);
    if (info.calculatedMaxDepth < p) info.calculatedMaxDepth = p;
 
    // conditions de fin de jeu
+   if (note == MATE) return MATE - p;   // -p pour favoriser le choix avec faible profondeur
+   if (note == -MATE) return -MATE + p; // +p idem
+   if (pat) return 0;
    if (p >= info.maxDepth) return note;
-   if (note == MATE) return note-p;      // -p pour favoriser le choix avec faible profondeur
-   if (note == -MATE) return note+p;     // +p idem
    // pire des notes a ameliorer
    if (who == 1) {
       val = MATE;
       maxList = buildList (sq64, -1, true, true, list);
       for (k = 0; k < maxList; k++) {
          note = alphaBeta (list [k], -1, p+1, alpha, beta);
-         if (note < val) val = note;    // val = minimum...
+         if (note < val) val = note;   // val = minimum...
          if (alpha > val) return val;
-         if (val < beta) beta = val;    // beta = MIN (beta, val);
+         if (val < beta) beta = val;   // beta = MIN (beta, val);
       }
    }
    else {
@@ -536,9 +553,9 @@ int alphaBeta (TGAME sq64, int who, int p, int refAlpha, int refBeta) { /* */
       maxList = buildList (sq64, 1, true, true, list);
       for (k = 0; k < maxList; k++) {
          note = alphaBeta (list [k], 1, p+1, alpha, beta);
-         if (note > val) val = note;    // val = maximum...
+         if (note > val) val = note;   // val = maximum...
          if (beta < val) return val;
-         if (val > alpha) alpha = val;  // alpha = max (alpha, val);
+         if (val > alpha) alpha = val; // alpha = max (alpha, val);
       }
    }
    return val;
@@ -556,7 +573,7 @@ void updateInfo (TGAME sq64) { /* */
    int l, c, v;
    int lGamerKing, cGamerKing, lComputerKing, cComputerKing;
    lGamerKing = cGamerKing = lComputerKing = cComputerKing = -1;
-   info.note = evaluation(sq64, info.gamerColor);
+   info.note = evaluation(sq64, info.gamerColor, &info.pat);
    info.gamerKingState = info.computerKingState = NOEXIST;
    info.nGamerPieces = info.nComputerPieces = 0;
    for (l = 0; l < N; l++) {
@@ -763,7 +780,7 @@ void cgi () { /* */
    if ((str = strstr (env, "reqType=")) != NULL)
       sscanf (str, "reqType=%d", &getInfo.reqType);
  
-   if (getInfo.reqType != 0) {
+   if (getInfo.reqType != 0) {                 // on lance le jeu
        info.gamerColor = -fenToGame (getInfo.fenString, sq64, info.epGamer, &info.cpt50, &info.nb);
        computerPlay (sq64, -info.gamerColor);
        gameToFen (sq64, fen, info.gamerColor, '+', true, info.epComputer, info.cpt50, info.nb);
@@ -793,18 +810,17 @@ int main (int argc, char *argv[]) { /* */
       switch (argv [1][1]) {
       case 'i': case 'I' :
          test = (argv [1][1] == 'I');
-         if (test) printf ("Test\n");
-         printf ("fen: %s, level: %d\n", 
-            gameToFen (sq64, fen, -info.gamerColor, '+', true, info.epComputer, info.cpt50, info.nb), getInfo.level);
          computerPlay (sq64, -info.gamerColor);
+         if (test) printf ("--------resultat--------------\n");
+         if (test) printGame (sq64, evaluation (sq64, -info.gamerColor, &info.pat));
          gameToFen (sq64, fen, info.gamerColor, '+', true, info.epComputer, info.cpt50, info.nb); 
          sendGame (fen, info, getInfo.reqType);
          break;
       case 'r': case 'R':
          test = (argv [1][1] == 'R');
          computerPlay (sq64, -info.gamerColor);
-         printf ("--------resultat--------------\n");
-         printGame (sq64, evaluation (sq64, -info.gamerColor));
+         if (test) printf ("--------resultat--------------\n");
+         if (test) printGame (sq64, evaluation (sq64, -info.gamerColor, &info.pat));
          gameToFen (sq64, fen, info.gamerColor, '+', true, info.epComputer, info.cpt50, info.nb);
          printf ("clockTime: %ld, time: %ld, note: %d, eval: %d, computerStatus: %d, playerStatus: %d\n", 
                  info.nClock, info.computeTime, info.note, info.evaluation, info.computerKingState, info.gamerKingState); 
@@ -815,8 +831,8 @@ int main (int argc, char *argv[]) { /* */
          break;
       case 'f': //performance
          info.nClock = clock ();
-         for (int i = 0; i < 1000 * MILLION; i++)
-            for (int j = 0; j <  1000; j++)
+         for (int i = 0; i < MILLION; i++)
+            for (int j = 0; j < MILLION; j++)
                LCBlackKingInCheck (sq64, 7, 4);         
          printf ("%s\n", LCBlackKingInCheck (sq64, 7, 4) ? "echec" : "non ");         
          printf ("LCBlackKingInCheck. clock: %lf\n", (double) (clock () - info.nClock)/CLOCKS_PER_SEC);
@@ -833,47 +849,33 @@ int main (int argc, char *argv[]) { /* */
          
          info.nClock = clock ();
          for (int i = 0; i < getInfo.level * MILLION; i++)
-            evaluation (sq64, 1);
+            evaluation (sq64, 1, &info.pat);
          printf ("evaluation. clock: %lf\n", (double) (clock () - info.nClock)/CLOCKS_PER_SEC);
          break;
-      case 'e': // endurance
-         while (info.score == ONGOING) {
-            info.lastCapturedByComputer = '\0';
-            printGame (sq64, evaluation (sq64, -info.gamerColor));
-            computerPlay (sq64, -info.gamerColor);
-            printf ("clockTime: %ld, time: %ld, note: %d, eval: %d, computerStatus: %d, playerStatus: %d\n", 
-                 info.nClock, info.computeTime, info.note, info.evaluation, info.computerKingState, info.gamerKingState); 
-            printf ("comment: %s%s\n", info.comment, info.endName);
-            printf ("move: %s\n", info.computerPlayC);
-            info.gamerColor *= -1;
-         }
-         printf ("final\n");
-         printGame (sq64,  evaluation (sq64, -info.gamerColor));
-         break;      
       case 't':
          // tests
-         printGame (sq64, evaluation (sq64, -info.gamerColor));
+         printGame (sq64, evaluation (sq64, -info.gamerColor, &info.pat));
          printf ("==============================================================\n");
          nextL = buildList (sq64, -info.gamerColor, info.kingCastleComputerOK, info.queenCastleComputerOK, list);         
          nextL = buildListEnPassant (sq64, -info.gamerColor, info.epGamer, list, nextL);
          printf ("Nombre de possibilites : %d\n", nextL);
-         for (int i = 0; i < nextL; i++) printGame (list [i], evaluation (list [i], -info.gamerColor));
+         for (int i = 0; i < nextL; i++) printGame (list [i], evaluation (list [i], -info.gamerColor, &info.pat));
          break;
       case 'p':
          printf ("You have the: %s\n", (info.gamerColor == -1) ? "Whites" : "Blacks");
-         printGame (sq64, evaluation (sq64, -info.gamerColor));
+         printGame (sq64, evaluation (sq64, -info.gamerColor, &info.pat));
          bool player = (info.gamerColor == -1); 
          while (info.score == ONGOING) {
             if (player) { // joueur joue
-               printf ("gamer move: ");
+               printf ("gamer move (ex : e2e4 or Pe7-e8=Q) : ");
                while (scanf ("%s", strMove) != 1);
                moveGame (sq64, info.gamerColor, strMove);
-               printGame (sq64, evaluation (sq64, info.gamerColor));
+               printGame (sq64, evaluation (sq64, info.gamerColor, &info.pat));
             }
             else { // ordinateur joue
                memcpy (oldSq64, sq64, GAMESIZE);
                computerPlay (sq64, -info.gamerColor);
-               printGame (sq64, evaluation (sq64, -info.gamerColor));
+               printGame (sq64, evaluation (sq64, -info.gamerColor, &info.pat));
                printf ("comment: %s%s\n", info.comment, info.endName);
                printf ("computer move: %s %c\n", info.computerPlayC, info.lastCapturedByComputer);
             }

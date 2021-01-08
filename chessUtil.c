@@ -198,17 +198,18 @@ char *gameToFen (TGAME sq64, char *fen, int color, char sep, bool complete, char
 void moveGame (TGAME sq64, int color, char *move) { /* */
    /* modifie jeu avec le deplacement move */
    /* move en notation algébique Pa2-a4 ou Pa2xc3 */
-   int base = (color == -1) ? 0 : 7; // Roque non teste
+   /* tolere e2e4 e2-e4 e:e4 e2xe4 */
+   int base = (color == -1) ? 0 : 7;      // Roque non teste
    int cDep, lDep, cDest, lDest, i, j;
    
-   if (strcmp (move, "O-O-O") == 0) {   // grand Roque
+   if (strcmp (move, "O-O-O") == 0) {     // grand Roque
       sq64 [base][4] = 0;
       sq64 [base][3] = ROOK * color;
       sq64 [base][2] = KING * color;
       sq64 [base][0] = 0;
       return;
    }
-   if (strcmp (move, "O-O") == 0) {     // petit Roque
+   if (strcmp (move, "O-O") == 0) {       // petit Roque
       sq64 [base][4] = 0;
       sq64 [base][5] = ROOK * color;
       sq64 [base][6] = KING * color;
@@ -263,7 +264,6 @@ bool openingAll (const char *dir, const char *filter, char *gameFen, char *sComm
    /* donc nommer les fichier les plus prioritaires en debut d'alphabet */
    /* appelle opening sur les fichiers listes jusqu a trouver */
    /* renvoie vrai si gameFen est trouvee dans l'un des fichiers faux sinon */
-
    struct dirent **namelist;
    int n;
    char fileName [MAXBUFFER];
@@ -499,7 +499,8 @@ char *difference (TGAME sq64_1, TGAME sq64_2, int color, char *prise, char *comp
 
 void sendGame (const char *fen, struct sinfo info, int reqType) { /* */
    /* envoie le jeu decrit par fen et info au format JSON */
-   printf ("Access-Control-Allow-Origin: *\n");
+   printf ("Access-Control-Allow-Origin: *\n"); // obligatoire !
+   printf ("Cache-Control: no-cache\n");        // eviter les caches
    printf ("Content-Type: text/html\n\n");
    printf ("{\n");
    printf ("\"description\" : \"%s\",\n", DESCRIPTION);
@@ -521,16 +522,18 @@ void sendGame (const char *fen, struct sinfo info, int reqType) { /* */
       printf ("\"endName\" : \"%s\",\n", info.endName);
       printf ("\"wdl\" : \"%u\",\n", info.wdl);
       printf ("\"computePlayC\" : \"%s\",\n", info.computerPlayC);
-      printf ("\"computePlayA\" : \"%s\",\n", info.computerPlayA);
+      printf ("\"computePlayA\" : \"%s\",\n", info.computerPlayA);      
+      printf ("\"maxDepth\" : \"%d\",\n", info.maxDepth);
+      printf ("\"nEvalCall\" : \"%d\",\n", info.nEvalCall);
+      printf ("\"nBestNote\" : \"%d\",\n", info.nBestNote);
+      printf ("\"nValidGamerPos\" : \"%d\",\n", info.nValidGamerPos);
+      printf ("\"nValidComputerPos\" : \"%d\",\n", info.nValidComputerPos);
       printf ("\"score\" : \"%s\"", scoreToStr [info.score]);
    }
    if (reqType > 1) {
       printf (",\n\"dump\" : \"");
-      printf ("  maxDepth=%d  nEvalCall=%d  nLCKingInCheck=%d", info.maxDepth, 
-         info.nEvalCall, info.nLCKingInCheckCall);
-      printf ("  nBuildList=%d  nValidComputerPos=%d", info.nBuildListCall, info.nValidComputerPos);
-      printf ("  nValidPlayerPos=%d", info.nValidGamerPos);
-      printf ("  nBestNote=%d\"", info.nBestNote);
+      printf ("  nLCKingInCheck=%d", info.nLCKingInCheckCall);
+      printf ("  nBuildList=%d\"", info.nBuildListCall);
    }
    printf ("\n}\n");
 }
