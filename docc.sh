@@ -8,6 +8,6 @@ for file in ${StringArray[@]}; do
       echo -n "-"
    done
    echo "--------"
-   grep "\/\*" $file | sed 's/^\([a-zA-Z]\)/\n\1/'
+   grep "\/\*" chess.c | sed 's/^\([a-zA-Z]\)/\n\1/' | sed 's/\r//'
    echo; echo
 done
