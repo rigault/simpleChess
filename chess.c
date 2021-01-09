@@ -12,8 +12,8 @@
 /*     - jeu represente dans un table a 2 dimensions : TGAME sq64 */
 /*     - liste de jeux qui est un tableau de jeux :  TLIST list */
 /*     - nextL est un entier pointant sur le prochain jeux a inserer dans la liste */
-/*   Noirs : > 0 (Minuscules) */
-/*   Blancs : < 0  (Majuscules) */
+/*   Noirs : positifs  (Minuscules) */
+/*   Blancs : negatifs  (Majuscules) */
 
 #include <stdint.h>
 #include <stdio.h>
@@ -41,7 +41,6 @@ struct sGetInfo {                  // description de la requete emise par le cli
    int reqType;                    // le type de requete : 0 1 ou 2
    int level;                      // la profondeur de la recherche souhaitee
 } getInfo = {"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR+w+KQkq", 2, 3}; // par defaut
-
 TGAME sq64;
 TLIST list;
 int nextL; // nombre total utilisé dans la file
@@ -741,7 +740,7 @@ void computerPlay (TGAME sq64, int color) { /* */
    gettimeofday (&tRef, NULL);
    info.computeTime = tRef.tv_sec * MILLION + tRef.tv_usec - info.computeTime;
    updateInfo(sq64);
-   if (info.computerKingState == ISINCHECK) // pas le droit d'etre ehec apres avoir joue
+   if (info.computerKingState == ISINCHECK) // pas le droit d'etre echec apres avoir joue
       info.computerKingState = UNVALIDINCHECK;
    return;
 }
@@ -817,10 +816,11 @@ int main (int argc, char *argv[]) { /* */
          sendGame (fen, info, getInfo.reqType);
          break;
       case 'r': case 'R':
-         test = (argv [1][1] == 'R');
          computerPlay (sq64, -info.gamerColor);
-         if (test) printf ("--------resultat--------------\n");
-         if (test) printGame (sq64, evaluation (sq64, -info.gamerColor, &info.pat));
+         if (argv [1][1] == 'R') {
+            printf ("--------resultat--------------\n");
+            printGame (sq64, evaluation (sq64, -info.gamerColor, &info.pat));
+         }
          gameToFen (sq64, fen, info.gamerColor, '+', true, info.epComputer, info.cpt50, info.nb);
          printf ("clockTime: %ld, time: %ld, note: %d, eval: %d, computerStatus: %d, playerStatus: %d\n", 
                  info.nClock, info.computeTime, info.note, info.evaluation, info.computerKingState, info.gamerKingState); 

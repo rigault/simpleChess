@@ -32,7 +32,7 @@ void printGame (TGAME jeu, int eval) { /* */
    int v;
    bool normal = true;
    for (int c = 'a'; c <= 'h'; c++) printf (" %c ", c);
-   printf ("   --> eval: %d\n", eval);
+   printf ("   --> : %d\n", eval);
    for (l = 7; l >= 0; l--) {
       for (c = 0; c < N; c++) {
          printf ("%s", (normal ? BG_CYAN : BG_BLACK));
