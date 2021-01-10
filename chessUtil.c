@@ -19,7 +19,7 @@ static const char *strStatus [] = {"NO_EXIST", "EXIST", "IS_IN_CHECK", "UNVALID_
 static const char *scoreToStr [] = {"-", "0-1","1/2-1/2","1-0"};
 
 int charToInt (int c) { /* */
-   /* traduit la piece au format RNBQR... en nombre entier */
+   /* traduit la piece au format RNBQK... en nombre entier */
    int sign = islower (c) ? 1 : -1;
    for (unsigned int i = 0; i < sizeof (dict); i++)
       if (toupper (c) == dict [i]) return sign * i;
@@ -45,7 +45,6 @@ void printGame (TGAME jeu, int eval) { /* */
       normal =! normal; 
    }
    printf ("%s\n", NORMAL);
-   printf ("score: %s\n", scoreToStr [info.score]);
 }
 
 char *castleToStr (struct sinfo info, bool whiteIsCastled, bool blackIsCastled, char *str) { /* */
@@ -231,7 +230,7 @@ void moveGame (TGAME sq64, int color, char *move) { /* */
 
 bool opening (const char *fileName, char *gameFen, char *sComment, char *move) { /* */
    /* lit le fichier des ouvertures et produit le jeu final */
-   /* ce fichier est au forma CSV : FENstring ; dep ; commentaire */
+   /* ce fichier est au format CSV : FENstring ; dep ; commentaire */
    /* dep contient le deplacement en notation algebrique complete Xe2:e4[Y] | O-O | O-O-O */
    /* X : piece joue. Y : promotion,  O-O : petit roque,  O-O-O : grand roque */
    /* renseihne la chaine move (deplacement choisi) et le commentaire associe */
@@ -259,7 +258,7 @@ bool opening (const char *fileName, char *gameFen, char *sComment, char *move) {
 }
 
 bool openingAll (const char *dir, const char *filter, char *gameFen, char *sComment, char *move) {
-   /* liste les fichier du reperdoire dir contenant la chaine filter */
+   /* liste les fichier du repertoire dir contenant la chaine filter */
    /* fichier dans l'ordre alphabetique */
    /* donc nommer les fichier les plus prioritaires en debut d'alphabet */
    /* appelle opening sur les fichiers listes jusqu a trouver */
@@ -497,11 +496,13 @@ char *difference (TGAME sq64_1, TGAME sq64_2, int color, char *prise, char *comp
    return complete;
 }
 
-void sendGame (const char *fen, struct sinfo info, int reqType) { /* */
+void sendGame (bool http, const char *fen, struct sinfo info, int reqType) { /* */
    /* envoie le jeu decrit par fen et info au format JSON */
-   printf ("Access-Control-Allow-Origin: *\n"); // obligatoire !
-   printf ("Cache-Control: no-cache\n");        // eviter les caches
-   printf ("Content-Type: text/html\n\n");
+   if (http) {
+      printf ("Access-Control-Allow-Origin: *\n"); // obligatoire !
+      printf ("Cache-Control: no-cache\n");        // eviter les caches
+      printf ("Content-Type: text/html\n\n");
+   }
    printf ("{\n");
    printf ("\"description\" : \"%s\",\n", DESCRIPTION);
    printf ("\"compilation-date\": \"%s\",\n", __DATE__);
@@ -532,6 +533,11 @@ void sendGame (const char *fen, struct sinfo info, int reqType) { /* */
    }
    if (reqType > 1) {
       printf (",\n\"dump\" : \"");
+      printf ("  hash=%d", info.hash);
+      printf ("  nbTrTa=%d", info.nbTrTa);
+      printf ("  nbMatchTrans=%d", info.nbMatchTrans);
+      printf ("  nCollision=%d", info.nbColl);
+      printf ("  nCallfHash=%d", info.nbCallfHash);
       printf ("  nLCKingInCheck=%d", info.nLCKingInCheckCall);
       printf ("  nBuildList=%d\"", info.nBuildListCall);
    }

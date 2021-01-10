@@ -1,11 +1,11 @@
 #!/bin/bash
-fen="rnbqkbnr/pppppppp/8/8/2P5/8/PP1PPPPP/RNBQKBNR+b+KQkq+c3+0+0"
+fen="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR+w+KQkq+-+0+0"
 score="-"
-echo $fen
 while [ $score == "-" ]; do
-   sudo ./chess.cgi -R $fen | tr -d '\000' > temp # il faut virer les null
-   fen=`grep "fen:" temp | sed "s/fen: //g"`
-   score=`grep "score:" temp | sed "s/score: //g"`
+   sudo ./chess.cgi -v $fen | tr -d '\000' > temp # il faut virer les null
+   clear
+   fen=`grep ^\"fen temp | cut -d: -f 2 | tr -d \ \"\,`   
+   score=`grep ^\"score temp | cut -d: -f 2 | tr -d \ \"\,`
    cat temp
-   echo $fen
+   #read
 done

@@ -4,27 +4,28 @@
 #define DESCRIPTION "Chess Rene Rigault 2021"
 #define PATHTABLE "/var/www/html/chessdata"  // table de fin de jeux SYZYGY.
 #define OPENINGDIR "/var/www/html/bigfen"    // repertoire des ouvertures
+#define F_LOG "chess.log"              // log des jeux
 #define N 8
 #define MAXSIZELIST 128                // taille max liste des jeux
 #define MAXTHREADS 128                 // nombre max de thread. Garder ces deux valeurs egales.
 #define GAMESIZE 64                    // taille du jeu = N * N * sizeeof (int8_t) = 8 * 8 * 1 ATTENTION PORTABILITE
-#define F_LOG "chess.log"              // log des jeux
-#define HELP "Synopsys: sudo ./chess.cgi -i|-I|-r|-R|-f|-h|-p|-t [FEN string] [level]\n" \
+#define HELP "Synopsys: sudo ./chess.cgi -i|-v|-V|-f|-h|-p|-t [FEN string] [level]\n" \
     "More help: firefox|google-chrome|lynx ../front/chessdoc.html"
 #define MAXBUFFER 10000                // tampon de caracteres pour longues chaines
 #define MAXLENGTH 255                  // pour ligne
 #define MAXPIECESSYZYGY 6              // a partir de cette valeur on consule les tables endgame syzygy
 #define MAXNBOPENINGS 8                // on ne regarde pas la biblio ouverture a partir de ce nb de coups
-#define KINGINCHECKEVAL 1              // evaluation du gain d'un echec au roi..
 
+#define KINGINCHECKEVAL 1              // evaluation du gain d'un echec au roi..
 #define BONUSCASTLE 100                // Le roi qui a roque a un bonus
-#define BONUSCENTER 10                 // evaluation du gain d'avoir un cavalier au centre
+#define BONUSCENTER 20                 // evaluation du gain d'avoir cavalier fou tour reine dans carre central
+#define BONUSKNIGHT 10                 // evaluation du gain d'avoir un cavalier eloigne des bords
 #define BONUSPAWNAHEAD 4               // evaluation du gain d'avoir un pion avance
 #define BONUSBISHOP 10                 // evaluation du gain d'avoir deux fous
 #define BONUSMOVEROOK 10               // evaluation du gain d'avoir une tour non bloquee
 #define MALUSISOLATEDPAWN 10           // evaluation de la perte d'un pion isole
 #define MALUSBLOCKEDPAWN 10            // evaluation de la perte d'un pion bloque
-#define MATE 1000000
+#define MATE 1000000                   // evaluation du MAT
 
 #define MIN(x,y)      ((x<y)?(x):(y))  // minimum
 #define LINE(z)       ((z) >> 3)       // z / 8 (pour trouver ligne)
@@ -72,12 +73,17 @@ struct sinfo {
    enum Score score;             // score : "-" "1-0" "0-1" "1/2-1/2"
    bool pat;                     // retour de evaluation. vrai si le jeu est pat
    int  nBestNote;               // nombre de possibilites ayant la meilleure eval
+   int nbTrTa;                   // nombre de positions occupees dans la table de transposition
+   int nbColl;                   // nombre de collisions
+   int nbCallfHash;              // nmbre appels fn de hachage.
+   int nbMatchTrans;             // nombre de matchinf transposition  
+   int hash;                     // valeur hachage du jeu
 } info;
 
 extern int fenToGame (char *fenComplete, TGAME sq64, char *ep, int *cpt50, int *nb);
 extern char *gameToFen (TGAME sq64, char *fen, int color, char sep, bool complete, char *ep, int cpt50, int nb);
 extern bool openingAll (const char *dir, const char *filter, char *gameFen, char *sComment, char *move);
 extern char *difference (TGAME jeu1, TGAME jeu2, int color, char *prise, char *complete, char *abbr, char *epGamer, char *epComputer);
-extern void sendGame (const char *fen, struct sinfo info, int reqType);
+extern void sendGame (bool http, const char *fen, struct sinfo info, int reqType);
 extern void moveGame (TGAME jeu, int color, char *move);
 extern void printGame (TGAME jeu, int eval);

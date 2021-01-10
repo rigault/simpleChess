@@ -1,12 +1,11 @@
 /*   Pour produire la doc sur les fonctions : grep "\/\*" chess.c | sed 's/^\([a-zA-Z]\)/\n\1/' */
 /*   Jeu d'echec */
-/*   ./chess.cgi -i|-I [FENGame] [profondeur] : CLI avec sortie JSON */
-/*   ./chess.cgi -r|-R [FENGame] [profondeur] : CLI avec sortie raw */
+/*   ./chess.cgi -q |-v |-V [FENGame] [profondeur] : CLI avec sortie JSON q)uiet v)erbose ou V)ery verbose */
 /*   ./chess.cgi -f : test performance */
 /*   ./chess.cgi -t [FENGame] : test unitaire */
 /*   ./chess.cgi -p [FENGame] [profondeur] : play mode CLI */
 /*   ./chess.cgi -h : help */
-/*   autrement  CGI gérant une API restful (GET) avec les réponses au format JSON */
+/*   sans parametre ni option :  CGI gérant une API restful (GET) avec les réponses au format JSON */
 /*   fichiers associes : chess.log, chessB.fen, chessW.fen, chessUtil.c, syzygy.c, tbprobes.c tbcore.c et .h associes  */
 /*   Structures de donnees essentielles */
 /*     - jeu represente dans un table a 2 dimensions : TGAME sq64 */
@@ -14,7 +13,16 @@
 /*     - nextL est un entier pointant sur le prochain jeux a inserer dans la liste */
 /*   Noirs : positifs  (Minuscules) */
 /*   Blancs : negatifs  (Majuscules) */
-
+#define MAXTRANSTABLE 134217728 // 2 puissance 27
+#define MASQMAXTRANSTABLE 0x7ffffff  // 27 bits a 1
+//#define MASQMAXTRANSTABLE 0x3ffffff  // 26 bits a 1
+// #define MAXTRANSTABLE 268435456     // 2 puissance 28
+//#define MASQMAXTRANSTABLE 0xfffffff  // 28 bits a 1
+//#define MAXTRANSTABLE 16777216     // 2 puissance 24
+//#define MASQMAXTRANSTABLE 0xffffff  // 24 bits a 1
+#include <openssl/md5.h>
+#include <unistd.h>
+#include <limits.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -22,7 +30,7 @@
 #include <sys/time.h>
 #include <pthread.h>
 #include <stdbool.h>
-
+#include <ctype.h>
 #include "chessUtil.h"
 #include "syzygy.h"
 
@@ -36,14 +44,23 @@ int tEval [MAXTHREADS];
 
 FILE *flog;
 bool test = false;                 // positionne pour visualiser les possibilits evaluees. Mode CLI
-struct sGetInfo {                  // description de la requete emise par le client
+
+struct {                           // description de la requete emise par le client
    char fenString [MAXLENGTH];     // le jeu
    int reqType;                    // le type de requete : 0 1 ou 2
    int level;                      // la profondeur de la recherche souhaitee
 } getInfo = {"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR+w+KQkq", 2, 3}; // par defaut
+
 TGAME sq64;
 TLIST list;
 int nextL; // nombre total utilisé dans la file
+
+struct {                           // tables de transposition
+   int32_t eval;                   // derniere eval
+   int8_t p;                       // profondeur
+   int who;                        // qui optionnel
+//   TGAME g64;                    // jeu optionnel
+} trTa [MAXTRANSTABLE];            // index
 
 int fMaxDepth (int lev, struct sinfo info) { /* */
    /* renvoie la profondeur du jeu en fonction du niveau choisi et */
@@ -447,6 +464,11 @@ int evaluation (TGAME sq64, int who, bool *pat) { /* */
       l = LINE (z);
       c = COL (z);
       eval += ((v > 0) ? val [v] : -val [-v]);
+      // bonus si cavalier fou tour reine dans le carre central
+      if ((c == 3 || c == 4) && (l == 3 || l == 4)) {
+         if (v > PAWN && v < KING) eval += BONUSCENTER;
+         else if (v < -PAWN && v > -KING) eval -= BONUSCENTER;
+      }
        
       switch (v) {
       case KING : case CASTLEKING : // on repere ou est le roi
@@ -458,10 +480,10 @@ int evaluation (TGAME sq64, int who, bool *pat) { /* */
          else  {lwho = l; cwho = c;}
          break;
       case KNIGHT:   // on privilégie cavaliers au centre
-         if (c >= 2 && c <= 5 && l >= 2 && l <= 5) eval += BONUSCENTER;
+         if (c >= 2 && c <= 5 && l >= 2 && l <= 5) eval += BONUSKNIGHT;
          break;
       case -KNIGHT:   
-         if (c >= 2 && c <= 5 && l >= 2 && l <= 5) eval -= BONUSCENTER;
+         if (c >= 2 && c <= 5 && l >= 2 && l <= 5) eval -= BONUSKNIGHT;
          break;
       case BISHOP:   // on attribue un bonus si deux fous de la meme couleur
          nBBishops += 1;
@@ -496,7 +518,7 @@ int evaluation (TGAME sq64, int who, bool *pat) { /* */
          if (l < 7 && (abs (sq64 [l+1][c])) == PAWN) eval -= MALUSBLOCKEDPAWN;
          if (l < 7 && c > 1 && c < 7 && (sq64 [l+1][c-1] > -PAWN) && 
             (sq64 [l+1][c+1] != -PAWN) && (sq64 [l][c-1] > -PAWN) && (sq64 [l][c+1] > -PAWN))
-            eval -= MALUSISOLATEDPAWN; 
+            eval += MALUSISOLATEDPAWN; 
          break;
       default:;
       }
@@ -518,6 +540,46 @@ int evaluation (TGAME sq64, int who, bool *pat) { /* */
    return eval;
 }
 
+int32_t fHash (int who, TGAME sq64) { /* */
+   int8_t *p64 = &sq64 [0][0];
+   int32_t x;
+   uint32_t a, b, c, d;
+   uint32_t myWho = (who == -1)  ? 0 : 0x80000000; // bit poid fort = signe
+   TGAME t;
+   int8_t *pt = &t [0][0];
+   char unsigned md5[MD5_DIGEST_LENGTH] = {0}; // 128 bits represnte sur 16 octets
+   for (register int k = 0; k < GAMESIZE; k++) {
+     x =  (*p64++); x = (x != 0) ? x + 8 : 0;
+     *pt++ = x;
+   }
+
+   MD5 ((const unsigned char *) t, GAMESIZE, md5);
+   a = *(uint32_t*)md5;       // 4 premiers octets
+   b = *(uint32_t*)(md5 + 4); // 4 suivants
+   c = *(uint32_t*)(md5 + 8);
+   d = *(uint32_t*)(md5 + 12);
+   return ((myWho ^ a ^ b ^c ^d) & MASQMAXTRANSTABLE);
+}
+
+int32_t OldfHash (int who, TGAME sq64) { /* */
+   /* fonction de hachage pour tables de transpositions */
+   int8_t *p64 = &sq64 [0][0];
+   int32_t x;
+   uint32_t retour = (who == -1)  ? 0 : 0x80000000; // bit poid fort = signe
+   uint32_t res = 0;
+   info.nbCallfHash += 1;
+   for (register int l = 0; l < 8; l++) {
+      res = 0;
+      for (int c = 7; c >= 0; c--) { // on traintte une ligne
+         x =  (*p64++); x = (x != 0) ? x + 8 : 0;
+         res = res | x << (c * 4);
+      }
+      retour ^= res;
+      //printf ("res : %x retour : %x \n", res, retour);
+   }
+   return retour & MASQMAXTRANSTABLE;
+}
+
 int alphaBeta (TGAME sq64, int who, int p, int refAlpha, int refBeta) { /* */
    /* le coeur du programme */
    TLIST list;
@@ -527,7 +589,25 @@ int alphaBeta (TGAME sq64, int who, int p, int refAlpha, int refBeta) { /* */
    int val;
    int alpha = refAlpha;
    int beta = refBeta;
+   /*
+   uint32_t hash = fHash (who, sq64) ;
+   if ((trTa [hash].p > p) && (trTa [hash].who == who))  {   // verif optionnelle collisions
+      //if (memcmp (sq64, trTa [hash].g64, GAMESIZE) != 0 && who != trTa [hash].who) {
+      //   info.nbColl += 1;
+      //}
+      //else {
+         info.nbMatchTrans += 1;
+         return (trTa [hash].eval);
+      //}
+   } 
+   */
    note = evaluation (sq64, who, &pat);
+   /* info.nbTrTa += 1;
+   trTa [hash].p = p;
+   trTa [hash].eval = note;
+   trTa [hash].who = who; 
+   */
+   //memcpy (trTa [hash].g64, sq64, GAMESIZE); // optionnel
    if (info.calculatedMaxDepth < p) info.calculatedMaxDepth = p;
 
    // conditions de fin de jeu
@@ -739,15 +819,17 @@ void computerPlay (TGAME sq64, int color) { /* */
    info.nClock = clock () - info.nClock;
    gettimeofday (&tRef, NULL);
    info.computeTime = tRef.tv_sec * MILLION + tRef.tv_usec - info.computeTime;
-   updateInfo(sq64);
+   updateInfo (sq64);
    if (info.computerKingState == ISINCHECK) // pas le droit d'etre echec apres avoir joue
       info.computerKingState = UNVALIDINCHECK;
+   info.hash = fHash (color, sq64);
    return;
 }
 
-void cgi () { /* */
-   /* MODE CGI
-   */
+bool cgi () { /* */
+   /* MODE CGI */
+   /* vrai si on peut lire les variables d'environnement */
+   /* faux sinon */
    char fen [MAXLENGTH];
    char temp [MAXBUFFER];
    char *str;
@@ -759,18 +841,18 @@ void cgi () { /* */
    // log date heure et adresse IP du joueur
    time_t now = time (NULL); // pour .log
    struct tm *timeNow = localtime (&now);
+   if ((env = getenv ("REMOTE_ADDR")) == NULL) return false;
    strftime (buffer, 80, "%F; %T", timeNow);
    fprintf (flog, "%s; ", buffer);           // log de la date et du temps
    env = buffer;
-   env = getenv ("REMOTE_ADDR");
    fprintf (flog, "%s; ", env);              // log de l'address IP distante
-   env = getenv ("HTTP_USER_AGENT");
+   if ((env = getenv ("HTTP_USER_AGENT")) == NULL) return false;
    if (strlen (env) > 8) *(env + 8) = '\0';  // tronque a x caracteres
    fprintf (flog, "%s; ", env);              // log du user agent distant
 
    // Lecture de la chaine de caractere representant le jeu via la methode post
 
-   if ((env = getenv ("QUERY_STRING")) == NULL) return;  // Les variables GET
+   if ((env = getenv ("QUERY_STRING")) == NULL) return false;  // Les variables
 
    if ((str = strstr (env, "fen=")) != NULL)
       sscanf (str, "fen=%[a-zA-Z0-9+-/]", getInfo.fenString);
@@ -783,11 +865,12 @@ void cgi () { /* */
        info.gamerColor = -fenToGame (getInfo.fenString, sq64, info.epGamer, &info.cpt50, &info.nb);
        computerPlay (sq64, -info.gamerColor);
        gameToFen (sq64, fen, info.gamerColor, '+', true, info.epComputer, info.cpt50, info.nb);
-       sendGame (fen, info, getInfo.reqType);
+       sendGame (true, fen, info, getInfo.reqType);
        fprintf (flog, "%2d; %s; %s; %d", getInfo.level, getInfo.fenString, info.computerPlayC, info.note);
    }
-   else sendGame ("", info, getInfo.reqType);
+   else sendGame (true, "", info, getInfo.reqType);
    fprintf (flog, "\n");
+   return true;
 }
 
 int main (int argc, char *argv[]) { /* */
@@ -796,6 +879,7 @@ int main (int argc, char *argv[]) { /* */
    /* si pas d'argument CGI */
    char fen [MAXLENGTH];
    char strMove [15];
+   char car;
    TGAME oldSq64;
    // preparation du fichier log 
    flog = fopen (F_LOG, "a");
@@ -807,34 +891,21 @@ int main (int argc, char *argv[]) { /* */
       else info.gamerColor = -fenToGame (getInfo.fenString, sq64, info.epGamer, &info.cpt50, &info.nb);
       if (argc > 3) getInfo.level = atoi (argv [3]);
       switch (argv [1][1]) {
-      case 'i': case 'I' :
-         test = (argv [1][1] == 'I');
+      case 'q': case 'v': case 'V' : // q quiet, v verbose, V very verbose
+         test = (argv [1][1] == 'V');
          computerPlay (sq64, -info.gamerColor);
-         if (test) printf ("--------resultat--------------\n");
-         if (test) printGame (sq64, evaluation (sq64, -info.gamerColor, &info.pat));
-         gameToFen (sq64, fen, info.gamerColor, '+', true, info.epComputer, info.cpt50, info.nb); 
-         sendGame (fen, info, getInfo.reqType);
-         break;
-      case 'r': case 'R':
-         computerPlay (sq64, -info.gamerColor);
-         if (argv [1][1] == 'R') {
+         if (toupper (argv [1][1]) == 'V') {
             printf ("--------resultat--------------\n");
             printGame (sq64, evaluation (sq64, -info.gamerColor, &info.pat));
          }
-         gameToFen (sq64, fen, info.gamerColor, '+', true, info.epComputer, info.cpt50, info.nb);
-         printf ("clockTime: %ld, time: %ld, note: %d, eval: %d, computerStatus: %d, playerStatus: %d\n", 
-                 info.nClock, info.computeTime, info.note, info.evaluation, info.computerKingState, info.gamerKingState); 
-         printf ("comment: %s%s\n", info.comment, info.endName);
-         printf ("fen: %s\n", fen);
-         printf ("move: %s %s %c\n", info.computerPlayC, (info.lastCapturedByComputer != '\0') ? "taken:": "", 
-                 info.lastCapturedByComputer);
+         gameToFen (sq64, fen, info.gamerColor, '+', true, info.epComputer, info.cpt50, info.nb); 
+         sendGame (false, fen, info, getInfo.reqType);
          break;
       case 'f': //performance
          info.nClock = clock ();
          for (int i = 0; i < MILLION; i++)
             for (int j = 0; j < MILLION; j++)
                LCBlackKingInCheck (sq64, 7, 4);         
-         printf ("%s\n", LCBlackKingInCheck (sq64, 7, 4) ? "echec" : "non ");         
          printf ("LCBlackKingInCheck. clock: %lf\n", (double) (clock () - info.nClock)/CLOCKS_PER_SEC);
          
          info.nClock = clock ();
@@ -852,8 +923,7 @@ int main (int argc, char *argv[]) { /* */
             evaluation (sq64, 1, &info.pat);
          printf ("evaluation. clock: %lf\n", (double) (clock () - info.nClock)/CLOCKS_PER_SEC);
          break;
-      case 't':
-         // tests
+      case 't': // tests
          printGame (sq64, evaluation (sq64, -info.gamerColor, &info.pat));
          printf ("==============================================================\n");
          nextL = buildList (sq64, -info.gamerColor, info.kingCastleComputerOK, info.queenCastleComputerOK, list);         
@@ -861,7 +931,10 @@ int main (int argc, char *argv[]) { /* */
          printf ("Nombre de possibilites : %d\n", nextL);
          for (int i = 0; i < nextL; i++) printGame (list [i], evaluation (list [i], -info.gamerColor, &info.pat));
          break;
-      case 'p':
+      case 'p': // play
+         do printf ("\nb)lack or w)hite ? : ");
+         while  (((car = toupper (getchar ())) != 'B') && (car != 'W'));
+         info.gamerColor = (car == 'W') ? -1 : 1;
          printf ("You have the: %s\n", (info.gamerColor == -1) ? "Whites" : "Blacks");
          printGame (sq64, evaluation (sq64, -info.gamerColor, &info.pat));
          bool player = (info.gamerColor == -1); 
@@ -882,12 +955,16 @@ int main (int argc, char *argv[]) { /* */
             player = !player;
          }
          break;
-      default:
-         printf ("%s\n", HELP);
+         case 'e':
+            printGame (sq64, 0);
+            printf ("hash: %x\n", fHash (-info.gamerColor, sq64));
+            break;
+         default:
+            printf ("%s\n", HELP);
       }
    }
    else 
-   if (argc <= 1) cgi (); // la voie normale : pas de parametre => cgi.
+   if ((argc <= 1) && cgi ()); // la voie normale : pas de parametre => cgi.
    else printf ("%s\n", HELP);
    fclose (flog);
    exit (EXIT_SUCCESS);
