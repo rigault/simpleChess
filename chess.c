@@ -13,13 +13,11 @@
 /*     - nextL est un entier pointant sur le prochain jeux a inserer dans la liste */
 /*   Noirs : positifs  (Minuscules) */
 /*   Blancs : negatifs  (Majuscules) */
-#define MAXTRANSTABLE 134217728 // 2 puissance 27
-#define MASQMAXTRANSTABLE 0x7ffffff  // 27 bits a 1
-//#define MASQMAXTRANSTABLE 0x3ffffff  // 26 bits a 1
-// #define MAXTRANSTABLE 268435456     // 2 puissance 28
-//#define MASQMAXTRANSTABLE 0xfffffff  // 28 bits a 1
-//#define MAXTRANSTABLE 16777216     // 2 puissance 24
-//#define MASQMAXTRANSTABLE 0xffffff  // 24 bits a 1
+
+// #define MASQMAXTRANSTABLE 0x7ffffff  // 27 bits a 1 : 2 puissance 27-1 (134217728 - 1)
+#define MASQMAXTRANSTABLE 0x1ffffff  // 25 bits a 1 : 2 puisssance 24 - 1 (32 millions)
+#define MAXTRANSTABLE (MASQMAXTRANSTABLE + 1)
+
 #include <openssl/md5.h>
 #include <unistd.h>
 #include <limits.h>
@@ -58,8 +56,8 @@ int nextL; // nombre total utilisé dans la file
 struct {                           // tables de transposition
    int32_t eval;                   // derniere eval
    int8_t p;                       // profondeur
-   int who;                        // qui optionnel
-//   TGAME g64;                    // jeu optionnel
+   int8_t who;                     // qui optionnel
+   uint8_t t[32];                  // jeu optionnel compresse sur 32 octets eventuellemnt
 } trTa [MAXTRANSTABLE];            // index
 
 int fMaxDepth (int lev, struct sinfo info) { /* */
@@ -540,37 +538,41 @@ int evaluation (TGAME sq64, int who, bool *pat) { /* */
    return eval;
 }
 
-int32_t fHash (int who, TGAME sq64) { /* */
+void compress (TGAME sq64, uint8_t t [32]) { /* */
+   // comprime un jeu de 64 octets en 32
+   int32_t x, y;
    int8_t *p64 = &sq64 [0][0];
-   int32_t x;
-   uint32_t a, b, c, d;
-   uint32_t myWho = (who == -1)  ? 0 : 0x80000000; // bit poid fort = signe
-   TGAME t;
-   int8_t *pt = &t [0][0];
-   char unsigned md5[MD5_DIGEST_LENGTH] = {0}; // 128 bits represnte sur 16 octets
-   for (register int k = 0; k < GAMESIZE; k++) {
-     x =  (*p64++); x = (x != 0) ? x + 8 : 0;
-     *pt++ = x;
+   uint8_t *pt = &t [0];
+   for (register int k = 0; k < 32; k++) {
+      x = (*p64++); x = (x != 0) ? x + 8 : 0; // 
+      y = (*p64++); y = (y != 0) ? y + 8 : 0;
+      *pt++ = (x << 4) | y; // compression deux octets en un
    }
-
-   MD5 ((const unsigned char *) t, GAMESIZE, md5);
+}
+ 
+int32_t fHash (TGAME sq64, uint8_t t[32]) { /* */
+   /* fonction de hachage pour tables de transpositions */
+   uint32_t a, b, c, d;
+   char unsigned md5 [MD5_DIGEST_LENGTH] = {0}; // 128 bits represente sur 16 octets
+   compress (sq64, t);
+   MD5 ((const unsigned char *) sq64, 64, md5);
    a = *(uint32_t*)md5;       // 4 premiers octets
    b = *(uint32_t*)(md5 + 4); // 4 suivants
    c = *(uint32_t*)(md5 + 8);
    d = *(uint32_t*)(md5 + 12);
-   return ((myWho ^ a ^ b ^c ^d) & MASQMAXTRANSTABLE);
+   return ((a ^ b ^ c ^d) & MASQMAXTRANSTABLE);
 }
 
-int32_t OldfHash (int who, TGAME sq64) { /* */
+int32_t OldfHash (TGAME sq64) { /* */
    /* fonction de hachage pour tables de transpositions */
    int8_t *p64 = &sq64 [0][0];
    int32_t x;
-   uint32_t retour = (who == -1)  ? 0 : 0x80000000; // bit poid fort = signe
+   uint32_t retour = 0;
    uint32_t res = 0;
    info.nbCallfHash += 1;
    for (register int l = 0; l < 8; l++) {
       res = 0;
-      for (int c = 7; c >= 0; c--) { // on traintte une ligne
+      for (int c = 7; c >= 0; c--) { // on traite une ligne
          x =  (*p64++); x = (x != 0) ? x + 8 : 0;
          res = res | x << (c * 4);
       }
@@ -590,24 +592,24 @@ int alphaBeta (TGAME sq64, int who, int p, int refAlpha, int refBeta) { /* */
    int alpha = refAlpha;
    int beta = refBeta;
    /*
-   uint32_t hash = fHash (who, sq64) ;
-   if ((trTa [hash].p > p) && (trTa [hash].who == who))  {   // verif optionnelle collisions
-      //if (memcmp (sq64, trTa [hash].g64, GAMESIZE) != 0 && who != trTa [hash].who) {
-      //   info.nbColl += 1;
-      //}
-      //else {
+   uint8_t t [32];                  // jeu compresse sur 32 octets
+   uint32_t hash = fHash (sq64, t); // t est le jeu compresse
+   if (trTa [hash].p > p) { 
+      if ((trTa [hash].who != who) || (memcmp (t, trTa [hash].t, 32) != 0)) {
+         info.nbColl += 1; // detection optionnelle de collisions
+      }
+      else {
          info.nbMatchTrans += 1;
          return (trTa [hash].eval);
-      //}
-   } 
-   */
+      }
+   }*/
    note = evaluation (sq64, who, &pat);
-   /* info.nbTrTa += 1;
+   /*info.nbTrTa += 1;
    trTa [hash].p = p;
    trTa [hash].eval = note;
    trTa [hash].who = who; 
+   memcpy (trTa [hash].t, t, 32); // optionnel. Sauvegarde du jeu compresse
    */
-   //memcpy (trTa [hash].g64, sq64, GAMESIZE); // optionnel
    if (info.calculatedMaxDepth < p) info.calculatedMaxDepth = p;
 
    // conditions de fin de jeu
@@ -793,6 +795,7 @@ void computerPlay (TGAME sq64, int color) { /* */
    /* prepare le lancement de la recherche avec find */
    struct timeval tRef;
    TGAME bestSq64;
+   uint8_t t[32];
    updateInfo (sq64);
    if (info.gamerKingState == ISINCHECK)
       info.gamerKingState = UNVALIDINCHECK; // le joueur n'a pas le droit d'etre en echec
@@ -822,7 +825,7 @@ void computerPlay (TGAME sq64, int color) { /* */
    updateInfo (sq64);
    if (info.computerKingState == ISINCHECK) // pas le droit d'etre echec apres avoir joue
       info.computerKingState = UNVALIDINCHECK;
-   info.hash = fHash (color, sq64);
+   info.hash = fHash (sq64, t);
    return;
 }
 
@@ -881,6 +884,7 @@ int main (int argc, char *argv[]) { /* */
    char strMove [15];
    char car;
    TGAME oldSq64;
+   uint8_t t[32]; // jeu compresse
    // preparation du fichier log 
    flog = fopen (F_LOG, "a");
    info.wdl = 9;           // valeur inateignable montrant que syzygy n'a pas ete appelee
@@ -957,7 +961,7 @@ int main (int argc, char *argv[]) { /* */
          break;
          case 'e':
             printGame (sq64, 0);
-            printf ("hash: %x\n", fHash (-info.gamerColor, sq64));
+            printf ("hash: %x\n", fHash (sq64, t));
             break;
          default:
             printf ("%s\n", HELP);

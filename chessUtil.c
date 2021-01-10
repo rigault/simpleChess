@@ -533,7 +533,7 @@ void sendGame (bool http, const char *fen, struct sinfo info, int reqType) { /* 
    }
    if (reqType > 1) {
       printf (",\n\"dump\" : \"");
-      printf ("  hash=%d", info.hash);
+      printf ("  hash=%x", info.hash);
       printf ("  nbTrTa=%d", info.nbTrTa);
       printf ("  nbMatchTrans=%d", info.nbMatchTrans);
       printf ("  nCollision=%d", info.nbColl);
