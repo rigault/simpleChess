@@ -1,5 +1,5 @@
 chess.cgi: chess.o chessUtil.o tbprobe.o syzygy.o
-	gcc -pthread -O2 -Wall -D TB_NO_THREADS -I.. syzygy.o tbprobe.o chessUtil.o chess.o -lssl -lcrypto -o chess.cgi 
+	gcc -pthread -O2 -Wall -D TB_NO_THREADS -I.. syzygy.o tbprobe.o chessUtil.o chess.o  -o chess.cgi 
 
 chess.o: chess.c chessUtil.h 
 	gcc -c -O2 -Wall -pedantic chess.c
