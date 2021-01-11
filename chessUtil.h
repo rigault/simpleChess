@@ -17,15 +17,15 @@
 #define MAXNBOPENINGS 8                // on ne regarde pas la biblio ouverture a partir de ce nb de coups
 
 #define KINGINCHECKEVAL 1              // evaluation du gain d'un echec au roi..
-#define BONUSCASTLE 100                // Le roi qui a roque a un bonus
-#define BONUSCENTER 20                 // evaluation du gain d'avoir cavalier fou tour reine dans carre central
-#define BONUSKNIGHT 10                 // evaluation du gain d'avoir un cavalier eloigne des bords
-#define BONUSPAWNAHEAD 4               // evaluation du gain d'avoir un pion avance
-#define BONUSBISHOP 10                 // evaluation du gain d'avoir deux fous
-#define BONUSMOVEROOK 10               // evaluation du gain d'avoir une tour non bloquee
-#define MALUSISOLATEDPAWN 10           // evaluation de la perte d'un pion isole
-#define MALUSBLOCKEDPAWN 10            // evaluation de la perte d'un pion bloque
-#define MATE 1000000                   // evaluation du MAT
+#define BONUSCASTLE 10                 // Le roi qui a roque a un bonus
+#define BONUSCENTER 2                  // evaluation du gain d'avoir cavalier fou tour reine dans carre central
+#define BONUSKNIGHT 1                  // evaluation du gain d'avoir un cavalier eloigne des bords
+#define BONUSPAWNAHEAD 1               // evaluation du gain d'avoir un pion avance
+#define BONUSBISHOP 2                  // evaluation du gain d'avoir deux fous
+#define BONUSMOVEROOK 2                // evaluation du gain d'avoir une tour non bloquee
+#define MALUSISOLATEDPAWN 2            // evaluation de la perte d'un pion isole
+#define MALUSBLOCKEDPAWN 2             // evaluation de la perte d'un pion bloque
+#define MATE 10000                     // evaluation du MAT
 
 #define MIN(x,y)      ((x<y)?(x):(y))  // minimum
 #define LINE(z)       ((z) >> 3)       // z / 8 (pour trouver ligne)
@@ -87,3 +87,7 @@ extern char *difference (TGAME jeu1, TGAME jeu2, int color, char *prise, char *c
 extern void sendGame (bool http, const char *fen, struct sinfo info, int reqType);
 extern void moveGame (TGAME jeu, int color, char *move);
 extern void printGame (TGAME jeu, int eval);
+extern uint64_t genrand64_int64 (void);
+void init_genrand64 (uint64_t seed);
+void init_by_array64 (uint64_t init_key[], uint64_t key_length);
+
