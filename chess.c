@@ -14,13 +14,10 @@
 /*   Noirs : positifs  (Minuscules) */
 /*   Blancs : negatifs  (Majuscules) */
 
-// #define MASQMAXTRANSTABLE 0x7ffffff  // 27 bits a 1 : 2 puissance 27-1 (134217728 - 1)
-#define MASQMAXTRANSTABLE 0x1ffffff  // 25 bits a 1 : 2 puisssance 24 - 1 (32 millions)
+#define MASQMAXTRANSTABLE 0xfffffff    // 28 bits a 1 : 2 puissance 28-1 
+// #define MASQMAXTRANSTABLE 0x0ffffff  // 24 bits a 1 : 2 puisssance 24 - 1 
 #define MAXTRANSTABLE (MASQMAXTRANSTABLE + 1)
 
-#include <openssl/md5.h>
-#include <unistd.h>
-#include <limits.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -37,7 +34,7 @@
 // tour = fou + 2 pions, dame >= fou + tour + pion
 // le roi n'a pas de valeur. Le roi qui a roque a un bonus
 // Voir fonction d'evaluation
-const int val [] = {0, 1000, 3000, 3000, 5000, 9000, 0, BONUSCASTLE};
+const int val [] = {0, 100, 300, 300, 500, 900, 0, BONUSCASTLE};
 int tEval [MAXTHREADS];
 
 FILE *flog;
@@ -54,12 +51,49 @@ TLIST list;
 int nextL; // nombre total utilisé dans la file
 
 struct {                           // tables de transposition
-   int32_t eval;                   // derniere eval
+   int16_t eval;                   // derniere eval
    int8_t p;                       // profondeur
-   int8_t who;                     // qui optionnel
-   uint8_t t[32];                  // jeu optionnel compresse sur 32 octets eventuellemnt
+   //int8_t who;                   // optionnel
+   //uint8_t t[64];                // jeu optionnel
 } trTa [MAXTRANSTABLE];            // index
 
+uint64_t ZobristTable[8][8][14];   // 14 combinaisons avec RoiRoque
+  
+void initTable() { /* */
+   /* Initializes the table Zobrist*/
+   for (int i = 0; i < 8; i++)
+      for (int j = 0; j < 8; j++)
+         for (int k = 0; k < 14; k++) // uu 14 avec Roque
+            ZobristTable[i][j][k] = genrand64_int64 ();
+} 
+  
+uint64_t computeHash (TGAME sq64) { /* */
+   /* Computes the hashvalue of a given game. Zobrist */
+   int v;     // valeurs de -7 a 7. Case vide = 0. Pieces neg : blanches. Pos : noires.
+   int piece; // valeurs de piece de 0 a 13. Case vide non representee
+   uint64_t h = 0;
+   for (int c = 0; c < N; c++)  {
+      for (int l = 0; l < 8; l++) {
+         if ((v = sq64[l][c]) != 0) { // Case vide non prise en compte
+            piece = (v > 0) ? v - 1 : (-v + 6); // 0=pion noir, 13=roiroque blanc
+            h ^= ZobristTable[l][c][piece];
+          }
+       }
+    } 
+    return h;
+} 
+
+int32_t fHash (TGAME sq64) { /* */
+   /* fonction de hachage pour tables de transpositions */
+   /* limite à MAXTRANSTABLE bit (< 32 bits)*/
+   uint64_t hashValue = computeHash (sq64); 
+   uint32_t a = (hashValue >> 32);
+   uint32_t b = (hashValue & 0xffffffff);
+   return (a ^ b) & MASQMAXTRANSTABLE;
+}
+
+  
+// Main Function 
 int fMaxDepth (int lev, struct sinfo info) { /* */
    /* renvoie la profondeur du jeu en fonction du niveau choisi et */
    /* de l'etat du jeu */
@@ -538,50 +572,6 @@ int evaluation (TGAME sq64, int who, bool *pat) { /* */
    return eval;
 }
 
-void compress (TGAME sq64, uint8_t t [32]) { /* */
-   // comprime un jeu de 64 octets en 32
-   int32_t x, y;
-   int8_t *p64 = &sq64 [0][0];
-   uint8_t *pt = &t [0];
-   for (register int k = 0; k < 32; k++) {
-      x = (*p64++); x = (x != 0) ? x + 8 : 0; // 
-      y = (*p64++); y = (y != 0) ? y + 8 : 0;
-      *pt++ = (x << 4) | y; // compression deux octets en un
-   }
-}
- 
-int32_t fHash (TGAME sq64, uint8_t t[32]) { /* */
-   /* fonction de hachage pour tables de transpositions */
-   uint32_t a, b, c, d;
-   char unsigned md5 [MD5_DIGEST_LENGTH] = {0}; // 128 bits represente sur 16 octets
-   compress (sq64, t);
-   MD5 ((const unsigned char *) sq64, 64, md5);
-   a = *(uint32_t*)md5;       // 4 premiers octets
-   b = *(uint32_t*)(md5 + 4); // 4 suivants
-   c = *(uint32_t*)(md5 + 8);
-   d = *(uint32_t*)(md5 + 12);
-   return ((a ^ b ^ c ^d) & MASQMAXTRANSTABLE);
-}
-
-int32_t OldfHash (TGAME sq64) { /* */
-   /* fonction de hachage pour tables de transpositions */
-   int8_t *p64 = &sq64 [0][0];
-   int32_t x;
-   uint32_t retour = 0;
-   uint32_t res = 0;
-   info.nbCallfHash += 1;
-   for (register int l = 0; l < 8; l++) {
-      res = 0;
-      for (int c = 7; c >= 0; c--) { // on traite une ligne
-         x =  (*p64++); x = (x != 0) ? x + 8 : 0;
-         res = res | x << (c * 4);
-      }
-      retour ^= res;
-      //printf ("res : %x retour : %x \n", res, retour);
-   }
-   return retour & MASQMAXTRANSTABLE;
-}
-
 int alphaBeta (TGAME sq64, int who, int p, int refAlpha, int refBeta) { /* */
    /* le coeur du programme */
    TLIST list;
@@ -591,25 +581,26 @@ int alphaBeta (TGAME sq64, int who, int p, int refAlpha, int refBeta) { /* */
    int val;
    int alpha = refAlpha;
    int beta = refBeta;
-   /*
-   uint8_t t [32];                  // jeu compresse sur 32 octets
-   uint32_t hash = fHash (sq64, t); // t est le jeu compresse
+   /*uint32_t hash = fHash (sq64);
    if (trTa [hash].p > p) { 
-      if ((trTa [hash].who != who) || (memcmp (t, trTa [hash].t, 32) != 0)) {
-         info.nbColl += 1; // detection optionnelle de collisions
+      if (who != trTa [hash].who || memcmp (sq64, trTa [hash].t, 64) != 0) {
+         info.nbColl += 1;    // detection optionnelle de collisions
       }
       else {
          info.nbMatchTrans += 1;
          return (trTa [hash].eval);
       }
-   }*/
+   }
+   */
    note = evaluation (sq64, who, &pat);
-   /*info.nbTrTa += 1;
+   /*
+   info.nbTrTa += 1;
    trTa [hash].p = p;
    trTa [hash].eval = note;
-   trTa [hash].who = who; 
-   memcpy (trTa [hash].t, t, 32); // optionnel. Sauvegarde du jeu compresse
    */
+   //trTa [hash].who = who; 
+   //memcpy (trTa [hash].t, sq64, 64); // optionnel. Sauvegarde du jeu
+   
    if (info.calculatedMaxDepth < p) info.calculatedMaxDepth = p;
 
    // conditions de fin de jeu
@@ -795,7 +786,6 @@ void computerPlay (TGAME sq64, int color) { /* */
    /* prepare le lancement de la recherche avec find */
    struct timeval tRef;
    TGAME bestSq64;
-   uint8_t t[32];
    updateInfo (sq64);
    if (info.gamerKingState == ISINCHECK)
       info.gamerKingState = UNVALIDINCHECK; // le joueur n'a pas le droit d'etre en echec
@@ -825,7 +815,7 @@ void computerPlay (TGAME sq64, int color) { /* */
    updateInfo (sq64);
    if (info.computerKingState == ISINCHECK) // pas le droit d'etre echec apres avoir joue
       info.computerKingState = UNVALIDINCHECK;
-   info.hash = fHash (sq64, t);
+   info.hash = fHash (sq64);
    return;
 }
 
@@ -884,7 +874,11 @@ int main (int argc, char *argv[]) { /* */
    char strMove [15];
    char car;
    TGAME oldSq64;
-   uint8_t t[32]; // jeu compresse
+   uint64_t init[4] = {0x12345ULL, 0x23456ULL, 0x34567ULL, 0x45678ULL}, length = 4;
+   init_by_array64 (init, length);
+   init_genrand64 (time (NULL)); // a ajouter dans main
+   srand (time (NULL));          // initialise le generateur aleatoire
+   initTable(); // dans main
    // preparation du fichier log 
    flog = fopen (F_LOG, "a");
    info.wdl = 9;           // valeur inateignable montrant que syzygy n'a pas ete appelee
@@ -961,7 +955,8 @@ int main (int argc, char *argv[]) { /* */
          break;
          case 'e':
             printGame (sq64, 0);
-            printf ("hash: %x\n", fHash (sq64, t));
+            printf ("Random: %lx\n", genrand64_int64 ());
+            printf("Hash: %lx\n", computeHash (sq64)); 
             break;
          default:
             printf ("%s\n", HELP);
