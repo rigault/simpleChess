@@ -696,8 +696,12 @@ int find (TGAME sq64, TGAME bestSq64, int *bestNote, int color) { /* */
    *bestNote = 0; 
    nextL = buildList (sq64, color, info.kingCastleComputerOK, info.queenCastleComputerOK, list);
    nextL = buildListEnPassant (sq64, color, info.epGamer, list, nextL);
+  
+   // preparation appel fMaxDepth
+   info.nValidComputerPos = nextL;
+   info.nValidGamerPos = buildList (sq64, info.gamerColor, info.kingCastleGamerOK, info.queenCastleGamerOK, list);
+   info.maxDepth = fMaxDepth (getInfo.level, info);
    strcpy (info.comment, "");
-
    if (nextL == 0) return 0;
 
    // Hasard Total
@@ -772,6 +776,30 @@ int find (TGAME sq64, TGAME bestSq64, int *bestNote, int color) { /* */
    memcpy (bestSq64, list [k], GAMESIZE);
 
    return nextL;
+}
+
+int whereKings (TGAME sq64, int gamerColor, int *lGK, int *cGK, int *lCK, int *cCK) { /* */
+   /* localise les rois */
+   /* renvoie le nombre de pieces totales */
+   *lGK = *cGK = *lCK = *cCK = -1;
+   int v;
+   int n = 0;
+   for (int l = 0; l < N; l++) {
+      for (int c = 0; c < N; c++) {
+         v = - sq64 [l][c] * gamerColor;
+         if (v > 0) n += 1;
+         else if (v < 0) n += 1;
+         if (v == KING || v == CASTLEKING) {
+            *lCK = l;
+            *cCK = c;
+         }
+         if (v == -KING || v == -CASTLEKING) {
+            *lGK = l;
+            *cGK = c;
+         }
+      }
+   }
+   return n;
 }
 
 void computerPlay (TGAME sq64) { /* */
