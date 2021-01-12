@@ -694,13 +694,13 @@ int find (TGAME sq64, TGAME bestSq64, int *bestNote, int color) { /* */
    char fen [MAXBUFFER] = "";
    
    *bestNote = 0; 
+   
+   info.nValidGamerPos = buildList (sq64, info.gamerColor, info.kingCastleGamerOK, info.queenCastleGamerOK, list);
    nextL = buildList (sq64, color, info.kingCastleComputerOK, info.queenCastleComputerOK, list);
    nextL = buildListEnPassant (sq64, color, info.epGamer, list, nextL);
-  
-   // preparation appel fMaxDepth
    info.nValidComputerPos = nextL;
-   info.nValidGamerPos = buildList (sq64, info.gamerColor, info.kingCastleGamerOK, info.queenCastleGamerOK, list);
    info.maxDepth = fMaxDepth (getInfo.level, info);
+
    strcpy (info.comment, "");
    if (nextL == 0) return 0;
 
@@ -806,22 +806,47 @@ void computerPlay (TGAME sq64) { /* */
    /* prepare le lancement de la recherche avec find */
    struct timeval tRef;
    TGAME bestSq64;
-   updateInfo (sq64);
-   if (info.gamerKingState == ISINCHECK)
-      info.gamerKingState = UNVALIDINCHECK; // le joueur n'a pas le droit d'etre en echec
-   
-   if (info.computerKingState == ISMATE || info.computerKingState == ISPAT ||
-      info.computerKingState == NOEXIST || info.gamerKingState == UNVALIDINCHECK)
-      return;
+   int lGK, cGK, lCK, cCK; // ligne colonnes Gamer et Computer King 
+   lGK = cGK = lCK = cCK = -1,
+   info.computerKingState = info.gamerKingState = NOEXIST;
+   info.score = ERROR;
 
-   info.maxDepth = fMaxDepth (getInfo.level, info);
+   info.nPieces = whereKings (sq64, info.gamerColor, &lGK, &cGK, &lCK, &cCK);
+   
+   if ((lGK == -1) || (lCK == -1)) return; // manque de roi 
+
+   info.computerKingState = info.gamerKingState = EXIST;
+
+   // check etat du joueur
+   if (LCkingInCheck (sq64, info.gamerColor, lGK, cGK)) {
+      if (kingCannotMove(sq64, info.gamerColor)) info.gamerKingState = ISMATE;
+      else info.gamerKingState = UNVALIDINCHECK;
+      info.score = ERROR;
+      return; // le joueur n'a pas le droit de se presenter en echec apres avoir joue
+   }
+   // check du computer
+   if (LCkingInCheck(sq64, -info.gamerColor, lCK, cCK))
+      info.computerKingState = ISINCHECK;
+   if (kingCannotMove(sq64, -info.gamerColor)) {
+      if (info.computerKingState == ISINCHECK) {
+         info.computerKingState = ISMATE;
+         info.score = (info.gamerColor == -1) ? WHITEWIN : BLACKWIN;
+      }
+      else {
+         info.computerKingState = ISPAT;
+         info.score = DRAW;
+         return;
+      }
+   }
+   info.score = ONGOING;
+
    gettimeofday (&tRef, NULL);
    info.computeTime = tRef.tv_sec * MILLION + tRef.tv_usec;
    info.nClock = clock ();
 
    // lancement de la recherche par l'ordi
    if ((info.nValidComputerPos = find (sq64, bestSq64, &info.evaluation, -info.gamerColor)) != 0) {
-      difference (sq64, bestSq64, -info.gamerColor, &info.lastCapturedByComputer, info.computerPlayC, info.computerPlayA, 
+      difference (sq64, bestSq64, -info.gamerColor, &info.lastCapturedByComputer, info.computerPlayC, info.computerPlayA,
          info.epGamer, info.epComputer);
       if (info.gamerColor == -1) info.nb += 1;
       if (abs (info.computerPlayC [0] == 'P') ||  info.computerPlayC [3] == 'x') // si un pion bouge ou si prise
@@ -832,10 +857,27 @@ void computerPlay (TGAME sq64) { /* */
    info.nClock = clock () - info.nClock;
    gettimeofday (&tRef, NULL);
    info.computeTime = tRef.tv_sec * MILLION + tRef.tv_usec - info.computeTime;
-   updateInfo (sq64);
-   if (info.computerKingState == ISINCHECK) // pas le droit d'etre echec apres avoir joue
+  
+   // analyse resultat 
+   info.nPieces = whereKings (sq64, info.gamerColor, &lGK, &cGK, &lCK, &cCK);
+
+   if (LCkingInCheck (sq64, info.gamerColor, lGK, cGK)) info.gamerKingState = ISINCHECK;
+      printf ("Joueur: %d l: %d c: %d KingState: %d\n", info.gamerColor, lGK, cGK, info.gamerKingState); 
+   if (kingCannotMove (sq64, info.gamerColor)) {
+      if (info.gamerKingState == ISINCHECK) {
+         info.gamerKingState = ISMATE;
+         info.score = (info.gamerColor == -1) ? BLACKWIN : WHITEWIN;
+      }
+      else {
+         info.gamerKingState = ISPAT;
+         info.score = DRAW;
+      }
+   }
+
+   if (LCkingInCheck (sq64, -info.gamerColor, lCK, cCK)) { // cas bizarre
       info.computerKingState = UNVALIDINCHECK;
-   return;
+      info.score = ERROR;
+   }
 }
 
 bool cgi () { /* */
