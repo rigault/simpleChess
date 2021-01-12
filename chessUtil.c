@@ -25,7 +25,7 @@
 static const char dict [] = {'-', 'P', 'N', 'B', 'R', 'Q', 'K', 'K'};
 static const char *unicode [] = {" ", "♟", "♞", "♝", "♜", "♛", "♚", "♚"};
 static const char *strStatus [] = {"NO_EXIST", "EXIST", "IS_IN_CHECK", "UNVALID_IN_CHECK", "IS_MATE", "IS_PAT"};
-static const char *scoreToStr [] = {"-", "0-1","1/2-1/2","1-0"};
+static const char *scoreToStr [] = {"ERROR", "-", "0-1","1/2-1/2","1-0"};
 
 // The array for the state vector
 static uint64_t mt[NN]; 
@@ -98,7 +98,7 @@ int charToInt (int c) { /* */
    int sign = islower (c) ? 1 : -1;
    for (unsigned int i = 0; i < sizeof (dict); i++)
       if (toupper (c) == dict [i]) return sign * i;
-   return NIL;
+   return 0;
 }
 
 void printGame (TGAME jeu, int eval) { /* */
@@ -483,7 +483,7 @@ char *difference (TGAME sq64_1, TGAME sq64_2, int color, char *prise, char *comp
    int v = 0;
    *prise = '\0';
    sprintf (complete, "%s", "");
-   l1 = c1 = l2 = c2 = NIL;
+   l1 = c1 = l2 = c2 = -1;
    lCastling = (color == -1) ? 0 : 7;
    if (sq64_1[lCastling][4] == color*KING && sq64_2[lCastling][4] == 0 && // roque gauche
       sq64_1[lCastling][0] == color*ROOK && sq64_2 [lCastling][0] == 0) {
@@ -541,7 +541,7 @@ char *difference (TGAME sq64_1, TGAME sq64_2, int color, char *prise, char *comp
          }
       }
    }
-   if (l1 == NIL) {
+   if (l1 == -1) {
       strcpy (complete, "NONE");
       strcpy (abbr, "NONE");
       return complete;
@@ -608,7 +608,6 @@ void sendGame (bool http, const char *fen, struct sinfo info, int reqType) { /* 
    }
    if (reqType > 1) {
       printf (",\n\"dump\" : \"");
-      printf ("  hash=%x", info.hash);
       printf ("  nbTrTa=%d", info.nbTrTa);
       printf ("  nbMatchTrans=%d", info.nbMatchTrans);
       printf ("  nCollision=%d", info.nbColl);

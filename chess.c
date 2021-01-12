@@ -17,6 +17,7 @@
 #define MASQMAXTRANSTABLE 0xfffffff    // 28 bits a 1 : 2 puissance 28-1 
 // #define MASQMAXTRANSTABLE 0x0ffffff  // 24 bits a 1 : 2 puisssance 24 - 1 
 #define MAXTRANSTABLE (MASQMAXTRANSTABLE + 1)
+#define INITPROF 127 // pour table transpo
 
 #include <stdint.h>
 #include <stdio.h>
@@ -58,16 +59,16 @@ struct {                           // tables de transposition
 } trTa [MAXTRANSTABLE];            // index
 
 uint64_t ZobristTable[8][8][14];   // 14 combinaisons avec RoiRoque
-  
+
 void initTable() { /* */
    /* Initializes the table Zobrist*/
    for (int i = 0; i < 8; i++)
       for (int j = 0; j < 8; j++)
          for (int k = 0; k < 14; k++) // uu 14 avec Roque
             ZobristTable[i][j][k] = genrand64_int64 ();
-} 
-  
-uint64_t computeHash (TGAME sq64) { /* */
+}
+
+uint32_t computeHash (TGAME sq64) { /* */
    /* Computes the hashvalue of a given game. Zobrist */
    int v;     // valeurs de -7 a 7. Case vide = 0. Pieces neg : blanches. Pos : noires.
    int piece; // valeurs de piece de 0 a 13. Case vide non representee
@@ -79,19 +80,10 @@ uint64_t computeHash (TGAME sq64) { /* */
             h ^= ZobristTable[l][c][piece];
           }
        }
-    } 
-    return h;
-} 
-
-int32_t fHash (TGAME sq64) { /* */
-   /* fonction de hachage pour tables de transpositions */
-   /* limite à MAXTRANSTABLE bit (< 32 bits)*/
-   uint64_t hashValue = computeHash (sq64); 
-   uint32_t a = (hashValue >> 32);
-   uint32_t b = (hashValue & 0xffffffff);
-   return (a ^ b) & MASQMAXTRANSTABLE;
+    }
+    // h est la valeur de Zobrist sur 64 bits. Que l'on va réduire à 32 bits.
+    return ((h >> 32) ^ (h & 0xffffffff)) & MASQMAXTRANSTABLE; // xor des 32 bits forts avec 32 bits faibles
 }
-
   
 // Main Function 
 int fMaxDepth (int lev, struct sinfo info) { /* */
@@ -581,8 +573,8 @@ int alphaBeta (TGAME sq64, int who, int p, int refAlpha, int refBeta) { /* */
    int val;
    int alpha = refAlpha;
    int beta = refBeta;
-   /*uint32_t hash = fHash (sq64);
-   if (trTa [hash].p > p) { 
+   /*uint32_t hash = computeHash (sq64);
+   if (trTa [hash].p <= p) { 
       if (who != trTa [hash].who || memcmp (sq64, trTa [hash].t, 64) != 0) {
          info.nbColl += 1;    // detection optionnelle de collisions
       }
@@ -647,12 +639,12 @@ void updateInfo (TGAME sq64) { /* */
    lGamerKing = cGamerKing = lComputerKing = cComputerKing = -1;
    info.note = evaluation(sq64, info.gamerColor, &info.pat);
    info.gamerKingState = info.computerKingState = NOEXIST;
-   info.nGamerPieces = info.nComputerPieces = 0;
+   info.nPieces= 0;
    for (l = 0; l < N; l++) {
       for (c = 0; c < N; c++) {
          v = - sq64 [l][c] * info.gamerColor;
-         if (v > 0) info.nComputerPieces += 1;
-         else if (v < 0) info.nGamerPieces += 1;
+         if (v > 0) info.nPieces += 1;
+         else if (v < 0) info.nPieces += 1;
          if (v == KING || v == CASTLEKING) {
             lComputerKing = l;
             cComputerKing = c;
@@ -719,7 +711,7 @@ int find (TGAME sq64, TGAME bestSq64, int *bestNote, int color) { /* */
    gameToFen (localSq64, fen, color, ' ', false, info.epComputer, 0, 0);
 
    // recherche de fin de partie voir https://syzygy-tables.info/
-   if ((info.nGamerPieces + info.nComputerPieces) <= MAXPIECESSYZYGY) {
+   if ((info.nPieces) <= MAXPIECESSYZYGY) {
       sprintf (fen, "%s - - %d %d", fen, info.cpt50, info.nb); // pour regle des 50 coups
       if (syzygyRR (PATHTABLE, fen, &info.wdl, info.move, info.endName)) {
          moveGame (localSq64, color, info.move);
@@ -782,7 +774,7 @@ int find (TGAME sq64, TGAME bestSq64, int *bestNote, int color) { /* */
    return nextL;
 }
 
-void computerPlay (TGAME sq64, int color) { /* */
+void computerPlay (TGAME sq64) { /* */
    /* prepare le lancement de la recherche avec find */
    struct timeval tRef;
    TGAME bestSq64;
@@ -800,10 +792,10 @@ void computerPlay (TGAME sq64, int color) { /* */
    info.nClock = clock ();
 
    // lancement de la recherche par l'ordi
-   if ((info.nValidComputerPos = find (sq64, bestSq64, &info.evaluation, color)) != 0) {
-      difference (sq64, bestSq64, color, &info.lastCapturedByComputer, info.computerPlayC, info.computerPlayA, 
+   if ((info.nValidComputerPos = find (sq64, bestSq64, &info.evaluation, -info.gamerColor)) != 0) {
+      difference (sq64, bestSq64, -info.gamerColor, &info.lastCapturedByComputer, info.computerPlayC, info.computerPlayA, 
          info.epGamer, info.epComputer);
-      if (color == 1) info.nb += 1;
+      if (info.gamerColor == -1) info.nb += 1;
       if (abs (info.computerPlayC [0] == 'P') ||  info.computerPlayC [3] == 'x') // si un pion bouge ou si prise
          info.cpt50 = 0;
       else info.cpt50 += 1;
@@ -815,7 +807,6 @@ void computerPlay (TGAME sq64, int color) { /* */
    updateInfo (sq64);
    if (info.computerKingState == ISINCHECK) // pas le droit d'etre echec apres avoir joue
       info.computerKingState = UNVALIDINCHECK;
-   info.hash = fHash (sq64);
    return;
 }
 
@@ -856,7 +847,7 @@ bool cgi () { /* */
  
    if (getInfo.reqType != 0) {                 // on lance le jeu
        info.gamerColor = -fenToGame (getInfo.fenString, sq64, info.epGamer, &info.cpt50, &info.nb);
-       computerPlay (sq64, -info.gamerColor);
+       computerPlay (sq64);
        gameToFen (sq64, fen, info.gamerColor, '+', true, info.epComputer, info.cpt50, info.nb);
        sendGame (true, fen, info, getInfo.reqType);
        fprintf (flog, "%2d; %s; %s; %d", getInfo.level, getInfo.fenString, info.computerPlayC, info.note);
@@ -874,15 +865,17 @@ int main (int argc, char *argv[]) { /* */
    char strMove [15];
    char car;
    TGAME oldSq64;
+   
+   // initialisations
    uint64_t init[4] = {0x12345ULL, 0x23456ULL, 0x34567ULL, 0x45678ULL}, length = 4;
-   init_by_array64 (init, length);
-   init_genrand64 (time (NULL)); // a ajouter dans main
-   srand (time (NULL));          // initialise le generateur aleatoire
-   initTable(); // dans main
-   // preparation du fichier log 
-   flog = fopen (F_LOG, "a");
-   info.wdl = 9;           // valeur inateignable montrant que syzygy n'a pas ete appelee
-   srand (time (NULL));    // initialise le generateur aleatoire
+   info.wdl = 9;                    // valeur inateignable montrant que syzygy n'a pas ete appelee
+   init_by_array64 (init, length);  // pour generateur aleatoire
+   init_genrand64 (time (NULL));    // idem
+   srand (time (NULL));             // initialise l'autre generateur aleatoire
+   initTable();                     // pour table hachage Zobrist
+   for (int i = 0; i < MAXTRANSTABLE; i++) trTa [i].p = INITPROF; // tables de transpositiopns
+   flog = fopen (F_LOG, "a");       // preparation du fichier log 
+
    // si pas de parametres on va au cgi (fin se programme)
    if (argc >= 2 && argv [1][0] == '-') { // si il y a des parametres. On choidi un test
       if (argc > 2) info.gamerColor = -fenToGame (argv [2], sq64, info.epGamer, &info.cpt50, &info.nb);
@@ -891,7 +884,7 @@ int main (int argc, char *argv[]) { /* */
       switch (argv [1][1]) {
       case 'q': case 'v': case 'V' : // q quiet, v verbose, V very verbose
          test = (argv [1][1] == 'V');
-         computerPlay (sq64, -info.gamerColor);
+         computerPlay (sq64);
          if (toupper (argv [1][1]) == 'V') {
             printf ("--------resultat--------------\n");
             printGame (sq64, evaluation (sq64, -info.gamerColor, &info.pat));
@@ -945,7 +938,7 @@ int main (int argc, char *argv[]) { /* */
             }
             else { // ordinateur joue
                memcpy (oldSq64, sq64, GAMESIZE);
-               computerPlay (sq64, -info.gamerColor);
+               computerPlay (sq64);
                printGame (sq64, evaluation (sq64, -info.gamerColor, &info.pat));
                printf ("comment: %s%s\n", info.comment, info.endName);
                printf ("computer move: %s %c\n", info.computerPlayC, info.lastCapturedByComputer);
@@ -956,7 +949,7 @@ int main (int argc, char *argv[]) { /* */
          case 'e':
             printGame (sq64, 0);
             printf ("Random: %lx\n", genrand64_int64 ());
-            printf("Hash: %lx\n", computeHash (sq64)); 
+            printf("Hash 32 bits: %x\n", computeHash (sq64)); 
             break;
          default:
             printf ("%s\n", HELP);

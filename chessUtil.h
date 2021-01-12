@@ -1,4 +1,3 @@
-#define NIL -9999999
 #define MILLION 1000000
 #define VERSION "2.1"
 #define DESCRIPTION "Chess Rene Rigault 2021"
@@ -36,13 +35,12 @@ typedef int8_t TLIST [MAXSIZELIST][N][N]; // liste de jeux constuits par la fonc
 
 enum {VOID, PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING, CASTLEKING};            // VOID car PAWN = 1, ...
 enum KingState {NOEXIST, EXIST, ISINCHECK, UNVALIDINCHECK, ISMATE, ISPAT};   // type etat  
-enum Score {ONGOING, BLACKWIN, DRAW, WHITEWIN};                              // type scores finaux
+enum Score {ERROR, ONGOING, BLACKWIN, DRAW, WHITEWIN};                              // type scores finaux
 
 struct sinfo {
    int nb;                       // nb de coup recus
    int cpt50;                    // compteur pour regle des 50 coups 
-   int nGamerPieces;             // nombre de pieces Joueur
-   int nComputerPieces;          // nombre de pieces Ordi
+   int nPieces;                  // nombre de pieces
    int maxDepth;                 // profondeur (minimax) recalculee
    int nEvalCall;                // nombre d'appels Eval
    int nLCKingInCheckCall;       // nombre d'appels nLCLingInCheck (si gere)  
@@ -76,8 +74,7 @@ struct sinfo {
    int nbTrTa;                   // nombre de positions occupees dans la table de transposition
    int nbColl;                   // nombre de collisions
    int nbCallfHash;              // nmbre appels fn de hachage.
-   int nbMatchTrans;             // nombre de matchinf transposition  
-   int hash;                     // valeur hachage du jeu
+   int nbMatchTrans;             // nombre de matching transposition  
 } info;
 
 extern int fenToGame (char *fenComplete, TGAME sq64, char *ep, int *cpt50, int *nb);
