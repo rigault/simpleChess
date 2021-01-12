@@ -14,8 +14,8 @@
 /*   Noirs : positifs  (Minuscules) */
 /*   Blancs : negatifs  (Majuscules) */
 
-#define MASQMAXTRANSTABLE 0xfffffff    // 28 bits a 1 : 2 puissance 28-1 
-// #define MASQMAXTRANSTABLE 0x0ffffff  // 24 bits a 1 : 2 puisssance 24 - 1 
+#define MASQMAXTRANSTABLE 0xfffffff          // 28 bits a 1 : 2 puissance 28-1 
+//#define MASQMAXTRANSTABLE 0x0ffffff       // 24 bits a 1 : 2 puisssance 24 - 1 
 #define MAXTRANSTABLE (MASQMAXTRANSTABLE + 1)
 #define INITPROF 127 // pour table transpo
 
@@ -54,8 +54,7 @@ int nextL; // nombre total utilisé dans la file
 struct {                           // tables de transposition
    int16_t eval;                   // derniere eval
    int8_t p;                       // profondeur
-   //int8_t who;                   // optionnel
-   //uint8_t t[64];                // jeu optionnel
+  // uint8_t t[64];                  // jeu optionnel
 } trTa [MAXTRANSTABLE];            // index
 
 uint64_t ZobristTable[8][8][14];   // 14 combinaisons avec RoiRoque
@@ -573,9 +572,10 @@ int alphaBeta (TGAME sq64, int who, int p, int refAlpha, int refBeta) { /* */
    int val;
    int alpha = refAlpha;
    int beta = refBeta;
-   /*uint32_t hash = computeHash (sq64);
+   /*
+   uint32_t hash = computeHash (sq64);
    if (trTa [hash].p <= p) { 
-      if (who != trTa [hash].who || memcmp (sq64, trTa [hash].t, 64) != 0) {
+      if (memcmp (sq64, trTa [hash].t, 64) != 0) {
          info.nbColl += 1;    // detection optionnelle de collisions
       }
       else {
@@ -590,8 +590,7 @@ int alphaBeta (TGAME sq64, int who, int p, int refAlpha, int refBeta) { /* */
    trTa [hash].p = p;
    trTa [hash].eval = note;
    */
-   //trTa [hash].who = who; 
-   //memcpy (trTa [hash].t, sq64, 64); // optionnel. Sauvegarde du jeu
+   // memcpy (trTa [hash].t, sq64, 64); // optionnel. Sauvegarde du jeu
    
    if (info.calculatedMaxDepth < p) info.calculatedMaxDepth = p;
 
@@ -632,59 +631,7 @@ void *fThread (void *arg) { /* */
    pthread_exit (NULL);
 }
 
-void updateInfo (TGAME sq64) { /* */
-   /* met a jour l'objet info a partir de l'objet jeu */
-   int l, c, v;
-   int lGamerKing, cGamerKing, lComputerKing, cComputerKing;
-   lGamerKing = cGamerKing = lComputerKing = cComputerKing = -1;
-   info.note = evaluation(sq64, info.gamerColor, &info.pat);
-   info.gamerKingState = info.computerKingState = NOEXIST;
-   info.nPieces= 0;
-   for (l = 0; l < N; l++) {
-      for (c = 0; c < N; c++) {
-         v = - sq64 [l][c] * info.gamerColor;
-         if (v > 0) info.nPieces += 1;
-         else if (v < 0) info.nPieces += 1;
-         if (v == KING || v == CASTLEKING) {
-            lComputerKing = l;
-            cComputerKing = c;
-            info.computerKingState = EXIST;
-         }
-         if (v == -KING || v == -CASTLEKING) {
-            lGamerKing = l;
-            cGamerKing = c;
-            info.gamerKingState = EXIST;
-         }
-      }
-   }
-   if (info.gamerKingState == EXIST) {
-      if (LCkingInCheck(sq64, info.gamerColor, lGamerKing, cGamerKing))
-         info.gamerKingState = ISINCHECK;
-      if (kingCannotMove(sq64, info.gamerColor)) {
-         if (info.gamerKingState == ISINCHECK) info.gamerKingState = ISMATE;
-         else info.gamerKingState = ISPAT;
-      }
-   }
-   if (info.computerKingState == EXIST) {
-      if (LCkingInCheck(sq64, -info.gamerColor, lComputerKing, cComputerKing))
-         info.computerKingState = ISINCHECK;
-      if (kingCannotMove(sq64, -info.gamerColor)) {
-         if (info.computerKingState == ISINCHECK) info.computerKingState = ISMATE;
-         else info.computerKingState = ISPAT;
-      }
-   }
-   info.nValidGamerPos = buildList (sq64, info.gamerColor, info.kingCastleGamerOK, info.queenCastleGamerOK, list);
-   info.nValidComputerPos = buildList (sq64, -info.gamerColor, info.kingCastleComputerOK, info.queenCastleComputerOK, list);
-
-   if (info.computerKingState == ISMATE) 
-      info.score = (info.gamerColor == -1) ? WHITEWIN : BLACKWIN;
-   else if (info.gamerKingState == ISMATE)
-      info.score = (info.gamerColor == -1) ? BLACKWIN: WHITEWIN;
-   else if (info.computerKingState == ISPAT || info.gamerKingState == ISPAT || info.cpt50 > 50)
-      info.score = DRAW;
-}
-
-int find (TGAME sq64, TGAME bestSq64, int *bestNote, int color) { /* */
+int find (TGAME sq64, TGAME bestSq64, int *bestNote) { /* */
    /* ordinateur joue renvoie le meilleur jeu possible et le nombre de jeux possibles */
    TGAME localSq64;
    int i, random;
@@ -696,8 +643,8 @@ int find (TGAME sq64, TGAME bestSq64, int *bestNote, int color) { /* */
    *bestNote = 0; 
    
    info.nValidGamerPos = buildList (sq64, info.gamerColor, info.kingCastleGamerOK, info.queenCastleGamerOK, list);
-   nextL = buildList (sq64, color, info.kingCastleComputerOK, info.queenCastleComputerOK, list);
-   nextL = buildListEnPassant (sq64, color, info.epGamer, list, nextL);
+   nextL = buildList (sq64, -info.gamerColor, info.kingCastleComputerOK, info.queenCastleComputerOK, list);
+   nextL = buildListEnPassant (sq64, -info.gamerColor, info.epGamer, list, nextL);
    info.nValidComputerPos = nextL;
    info.maxDepth = fMaxDepth (getInfo.level, info);
 
@@ -712,13 +659,13 @@ int find (TGAME sq64, TGAME bestSq64, int *bestNote, int color) { /* */
    }
    
    memcpy (localSq64, sq64, GAMESIZE);
-   gameToFen (localSq64, fen, color, ' ', false, info.epComputer, 0, 0);
+   gameToFen (localSq64, fen, -info.gamerColor, ' ', false, info.epComputer, 0, 0);
 
    // recherche de fin de partie voir https://syzygy-tables.info/
    if ((info.nPieces) <= MAXPIECESSYZYGY) {
       sprintf (fen, "%s - - %d %d", fen, info.cpt50, info.nb); // pour regle des 50 coups
       if (syzygyRR (PATHTABLE, fen, &info.wdl, info.move, info.endName)) {
-         moveGame (localSq64, color, info.move);
+         moveGame (localSq64, -info.gamerColor, info.move);
          memcpy (bestSq64, localSq64, GAMESIZE);
 	      return nextL;
       }
@@ -726,15 +673,15 @@ int find (TGAME sq64, TGAME bestSq64, int *bestNote, int color) { /* */
      
    // ouvertures
    if (info.nb < MAXNBOPENINGS) {
-      if (openingAll (OPENINGDIR, (color == 1) ? ".b.fen": ".w.fen", fen, info.comment, info.move)) {
-         moveGame (localSq64, color, info.move);
+      if (openingAll (OPENINGDIR, (info.gamerColor == -1) ? ".b.fen": ".w.fen", fen, info.comment, info.move)) {
+         moveGame (localSq64, -info.gamerColor, info.move);
          memcpy (bestSq64, localSq64, GAMESIZE);
          return nextL;
       }
    }
  
    // recherche par la methode minimax Alphabeta
-   *bestNote = - color * MATE;
+   *bestNote = info.gamerColor * MATE;
    memcpy (bestSq64, list [0], GAMESIZE);
    for (k = 0; k < nextL; k++)
       if (pthread_create (&tThread [k], NULL, fThread, (void *) k)) {
@@ -758,21 +705,21 @@ int find (TGAME sq64, TGAME bestSq64, int *bestNote, int color) { /* */
    // tEval contient les évaluations de toutes les possibilites
    // recherche de la meilleure note
    for (k = 0; k < nextL; k++) {
-      if (color == 1 && tEval [k] > *bestNote)
+      if (info.gamerColor == -1 && tEval [k] > *bestNote)
          *bestNote = tEval [k];
-      if (color == -1 && tEval [k] < *bestNote)
+      if (info.gamerColor == 1 && tEval [k] < *bestNote)
          *bestNote = tEval [k];
    }
    // construction de la liste des jeux aillant la meilleure note
    i = 0;
    for (k = 0; k < nextL; k++)
       if (tEval [k] == *bestNote)
-         possible [i++] = k; // liste des indice de jeux ayant la meilleure note
+         possible [i++] = k;  // liste des indice de jeux ayant la meilleure note
    if (test) printf ("Nb de jeu : %d ayant la meilleure note : %d \n", i, *bestNote); 
    info.nBestNote = i;
-   random  = rand () % i; // renvoie un entier >=  0 et strictement inferieur a i
-   k = possible [random]; // indice du jeu choisi au hasard
-   // k = possible [0];      // deterministe A ENLEVER SI RANDOM PREFERE
+   random  = rand () % i;     // renvoie un entier >=  0 et strictement inferieur a i
+   k = possible [random];     // indice du jeu choisi au hasard
+   // k = possible [0];       // deterministe A ENLEVER SI RANDOM PREFERE
    memcpy (bestSq64, list [k], GAMESIZE);
 
    return nextL;
@@ -845,7 +792,7 @@ void computerPlay (TGAME sq64) { /* */
    info.nClock = clock ();
 
    // lancement de la recherche par l'ordi
-   if ((info.nValidComputerPos = find (sq64, bestSq64, &info.evaluation, -info.gamerColor)) != 0) {
+   if ((info.nValidComputerPos = find (sq64, bestSq64, &info.evaluation)) != 0) {
       difference (sq64, bestSq64, -info.gamerColor, &info.lastCapturedByComputer, info.computerPlayC, info.computerPlayA,
          info.epGamer, info.epComputer);
       if (info.gamerColor == -1) info.nb += 1;
@@ -862,7 +809,6 @@ void computerPlay (TGAME sq64) { /* */
    info.nPieces = whereKings (sq64, info.gamerColor, &lGK, &cGK, &lCK, &cCK);
 
    if (LCkingInCheck (sq64, info.gamerColor, lGK, cGK)) info.gamerKingState = ISINCHECK;
-      printf ("Joueur: %d l: %d c: %d KingState: %d\n", info.gamerColor, lGK, cGK, info.gamerKingState); 
    if (kingCannotMove (sq64, info.gamerColor)) {
       if (info.gamerKingState == ISINCHECK) {
          info.gamerKingState = ISMATE;
@@ -920,7 +866,7 @@ bool cgi () { /* */
        computerPlay (sq64);
        gameToFen (sq64, fen, info.gamerColor, '+', true, info.epComputer, info.cpt50, info.nb);
        sendGame (true, fen, info, getInfo.reqType);
-       fprintf (flog, "%2d; %s; %s; %d", getInfo.level, getInfo.fenString, info.computerPlayC, info.note);
+       fprintf (flog, "%2d; %s; %s; %d", getInfo.level, getInfo.fenString, info.computerPlayC, info.evaluation);
    }
    else sendGame (true, "", info, getInfo.reqType);
    fprintf (flog, "\n");
@@ -946,7 +892,7 @@ int main (int argc, char *argv[]) { /* */
    for (int i = 0; i < MAXTRANSTABLE; i++) trTa [i].p = INITPROF; // tables de transpositiopns
    flog = fopen (F_LOG, "a");       // preparation du fichier log 
 
-   // si pas de parametres on va au cgi (fin se programme)
+   // si pas de parametres on va au cgi (fin de main)
    if (argc >= 2 && argv [1][0] == '-') { // si il y a des parametres. On choidi un test
       if (argc > 2) info.gamerColor = -fenToGame (argv [2], sq64, info.epGamer, &info.cpt50, &info.nb);
       else info.gamerColor = -fenToGame (getInfo.fenString, sq64, info.epGamer, &info.cpt50, &info.nb);
@@ -1018,8 +964,9 @@ int main (int argc, char *argv[]) { /* */
          break;
          case 'e':
             printGame (sq64, 0);
-            printf ("Random: %lx\n", genrand64_int64 ());
-            printf("Hash 32 bits: %x\n", computeHash (sq64)); 
+            printf ("Random 64 bits: %lx\n", genrand64_int64 ());
+            printf ("Hash   32 bits: %x\n", computeHash (sq64));
+            printf ("Eval : %d %s\n", evaluation (sq64, -info.gamerColor, &info.pat), (info.pat ? "pat" : "non Pat"));
             break;
          default:
             printf ("%s\n", HELP);

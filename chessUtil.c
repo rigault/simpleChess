@@ -586,7 +586,6 @@ void sendGame (bool http, const char *fen, struct sinfo info, int reqType) { /* 
       printf (",\n");
       printf ("\"clockTime\": \"%lf\",\n", (double) info.nClock/CLOCKS_PER_SEC);
       printf ("\"time\" : \"%lf\",\n", (double) info.computeTime/MILLION);
-      printf ("\"note\" : \"%d\",\n", info.note);
       printf ("\"eval\" : \"%d\",\n", info.evaluation);
       printf ("\"computerStatus\" : \"%d : %s\",\n", info.computerKingState, strStatus [info.computerKingState]);
       printf ("\"playerStatus\" : \"%d : %s\",\n", info.gamerKingState, strStatus [info.gamerKingState]);

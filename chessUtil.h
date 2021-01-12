@@ -47,8 +47,7 @@ struct sinfo {
    int nBuildListCall;           // nombre d'appels nBuildList
    int nValidGamerPos;           // nombre de possibilites joueur
    int nValidComputerPos;        // nombre de possibilites computer
-   int note;                     // evaluation du jeu ourant
-   int evaluation;               // evaluation rendue par le minimax
+   int evaluation;               // evaluation rendue par la fonction d evaluation
    char computerPlayC [15];      // dernier jeu ordi reconstruit par la fonction difference. Notation Alg. complete
    char computerPlayA [15];      // dernier jeu ordi reconstruit par la fonction difference. Notation Alg. abegee
    char lastCapturedByComputer;  // derniere piece prise par Ordi
