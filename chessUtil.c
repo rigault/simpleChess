@@ -600,6 +600,7 @@ void sendGame (bool http, const char *fen, struct sinfo info, int reqType) { /* 
       printf ("\"computePlayA\" : \"%s\",\n", info.computerPlayA);      
       printf ("\"maxDepth\" : \"%d\",\n", info.maxDepth);
       printf ("\"nEvalCall\" : \"%d\",\n", info.nEvalCall);
+      printf ("\"nAlphaBeta\" : \"%d\",\n", info.nAlphaBeta);
       printf ("\"nBestNote\" : \"%d\",\n", info.nBestNote);
       printf ("\"nValidGamerPos\" : \"%d\",\n", info.nValidGamerPos);
       printf ("\"nValidComputerPos\" : \"%d\",\n", info.nValidComputerPos);

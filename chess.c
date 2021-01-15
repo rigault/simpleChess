@@ -14,11 +14,13 @@
 /*   Noirs : positifs  (Minuscules) */
 /*   Blancs : negatifs  (Majuscules) */
 
-#define MASQMAXTRANSTABLE 0xfffffff          // 28 bits a 1 : 2 puissance 28-1 
-//#define MASQMAXTRANSTABLE 0x0ffffff       // 24 bits a 1 : 2 puisssance 24 - 1 
+//#define TRANSTABLE                        // si defini tables de transpo actives                       
+
+#define MASQMAXTRANSTABLE 0x1fffffff      // 29 bits a 1 : 2 puissance 29-1 > 500  millions
+// #define MASQMAXTRANSTABLE 0x0ffffff       // 24 bits a 1 : 2 puisssance 24 - 1 
 #define MAXTRANSTABLE (MASQMAXTRANSTABLE + 1)
 #define INITPROF 127 // pour table transpo
-
+#define WHO(x)((x==-1)?0:0xffffffff)        //
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -45,29 +47,42 @@ struct {                           // description de la requete emise par le cli
    char fenString [MAXLENGTH];     // le jeu
    int reqType;                    // le type de requete : 0 1 ou 2
    int level;                      // la profondeur de la recherche souhaitee
-} getInfo = {"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR+w+KQkq", 2, 3}; // par defaut
+} getInfo = {"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR+w+KQkq", 2, 4}; // par defaut
 
 TGAME sq64;
 TLIST list;
 int nextL; // nombre total utilisé dans la file
 
-struct {                           // tables de transposition
+#ifdef TRANSTABLE
+typedef struct  {                  // tables de transposition
    int16_t eval;                   // derniere eval
    int8_t p;                       // profondeur
-  // uint8_t t[64];                  // jeu optionnel
-} trTa [MAXTRANSTABLE];            // index
+   // uint8_t t[64];               // jeu optionnel
+} StrTa;
+StrTa *trTa = NULL;                // Ce pointeur va servir de tableau après l'appel du malloc
+#endif
 
 uint64_t ZobristTable[8][8][14];   // 14 combinaisons avec RoiRoque
 
-void initTable() { /* */
-   /* Initializes the table Zobrist*/
-   for (int i = 0; i < 8; i++)
-      for (int j = 0; j < 8; j++)
-         for (int k = 0; k < 14; k++) // uu 14 avec Roque
-            ZobristTable[i][j][k] = genrand64_int64 ();
+inline bool sameParity (int a, int b) { /* */
+   /* retource vrai si a et b ont la meme parite */
+   return (a & 1) == (b & 1);
 }
 
-uint32_t computeHash (TGAME sq64) { /* */
+uint64_t rand64 () { /* */
+   /* retourne un nb aleatoire sur 64 bits */
+   return ((((uint64_t) rand ()) << 34) ^ (((uint64_t) rand ()) << 26) ^ (((uint64_t) rand ()) << 18) ^ (rand ()));
+}
+
+void initTable() { /* */
+   /* Initializes the table Zobrist*/
+   for (int l = 0; l < N; l++)
+      for (int c = 0; c < N; c++)
+         for (int k = 0; k < 14; k++) // 14 avec Roque
+            ZobristTable[l][c][k] = genrand64_int64 ();
+}
+
+uint32_t computeHash (TGAME sq64, int who) { /* */
    /* Computes the hashvalue of a given game. Zobrist */
    int v;     // valeurs de -7 a 7. Case vide = 0. Pieces neg : blanches. Pos : noires.
    int piece; // valeurs de piece de 0 a 13. Case vide non representee
@@ -81,7 +96,7 @@ uint32_t computeHash (TGAME sq64) { /* */
        }
     }
     // h est la valeur de Zobrist sur 64 bits. Que l'on va réduire à 32 bits.
-    return ((h >> 32) ^ (h & 0xffffffff)) & MASQMAXTRANSTABLE; // xor des 32 bits forts avec 32 bits faibles
+    return (h ^ WHO (who)) & MASQMAXTRANSTABLE; 
 }
   
 // Main Function 
@@ -565,6 +580,7 @@ int evaluation (TGAME sq64, int who, bool *pat) { /* */
 
 int alphaBeta (TGAME sq64, int who, int p, int refAlpha, int refBeta) { /* */
    /* le coeur du programme */
+   info.nAlphaBeta += 1;
    TLIST list;
    int maxList = 0;
    int k, note;
@@ -572,25 +588,26 @@ int alphaBeta (TGAME sq64, int who, int p, int refAlpha, int refBeta) { /* */
    int val;
    int alpha = refAlpha;
    int beta = refBeta;
-   /*
-   uint32_t hash = computeHash (sq64);
+
+#ifdef TRANSTABLE
+   uint32_t hash = computeHash (sq64, who);
    if (trTa [hash].p <= p) { 
-      if (memcmp (sq64, trTa [hash].t, 64) != 0) {
-         info.nbColl += 1;    // detection optionnelle de collisions
-      }
-      else {
+      // if (memcmp (sq64, trTa [hash].t, 64) == 0) {
+      if (sameParity (trTa [hash].p, p)) {
          info.nbMatchTrans += 1;
          return (trTa [hash].eval);
       }
+      else info.nbColl += 1;    // optionnelle de collisions
    }
-   */
+#endif
    note = evaluation (sq64, who, &pat);
-   /*
+
+#ifdef TRANSTABLE
    info.nbTrTa += 1;
    trTa [hash].p = p;
    trTa [hash].eval = note;
-   */
    // memcpy (trTa [hash].t, sq64, 64); // optionnel. Sauvegarde du jeu
+#endif
    
    if (info.calculatedMaxDepth < p) info.calculatedMaxDepth = p;
 
@@ -757,11 +774,8 @@ void computerPlay (TGAME sq64) { /* */
    lGK = cGK = lCK = cCK = -1,
    info.computerKingState = info.gamerKingState = NOEXIST;
    info.score = ERROR;
-
    info.nPieces = whereKings (sq64, info.gamerColor, &lGK, &cGK, &lCK, &cCK);
-   
    if ((lGK == -1) || (lCK == -1)) return; // manque de roi 
-
    info.computerKingState = info.gamerKingState = EXIST;
 
    // check etat du joueur
@@ -785,7 +799,6 @@ void computerPlay (TGAME sq64) { /* */
          return;
       }
    }
-   info.score = ONGOING;
 
    gettimeofday (&tRef, NULL);
    info.computeTime = tRef.tv_sec * MILLION + tRef.tv_usec;
@@ -806,7 +819,12 @@ void computerPlay (TGAME sq64) { /* */
    info.computeTime = tRef.tv_sec * MILLION + tRef.tv_usec - info.computeTime;
   
    // analyse resultat 
+   info.computerKingState = info.gamerKingState = NOEXIST;
+   info.score = ERROR;
    info.nPieces = whereKings (sq64, info.gamerColor, &lGK, &cGK, &lCK, &cCK);
+   if ((lGK == -1) || (lCK == -1)) return; // manque de roi 
+   info.computerKingState = info.gamerKingState = EXIST;
+   info.score = ONGOING;
 
    if (LCkingInCheck (sq64, info.gamerColor, lGK, cGK)) info.gamerKingState = ISINCHECK;
    if (kingCannotMove (sq64, info.gamerColor)) {
@@ -836,7 +854,6 @@ bool cgi () { /* */
    char *env;
    str = temp;
    char buffer [80] = "";
-   srand (time (NULL)); // initialise le generateur aleatoire
    
    // log date heure et adresse IP du joueur
    time_t now = time (NULL); // pour .log
@@ -881,15 +898,19 @@ int main (int argc, char *argv[]) { /* */
    char strMove [15];
    char car;
    TGAME oldSq64;
-   
    // initialisations
    uint64_t init[4] = {0x12345ULL, 0x23456ULL, 0x34567ULL, 0x45678ULL}, length = 4;
    info.wdl = 9;                    // valeur inateignable montrant que syzygy n'a pas ete appelee
    init_by_array64 (init, length);  // pour generateur aleatoire
    init_genrand64 (time (NULL));    // idem
    srand (time (NULL));             // initialise l'autre generateur aleatoire
+   info.score = ONGOING;
+#ifdef TRANSTABLE   
+   if ((trTa = malloc (sizeof (StrTa) * MAXTRANSTABLE)) == NULL) exit (0);
    initTable();                     // pour table hachage Zobrist
-   for (int i = 0; i < MAXTRANSTABLE; i++) trTa [i].p = INITPROF; // tables de transpositiopns
+   for (int i = 0; i < MAXTRANSTABLE;  i++) trTa [i].p = INITPROF; // tables de transpositiopns
+#endif
+
    flog = fopen (F_LOG, "a");       // preparation du fichier log 
 
    // si pas de parametres on va au cgi (fin de main)
@@ -932,7 +953,7 @@ int main (int argc, char *argv[]) { /* */
          break;
       case 't': // tests
          printGame (sq64, evaluation (sq64, -info.gamerColor, &info.pat));
-         printf ("==============================================================\n");
+         printf ("--------resultat--------------\n");
          nextL = buildList (sq64, -info.gamerColor, info.kingCastleComputerOK, info.queenCastleComputerOK, list);         
          nextL = buildListEnPassant (sq64, -info.gamerColor, info.epGamer, list, nextL);
          printf ("Nombre de possibilites : %d\n", nextL);
@@ -965,7 +986,7 @@ int main (int argc, char *argv[]) { /* */
          case 'e':
             printGame (sq64, 0);
             printf ("Random 64 bits: %lx\n", genrand64_int64 ());
-            printf ("Hash   32 bits: %x\n", computeHash (sq64));
+            printf ("Hash   32 bits: %x\n", computeHash (sq64, -info.gamerColor));
             printf ("Eval : %d %s\n", evaluation (sq64, -info.gamerColor, &info.pat), (info.pat ? "pat" : "non Pat"));
             break;
          default:

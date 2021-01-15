@@ -17,9 +17,9 @@
 
 #define KINGINCHECKEVAL 1              // evaluation du gain d'un echec au roi..
 #define BONUSCASTLE 10                 // Le roi qui a roque a un bonus
-#define BONUSCENTER 2                  // evaluation du gain d'avoir cavalier fou tour reine dans carre central
+#define BONUSCENTER 1                  // evaluation du gain d'avoir cavalier fou tour reine dans carre central
 #define BONUSKNIGHT 1                  // evaluation du gain d'avoir un cavalier eloigne des bords
-#define BONUSPAWNAHEAD 1               // evaluation du gain d'avoir un pion avance
+#define BONUSPAWNAHEAD 2               // evaluation du gain d'avoir un pion avance
 #define BONUSBISHOP 2                  // evaluation du gain d'avoir deux fous
 #define BONUSMOVEROOK 2                // evaluation du gain d'avoir une tour non bloquee
 #define MALUSISOLATEDPAWN 2            // evaluation de la perte d'un pion isole
@@ -42,6 +42,7 @@ struct sinfo {
    int cpt50;                    // compteur pour regle des 50 coups 
    int nPieces;                  // nombre de pieces
    int maxDepth;                 // profondeur (minimax) recalculee
+   int nAlphaBeta;               // nombre d'appels alphaBeta
    int nEvalCall;                // nombre d'appels Eval
    int nLCKingInCheckCall;       // nombre d'appels nLCLingInCheck (si gere)  
    int nBuildListCall;           // nombre d'appels nBuildList
