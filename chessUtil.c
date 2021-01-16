@@ -122,28 +122,28 @@ void printGame (TGAME jeu, int eval) { /* */
    printf ("%s\n", NORMAL);
 }
 
-char *castleToStr (struct sinfo info, bool whiteIsCastled, bool blackIsCastled, char *str) { /* */
+char *castleToStr (bool whiteIsCastled, bool blackIsCastled, char *str) { /* */
    /* traduit booleen decrivant les possibilits de roque en string */
    strcpy (str, "");
 
-   if (((whiteIsCastled) && (info.gamerColor == -1)) || ((blackIsCastled) && (info.gamerColor == 1))) { 
-      info.kingCastleGamerOK = info.queenCastleGamerOK = false;
+   if (((whiteIsCastled) && (gamer.color == -1)) || ((blackIsCastled) && (gamer.color == 1))) { 
+      gamer.kingCastleOK = gamer.queenCastleOK = false;
    }
-   if (((whiteIsCastled) && (info.gamerColor == 1)) || ((blackIsCastled) && (info.gamerColor == -1))) {
-      info.kingCastleComputerOK = info.queenCastleComputerOK = false;
+   if (((whiteIsCastled) && (gamer.color == 1)) || ((blackIsCastled) && (gamer.color == -1))) {
+      computer.kingCastleOK = computer.queenCastleOK = false;
    }
 
-   if (info.gamerColor == -1) {
-      if (info.kingCastleGamerOK) strcat (str, "K");
-      if (info.queenCastleGamerOK) strcat (str, "Q");
-      if (info.kingCastleComputerOK) strcat (str, "k");
-      if (info.queenCastleComputerOK) strcat (str, "q");
+   if (gamer.color == -1) {
+      if (gamer.kingCastleOK) strcat (str, "K");
+      if (gamer.queenCastleOK) strcat (str, "Q");
+      if (computer.kingCastleOK) strcat (str, "k");
+      if (computer.queenCastleOK) strcat (str, "q");
    }
    else {
-      if (info.kingCastleComputerOK) strcat (str, "K");
-      if (info.queenCastleComputerOK) strcat (str, "Q");
-      if (info.kingCastleGamerOK) strcat (str, "k");
-      if (info.queenCastleGamerOK) strcat (str, "q");
+      if (computer.kingCastleOK) strcat (str, "K");
+      if (computer.queenCastleOK) strcat (str, "Q");
+      if (gamer.kingCastleOK) strcat (str, "k");
+      if (gamer.queenCastleOK) strcat (str, "q");
    }
    if (strlen (str) == 0) strcpy (str, "-");
    return str;
@@ -154,23 +154,23 @@ void strToCastle (char *str, int color, bool *whiteCanCastle, bool *blackCanCast
    char car;
    *whiteCanCastle = false;
    *blackCanCastle = false;
-   info.kingCastleGamerOK = info.kingCastleComputerOK = info.queenCastleGamerOK = info.queenCastleComputerOK = false;
+   gamer.kingCastleOK = computer.kingCastleOK = gamer.queenCastleOK = computer.queenCastleOK = false;
    while ((car = *str++) != '\0') {
       switch (car) {
-      case 'K': if (color == 1) info.kingCastleGamerOK = true;
-                else info.kingCastleComputerOK = true;
+      case 'K': if (color == 1) gamer.kingCastleOK = true;
+                else computer.kingCastleOK = true;
                 *whiteCanCastle = true;
                 break;
-      case 'k': if (color == -1) info.kingCastleGamerOK = true;
-                else info.kingCastleComputerOK = true;
+      case 'k': if (color == -1) gamer.kingCastleOK = true;
+                else computer.kingCastleOK = true;
                 *blackCanCastle = true;
                 break;
-      case 'Q': if (color == 1) info.queenCastleGamerOK = true;
-                else info.queenCastleComputerOK = true;
+      case 'Q': if (color == 1) gamer.queenCastleOK = true;
+                else computer.queenCastleOK = true;
                 *whiteCanCastle = true;
                 break;
-      case 'q': if (color == -1) info.queenCastleGamerOK = true;
-                else info.queenCastleComputerOK = true;
+      case 'q': if (color == -1) gamer.queenCastleOK = true;
+                else computer.queenCastleOK = true;
                 *blackCanCastle = true;
                 break;
       default:;
@@ -263,7 +263,7 @@ char *gameToFen (TGAME sq64, char *fen, int color, char sep, bool complete, char
    fen [i] = '\0';
    sprintf (fen, "%s%c%c", fen, sep, (color == 1) ? 'b': 'w');
    if (complete) {
-      castleToStr (info, whiteIsCastled, blackIsCastled, strCastle);
+      castleToStr (whiteIsCastled, blackIsCastled, strCastle);
       sprintf (fen, "%s%c%s%c%s%c%d%c%d", fen, sep, strCastle, sep, ep, sep, cpt50, sep, nb); 
    }
    return fen;
@@ -489,14 +489,14 @@ char *difference (TGAME sq64_1, TGAME sq64_2, int color, char *prise, char *comp
       sq64_1[lCastling][0] == color*ROOK && sq64_2 [lCastling][0] == 0) {
       sprintf (complete, "%s", "O-O-O");
       sprintf (abbr, "%s", "O-O-O");
-      info.kingCastleComputerOK = info.queenCastleComputerOK = false; // plus de roque possible
+      computer.kingCastleOK = computer.queenCastleOK = false; // plus de roque possible
       return complete;
    }
    if (sq64_1[lCastling][4] == color*KING && sq64_2[lCastling][4] == 0 && // roque droit
       sq64_1[lCastling][7] == color*ROOK && sq64_2 [lCastling][7] == 0) {
       sprintf (complete, "%s", "O-O");
       sprintf (abbr, "%s", "O-O");
-      info.kingCastleComputerOK = info.queenCastleComputerOK = false; // plus de roque possible
+      computer.kingCastleOK = computer.queenCastleOK = false; // plus de roque possible
       return complete;
    }
 
@@ -551,11 +551,11 @@ char *difference (TGAME sq64_1, TGAME sq64_2, int color, char *prise, char *comp
    if ((v >= -CASTLEKING) && (v <= CASTLEKING)) {
       cCharPiece = (v > 0) ? dict [v] : tolower(dict [-v]);
       if ((v * color) == ROOK && l1 == lCastling) { // on bouge une tour. Conseqquences Castling...
-         if (c1 == 7) info.kingCastleComputerOK = false;
-         if (c1 == 0) info.queenCastleComputerOK = false;
+         if (c1 == 7) computer.kingCastleOK = false;
+         if (c1 == 0) computer.queenCastleOK = false;
       }
       if ((v * color) == KING) { // on bouge le roi. PLus e roque possible.
-         info.kingCastleComputerOK = info.queenCastleComputerOK = false;
+         computer.kingCastleOK = computer.queenCastleOK = false;
       }
    }
    else cCharPiece = '?';
@@ -571,7 +571,7 @@ char *difference (TGAME sq64_1, TGAME sq64_2, int color, char *prise, char *comp
    return complete;
 }
 
-void sendGame (bool http, const char *fen, struct sinfo info, int reqType) { /* */
+void sendGame (bool http, const char *fen, int reqType) { /* */
    /* envoie le jeu decrit par fen et info au format JSON */
    if (http) {
       printf ("Access-Control-Allow-Origin: *\n"); // obligatoire !
@@ -587,8 +587,8 @@ void sendGame (bool http, const char *fen, struct sinfo info, int reqType) { /* 
       printf ("\"clockTime\": \"%lf\",\n", (double) info.nClock/CLOCKS_PER_SEC);
       printf ("\"time\" : \"%lf\",\n", (double) info.computeTime/MILLION);
       printf ("\"eval\" : \"%d\",\n", info.evaluation);
-      printf ("\"computerStatus\" : \"%d : %s\",\n", info.computerKingState, strStatus [info.computerKingState]);
-      printf ("\"playerStatus\" : \"%d : %s\",\n", info.gamerKingState, strStatus [info.gamerKingState]);
+      printf ("\"computerStatus\" : \"%d : %s\",\n", computer.kingState, strStatus [computer.kingState]);
+      printf ("\"playerStatus\" : \"%d : %s\",\n", gamer.kingState, strStatus [gamer.kingState]);
       printf ("\"fen\" : \"%s\",\n", fen);
       if (info.lastCapturedByComputer >= ' ' && info.lastCapturedByComputer <= 'z')
          printf ("\"lastTake\" : \"%c\",\n", info.lastCapturedByComputer);
@@ -602,8 +602,8 @@ void sendGame (bool http, const char *fen, struct sinfo info, int reqType) { /* 
       printf ("\"nEvalCall\" : \"%d\",\n", info.nEvalCall);
       printf ("\"nAlphaBeta\" : \"%d\",\n", info.nAlphaBeta);
       printf ("\"nBestNote\" : \"%d\",\n", info.nBestNote);
-      printf ("\"nValidGamerPos\" : \"%d\",\n", info.nValidGamerPos);
-      printf ("\"nValidComputerPos\" : \"%d\",\n", info.nValidComputerPos);
+      printf ("\"nValidGamerPos\" : \"%d\",\n", gamer.nValidPos);
+      printf ("\"nValidComputerPos\" : \"%d\",\n", computer.nValidPos);
       printf ("\"score\" : \"%s\"", scoreToStr [info.score]);
    }
    if (reqType > 1) {

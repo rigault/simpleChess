@@ -37,7 +37,7 @@ enum {VOID, PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING, CASTLEKING};            // 
 enum KingState {NOEXIST, EXIST, ISINCHECK, UNVALIDINCHECK, ISMATE, ISPAT};   // type etat  
 enum Score {ERROR, ONGOING, BLACKWIN, DRAW, WHITEWIN};                              // type scores finaux
 
-struct sinfo {
+struct Sinfo {
    int nb;                       // nb de coup recus
    int cpt50;                    // compteur pour regle des 50 coups 
    int nPieces;                  // nombre de pieces
@@ -46,28 +46,17 @@ struct sinfo {
    int nEvalCall;                // nombre d'appels Eval
    int nLCKingInCheckCall;       // nombre d'appels nLCLingInCheck (si gere)  
    int nBuildListCall;           // nombre d'appels nBuildList
-   int nValidGamerPos;           // nombre de possibilites joueur
-   int nValidComputerPos;        // nombre de possibilites computer
    int evaluation;               // evaluation rendue par la fonction d evaluation
    char computerPlayC [15];      // dernier jeu ordi reconstruit par la fonction difference. Notation Alg. complete
    char computerPlayA [15];      // dernier jeu ordi reconstruit par la fonction difference. Notation Alg. abegee
    char lastCapturedByComputer;  // derniere piece prise par Ordi
    int calculatedMaxDepth;       // profondeur max atteinte
-   int gamerColor;               // -1 si joueur blanc (defaut), 1 si joueur noir
-   enum KingState gamerKingState;      // etat du roi joueur
-   enum KingState computerKingState;   // computer
    char comment [MAXBUFFER];     // nom de l'ouverture si trouvee ou fin de partie
    char endName [MAXBUFFER];     // nom de la database de fermeture si trouvee
    long computeTime;             // temps de calcul
    clock_t nClock;               // utilisation du processeur
    char move [15];               // deplacement donne par fonction ouverture
    unsigned wdl;                 // retour de syzygy - end table
-   char epComputer [3];          // en passant. genere par computer
-   char epGamer [3];             // en passsant. Fourni par le joueur, utilisé par computer
-   bool kingCastleGamerOK;       // 4 boolens indiqnat possiilites de roques selon cote et couleur
-   bool queenCastleGamerOK;
-   bool kingCastleComputerOK;
-   bool queenCastleComputerOK;
    enum Score score;             // score : "-" "1-0" "0-1" "1/2-1/2"
    bool pat;                     // retour de evaluation. vrai si le jeu est pat
    int  nBestNote;               // nombre de possibilites ayant la meilleure eval
@@ -78,19 +67,19 @@ struct sinfo {
 } info;
 
 struct Player {
-   int color;
-   int nValidPos;
-   enum KingState kingState;   
-   bool kingCastleOK;
-   bool queenCastleOK;
-   char ep [3];
+   int color;                    // -1 si joueur blanc (defaut), 1 si joueur noir. Note gamer.color uniquement utilise
+   int nValidPos;                // nombre de positions valides trouvee par buildList
+   enum KingState kingState;     // etat roi : NOEXIST, ...
+   bool kingCastleOK;            // roque cote roi autorise
+   bool queenCastleOK;           // roque cote reine autorise
+   char ep [3];                  // en passant au format c3
 } gamer, computer;
 
 extern int fenToGame (char *fenComplete, TGAME sq64, char *ep, int *cpt50, int *nb);
 extern char *gameToFen (TGAME sq64, char *fen, int color, char sep, bool complete, char *ep, int cpt50, int nb);
 extern bool openingAll (const char *dir, const char *filter, char *gameFen, char *sComment, char *move);
 extern char *difference (TGAME jeu1, TGAME jeu2, int color, char *prise, char *complete, char *abbr, char *epGamer, char *epComputer);
-extern void sendGame (bool http, const char *fen, struct sinfo info, int reqType);
+extern void sendGame (bool http, const char *fen, int reqType);
 extern void moveGame (TGAME jeu, int color, char *move);
 extern void printGame (TGAME jeu, int eval);
 extern uint64_t genrand64_int64 (void);
