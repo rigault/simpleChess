@@ -14,13 +14,13 @@
 /*   Noirs : positifs  (Minuscules) */
 /*   Blancs : negatifs  (Majuscules) */
 
-//#define TRANSTABLE                        // si defini tables de transpo actives                       
+//#define TRANSTABLE                            // si defini tables de transpo actives                       
 
-#define MASQMAXTRANSTABLE 0x1fffffff      // 29 bits a 1 : 2 puissance 29-1 > 500  millions
-// #define MASQMAXTRANSTABLE 0x0ffffff       // 24 bits a 1 : 2 puisssance 24 - 1 
+#define MASQMAXTRANSTABLE 0x1fffffff            // 29 bits a 1 : 2 puissance 29-1 > 500  millions
+// #define MASQMAXTRANSTABLE 0x0ffffff          // 24 bits a 1 : 2 puisssance 24 - 1 
 #define MAXTRANSTABLE (MASQMAXTRANSTABLE + 1)
 #define INITPROF 127 // pour table transpo
-#define WHO(x)((x==-1)?0:0xffffffff)        //
+#define WHO(x)    ((x==-1)?0:0xffffffff)        //
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -47,20 +47,19 @@ struct {                           // description de la requete emise par le cli
    char fenString [MAXLENGTH];     // le jeu
    int reqType;                    // le type de requete : 0 1 ou 2
    int level;                      // la profondeur de la recherche souhaitee
-} getInfo = {"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR+w+KQkq", 2, 4}; // par defaut
+   bool  trans;                    // vrai si on utilise les tables de transpo
+} getInfo = {"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR+w+KQkq", 2, 4, true}; // par defaut
 
 TGAME sq64;
 TLIST list;
 int nextL; // nombre total utilisé dans la file
 
-#ifdef TRANSTABLE
 typedef struct  {                  // tables de transposition
    int16_t eval;                   // derniere eval
    int8_t p;                       // profondeur
    // uint8_t t[64];               // jeu optionnel
 } StrTa;
 StrTa *trTa = NULL;                // Ce pointeur va servir de tableau après l'appel du malloc
-#endif
 
 uint64_t ZobristTable[8][8][14];   // 14 combinaisons avec RoiRoque
 
@@ -464,7 +463,7 @@ bool fKingInCheck (TGAME sq64, register int who) { /* */
          if ((who * sq64 [l][c]) >= KING) { // match KING et CASTLEKING
             if (LCkingInCheck (sq64, who, l, c)) return true;
             else return false;
-	 }
+	}
    return false;
 }
 
@@ -589,26 +588,25 @@ int alphaBeta (TGAME sq64, int who, int p, int refAlpha, int refBeta) { /* */
    int alpha = refAlpha;
    int beta = refBeta;
 
-#ifdef TRANSTABLE
-   uint32_t hash = computeHash (sq64, who);
-   if (trTa [hash].p <= p) { 
-      // if (memcmp (sq64, trTa [hash].t, 64) == 0) {
-      if (sameParity (trTa [hash].p, p)) {
-         info.nbMatchTrans += 1;
-         return (trTa [hash].eval);
+   if (getInfo.trans) {
+      uint32_t hash = computeHash (sq64, who);
+      if (trTa [hash].p <= p) { 
+         // if (memcmp (sq64, trTa [hash].t, 64) == 0) {
+         if (sameParity (trTa [hash].p, p)) {
+            info.nbMatchTrans += 1;
+            return (trTa [hash].eval);
+         }
+         else info.nbColl += 1;    // optionnelle de collisions
       }
-      else info.nbColl += 1;    // optionnelle de collisions
+      note = evaluation (sq64, who, &pat);
+      info.nbTrTa += 1;
+      trTa [hash].p = p;
+      trTa [hash].eval = note;
+      // memcpy (trTa [hash].t, sq64, 64); // optionnel. Sauvegarde du jeu
    }
-#endif
-   note = evaluation (sq64, who, &pat);
-
-#ifdef TRANSTABLE
-   info.nbTrTa += 1;
-   trTa [hash].p = p;
-   trTa [hash].eval = note;
-   // memcpy (trTa [hash].t, sq64, 64); // optionnel. Sauvegarde du jeu
-#endif
-   
+   else { 
+      note = evaluation (sq64, who, &pat);
+   }
    if (info.calculatedMaxDepth < p) info.calculatedMaxDepth = p;
 
    // conditions de fin de jeu
@@ -871,6 +869,7 @@ bool cgi () { /* */
 
    if ((env = getenv ("QUERY_STRING")) == NULL) return false;  // Les variables
 
+   if ((str = strstr (env, "notrans")) != NULL) getInfo.trans = false;
    if ((str = strstr (env, "fen=")) != NULL)
       sscanf (str, "fen=%[a-zA-Z0-9+-/]", getInfo.fenString);
    if ((str = strstr (env, "level=")) != NULL)
@@ -905,11 +904,11 @@ int main (int argc, char *argv[]) { /* */
    init_genrand64 (time (NULL));    // idem
    srand (time (NULL));             // initialise l'autre generateur aleatoire
    info.score = ONGOING;
-#ifdef TRANSTABLE   
-   if ((trTa = malloc (sizeof (StrTa) * MAXTRANSTABLE)) == NULL) exit (0);
-   initTable();                     // pour table hachage Zobrist
-   for (int i = 0; i < MAXTRANSTABLE;  i++) trTa [i].p = INITPROF; // tables de transpositiopns
-#endif
+   if (getInfo.trans) {
+      if ((trTa = malloc (sizeof (StrTa) * MAXTRANSTABLE)) == NULL) exit (0);
+      initTable();                     // pour table hachage Zobrist
+      for (int i = 0; i < MAXTRANSTABLE;  i++) trTa [i].p = INITPROF; // tables de transpositiopns
+   }
 
    flog = fopen (F_LOG, "a");       // preparation du fichier log 
 
@@ -921,6 +920,7 @@ int main (int argc, char *argv[]) { /* */
       switch (argv [1][1]) {
       case 'q': case 'v': case 'V' : // q quiet, v verbose, V very verbose
          test = (argv [1][1] == 'V');
+         getInfo.trans = (argv [1][2] != 'n');
          computerPlay (sq64);
          if (toupper (argv [1][1]) == 'V') {
             printf ("--------resultat--------------\n");

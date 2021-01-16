@@ -77,6 +77,15 @@ struct sinfo {
    int nbMatchTrans;             // nombre de matching transposition  
 } info;
 
+struct Player {
+   int color;
+   int nValidPos;
+   enum KingState kingState;   
+   bool kingCastleOK;
+   bool queenCastleOK;
+   char ep [3];
+} gamer, computer;
+
 extern int fenToGame (char *fenComplete, TGAME sq64, char *ep, int *cpt50, int *nb);
 extern char *gameToFen (TGAME sq64, char *fen, int color, char sep, bool complete, char *ep, int cpt50, int nb);
 extern bool openingAll (const char *dir, const char *filter, char *gameFen, char *sComment, char *move);
