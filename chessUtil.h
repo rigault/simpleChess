@@ -57,7 +57,7 @@ struct Sinfo {
    clock_t nClock;               // utilisation du processeur
    char move [15];               // deplacement donne par fonction ouverture
    unsigned wdl;                 // retour de syzygy - end table
-   enum Score score;             // score : "-" "1-0" "0-1" "1/2-1/2"
+   enum Score score;             // score : "ERROR' "-" "1-0" "0-1" "1/2-1/2"
    bool pat;                     // retour de evaluation. vrai si le jeu est pat
    int  nBestNote;               // nombre de possibilites ayant la meilleure eval
    int nbTrTa;                   // nombre de positions occupees dans la table de transposition
@@ -82,7 +82,4 @@ extern char *difference (TGAME jeu1, TGAME jeu2, int color, char *prise, char *c
 extern void sendGame (bool http, const char *fen, int reqType);
 extern void moveGame (TGAME jeu, int color, char *move);
 extern void printGame (TGAME jeu, int eval);
-extern uint64_t genrand64_int64 (void);
-void init_genrand64 (uint64_t seed);
-void init_by_array64 (uint64_t init_key[], uint64_t key_length);
 

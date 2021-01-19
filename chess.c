@@ -45,8 +45,9 @@ struct {                           // description de la requete emise par le cli
    char fenString [MAXLENGTH];     // le jeu
    int reqType;                    // le type de requete : 0 1 ou 2
    int level;                      // la profondeur de la recherche souhaitee
-   bool  trans;                    // vrai si on utilise les tables de transpo
-} getInfo = {"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR+w+KQkq", 2, 4, true}; // par defaut
+   bool alea;                      // vrai si on prend un jeu de facon aleatoire quand plusieurs solutions
+   bool trans;                     // vrai si on utilise les tables de transpo
+} getInfo = {"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR+w+KQkq", 2, 4, true, true}; // par defaut
 
 TGAME sq64;
 TLIST list;
@@ -55,7 +56,7 @@ int nextL; // nombre total utilisé dans la file
 typedef struct  {                  // tables de transposition
    int16_t eval;                   // derniere eval
    int8_t p;                       // profondeur
-   // uint8_t t[64];               // jeu optionnel
+   // TGAME t[64];               // jeu optionnel
 } StrTa;
 StrTa *trTa = NULL;                // Ce pointeur va servir de tableau après l'appel du malloc
 
@@ -76,7 +77,7 @@ void initTable() { /* */
    for (int l = 0; l < N; l++)
       for (int c = 0; c < N; c++)
          for (int k = 0; k < 14; k++) // 14 avec Roque
-            ZobristTable[l][c][k] = genrand64_int64 ();
+            ZobristTable[l][c][k] = rand64 ();
 }
 
 uint32_t computeHash (TGAME sq64, int who) { /* */
@@ -731,8 +732,7 @@ int find (TGAME sq64, TGAME bestSq64, int *bestNote) { /* */
    if (test) printf ("Nb de jeu : %d ayant la meilleure note : %d \n", i, *bestNote); 
    info.nBestNote = i;
    random  = rand () % i;     // renvoie un entier >=  0 et strictement inferieur a i
-   k = possible [random];     // indice du jeu choisi au hasard
-   // k = possible [0];       // deterministe A ENLEVER SI RANDOM PREFERE
+   k = (getInfo.alea) ? possible [random]: 0; // indice du jeu choisi au hasard OU premier
    memcpy (bestSq64, list [k], GAMESIZE);
 
    return nextL;
@@ -867,6 +867,7 @@ bool cgi () { /* */
 
    if ((env = getenv ("QUERY_STRING")) == NULL) return false;  // Les variables
 
+   if ((str = strstr (env, "noalea")) != NULL) getInfo.alea = false;
    if ((str = strstr (env, "notrans")) != NULL) getInfo.trans = false;
    if ((str = strstr (env, "fen=")) != NULL)
       sscanf (str, "fen=%[a-zA-Z0-9+-/]", getInfo.fenString);
@@ -896,10 +897,7 @@ int main (int argc, char *argv[]) { /* */
    char car;
    TGAME oldSq64;
    // initialisations
-   uint64_t init[4] = {0x12345ULL, 0x23456ULL, 0x34567ULL, 0x45678ULL}, length = 4;
    info.wdl = 9;                    // valeur inateignable montrant que syzygy n'a pas ete appelee
-   init_by_array64 (init, length);  // pour generateur aleatoire
-   init_genrand64 (time (NULL));    // idem
    srand (time (NULL));             // initialise l'autre generateur aleatoire
    info.score = ONGOING;
    if (getInfo.trans) {
@@ -919,6 +917,7 @@ int main (int argc, char *argv[]) { /* */
       case 'q': case 'v': case 'V' : // q quiet, v verbose, V very verbose
          test = (argv [1][1] == 'V');
          getInfo.trans = (argv [1][2] != 'n');
+         if (argv [1][3] >= 3) getInfo.alea = (argv [1][3] != 'n');
          computerPlay (sq64);
          if (toupper (argv [1][1]) == 'V') {
             printf ("--------resultat--------------\n");
@@ -983,7 +982,7 @@ int main (int argc, char *argv[]) { /* */
          break;
          case 'e':
             printGame (sq64, 0);
-            printf ("Random 64 bits: %lx\n", genrand64_int64 ());
+            printf ("Random 64 bits: %lx\n", rand64 ());
             printf ("Hash   32 bits: %x\n", computeHash (sq64, -gamer.color));
             printf ("Eval : %d %s\n", evaluation (sq64, -gamer.color, &info.pat), (info.pat ? "pat" : "non Pat"));
             break;
