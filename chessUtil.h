@@ -32,6 +32,10 @@
 
 typedef int8_t TGAME [N][N];              // jeu de 8 x 8 cases codant une piece sur un entier 8 bits avec signe
 typedef int8_t TLIST [MAXSIZELIST][N][N]; // liste de jeux constuits par la fonction buildList   
+typedef struct {
+      char move [15];
+      int eval;
+} MOVELIST;
 
 enum {VOID, PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING, CASTLEKING};            // VOID car PAWN = 1, ...
 enum KingState {NOEXIST, EXIST, ISINCHECK, UNVALIDINCHECK, ISMATE, ISPAT};   // type etat  
@@ -64,6 +68,7 @@ struct Sinfo {
    int nbColl;                   // nombre de collisions
    int nbCallfHash;              // nmbre appels fn de hachage.
    int nbMatchTrans;             // nombre de matching transposition  
+   MOVELIST moveList [MAXSIZELIST]; // liste des move possibles et leur evaluation
 } info;
 
 struct Player {
