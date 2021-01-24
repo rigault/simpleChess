@@ -503,17 +503,17 @@ void sendGame (bool http, const char *fen, int reqType) { /* */
    if (http) {
       printf ("Access-Control-Allow-Origin: *\n"); // obligatoire !
       printf ("Cache-Control: no-cache\n");        // eviter les caches
-      printf ("Content-Type: text/html\n\n");
+      printf ("Content-Type: text/html; charset=utf-8\n\n");
    }
    printf ("{\n");
    printf ("\"description\" : \"%s\",\n", DESCRIPTION);
-   printf ("\"compilation-date\": \"%s\",\n", __DATE__);
+   printf ("\"compilation-date\" : \"%s\",\n", __DATE__);
    printf ("\"version\" : \"%s\"", VERSION);
    if (reqType > 0) {
       printf (",\n");
-      printf ("\"clockTime\": \"%lf\",\n", (double) info.nClock/CLOCKS_PER_SEC);
-      printf ("\"time\" : \"%lf\",\n", (double) info.computeTime/MILLION);
-      printf ("\"eval\" : \"%d\",\n", info.evaluation);
+      printf ("\"clockTime\":%lf,\n", (double) info.nClock/CLOCKS_PER_SEC);
+      printf ("\"time\" : %lf,\n", (double) info.computeTime/MILLION);
+      printf ("\"eval\" : %d,\n", info.evaluation);
       printf ("\"computerStatus\" : \"%d : %s\",\n", computer.kingState, strStatus [computer.kingState]);
       printf ("\"playerStatus\" : \"%d : %s\",\n", gamer.kingState, strStatus [gamer.kingState]);
       printf ("\"fen\" : \"%s\",\n", fen);
@@ -522,25 +522,33 @@ void sendGame (bool http, const char *fen, int reqType) { /* */
       else printf ("\"lastTake\" : \"%c\",\n", ' ');
       printf ("\"openingName\" : \"%s\",\n", info.comment);
       printf ("\"endName\" : \"%s\",\n", info.endName);
-      printf ("\"wdl\" : \"%u\",\n", info.wdl);
+      printf ("\"wdl\" : %u,\n", info.wdl);
       printf ("\"computePlayC\" : \"%s\",\n", info.computerPlayC);
       printf ("\"computePlayA\" : \"%s\",\n", info.computerPlayA);      
-      printf ("\"maxDepth\" : \"%d\",\n", info.maxDepth);
-      printf ("\"nEvalCall\" : \"%d\",\n", info.nEvalCall);
-      printf ("\"nAlphaBeta\" : \"%d\",\n", info.nAlphaBeta);
-      printf ("\"nBestNote\" : \"%d\",\n", info.nBestNote);
-      printf ("\"nValidGamerPos\" : \"%d\",\n", gamer.nValidPos);
-      printf ("\"nValidComputerPos\" : \"%d\",\n", computer.nValidPos);
+      printf ("\"maxDepth\" : %d,\n", info.maxDepth);
+      printf ("\"nEvalCall\" : %d,\n", info.nEvalCall);
+      printf ("\"nAlphaBeta\" : %d,\n", info.nAlphaBeta);
+      printf ("\"nBestNote\" : %d,\n", info.nBestNote);
+      printf ("\"nValidGamerPos\" : %d,\n", gamer.nValidPos);
+      printf ("\"nValidComputerPos\" : %d,\n", computer.nValidPos);
+      printf ("\"moveList\" : [");
+      for (int k = 0; k < computer.nValidPos - 1; k++) {
+         //printf ("{ \"move\" : %s , \"eval\" : %d }, ", info.moveList [k].move, info.moveList [k].eval);
+         if ((k % 5) == 0) printf ("\n   ");
+         printf ("\"%s\", %5d, ", info.moveList [k].move, info.moveList [k].eval);
+      }
+      printf ("\"%s\", %5d\n],\n", info.moveList [computer.nValidPos -1 ].move, info.moveList [computer.nValidPos - 1].eval);
       printf ("\"score\" : \"%s\"", scoreToStr [info.score]);
    }
    if (reqType > 1) {
-      printf (",\n\"dump\" : \"");
-      printf ("  nbTrTa=%d", info.nbTrTa);
-      printf ("  nbMatchTrans=%d", info.nbMatchTrans);
-      printf ("  nCollision=%d", info.nbColl);
-      printf ("  nCallfHash=%d", info.nbCallfHash);
-      printf ("  nLCKingInCheck=%d", info.nLCKingInCheckCall);
-      printf ("  nBuildList=%d\"", info.nBuildListCall);
+      printf (",\n\"dump\" : { ");
+      printf ("\"nbTrTa\" : %d, ", info.nbTrTa);
+      printf ("\"nbMatchTrans\" : %d, ", info.nbMatchTrans);
+      printf ("\"nCollision\" : %d, ", info.nbColl);
+      printf ("\"nCallfHash\" : %d, ", info.nbCallfHash);
+      printf ("\"nLCKingInCheck\" : %d, ", info.nLCKingInCheckCall);
+      printf ("\"nBuildList\" : %d", info.nBuildListCall);
+      printf (" }");
    }
    printf ("\n}\n");
 }
