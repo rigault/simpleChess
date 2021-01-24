@@ -21,6 +21,7 @@ while  score == "-" :
    print ("maxEval = ", maxEval)
    print ("maxTr = ", maxTr)
    print (p)
+   print (fen)
    if  score == "-" :
       # les noirs jouent
       command = "sudo ./chess.cgi -vnn " + fen + " 4"
@@ -30,3 +31,4 @@ while  score == "-" :
       fen = j ["fen"]
       score = j ["score"]
       print (p)
+      print (fen)

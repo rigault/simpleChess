@@ -500,6 +500,7 @@ char *difference (TGAME sq64_1, TGAME sq64_2, int color, char *prise, char *comp
 
 void sendGame (bool http, const char *fen, int reqType) { /* */
    /* envoie le jeu decrit par fen et info au format JSON */
+   int k;
    if (http) {
       printf ("Access-Control-Allow-Origin: *\n"); // obligatoire !
       printf ("Cache-Control: no-cache\n");        // eviter les caches
@@ -532,11 +533,11 @@ void sendGame (bool http, const char *fen, int reqType) { /* */
       printf ("\"nValidGamerPos\" : %d,\n", gamer.nValidPos);
       printf ("\"nValidComputerPos\" : %d,\n", computer.nValidPos);
       printf ("\"moveList\" : [");
-      for (int k = 0; k < computer.nValidPos - 1; k++) {
-         //printf ("{ \"move\" : %s , \"eval\" : %d }, ", info.moveList [k].move, info.moveList [k].eval);
+      for (k = 0; k < computer.nValidPos - 1; k++) {
          if ((k % 5) == 0) printf ("\n   ");
          printf ("\"%s\", %5d, ", info.moveList [k].move, info.moveList [k].eval);
       }
+      if ((k % 5) == 0) printf ("\n   ");
       printf ("\"%s\", %5d\n],\n", info.moveList [computer.nValidPos -1 ].move, info.moveList [computer.nValidPos - 1].eval);
       printf ("\"score\" : \"%s\"", scoreToStr [info.score]);
    }

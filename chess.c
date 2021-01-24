@@ -1,6 +1,6 @@
 /*   Pour produire la doc sur les fonctions : grep "\/\*" chess.c | sed 's/^\([a-zA-Z]\)/\n\1/' */
 /*   Jeu d'echec */
-/*   ./chess.cgi -q |-v |-V [FENGame] [profondeur] : CLI avec sortie JSON q)uiet v)erbose ou V)ery verbose */
+/*   ./chess.cgi -q |-v [FENGame] [profondeur] : CLI avec sortie JSON q)uiet v)erbose */
 /*   ./chess.cgi -f : test performance */
 /*   ./chess.cgi -t [FENGame] : test unitaire */
 /*   ./chess.cgi -p [FENGame] [profondeur] : play mode CLI */
@@ -38,7 +38,6 @@
 const int val [] = {0, 100, 300, 300, 500, 900, 0, BONUSCASTLE};
 
 FILE *flog;
-bool test = false;                 // positionne pour visualiser les possibilits evaluees. Mode CLI
 
 struct {                           // description de la requete emise par le client
    char fenString [MAXLENGTH];     // le jeu
@@ -651,9 +650,9 @@ int comp (const void *a, const void *b) {
    return (gamer.color == -1) ? pb->eval - pa->eval : pa -> eval - pb -> eval;
 }
 
-int find (TGAME sq64, TGAME bestSq64, int *bestNote) { /* */
+int find (TGAME sq64) { /* */
    /* ordinateur joue renvoie le meilleur jeu possible et le nombre de jeux possibles */
-   TGAME localSq64;
+   int bestNote = gamer.color * MATE; // la pire des notes possibleq
    int i;
    long k;
    pthread_t tThread [MAXTHREADS];
@@ -674,22 +673,13 @@ int find (TGAME sq64, TGAME bestSq64, int *bestNote) { /* */
    strcpy (info.comment, "");
    if (nextL == 0) return 0;
 
-   // Hasard Total
-   if (getInfo.level == -1) {
-      k = rand () % nextL; // renvoie un entier >= 0 et strictement inferieur a nextL
-      memcpy (bestSq64, list [k], GAMESIZE);
-      return nextL;
-   }
-   
-   memcpy (localSq64, sq64, GAMESIZE);
-   gameToFen (localSq64, fen, -gamer.color, ' ', false, computer.ep, 0, 0);
+   gameToFen (sq64, fen, -gamer.color, ' ', false, computer.ep, 0, 0);
 
    // recherche de fin de partie voir https://syzygy-tables.info/
    if ((info.nPieces) <= MAXPIECESSYZYGY) {
       sprintf (fen, "%s - - %d %d", fen, info.cpt50, info.nb); // pour regle des 50 coups
       if (syzygyRR (PATHTABLE, fen, &info.wdl, info.move, info.endName)) {
-         moveGame (localSq64, -gamer.color, info.move);
-         memcpy (bestSq64, localSq64, GAMESIZE);
+         moveGame (sq64, -gamer.color, info.move);
 	      return nextL;
       }
    }
@@ -697,15 +687,12 @@ int find (TGAME sq64, TGAME bestSq64, int *bestNote) { /* */
    // ouvertures
    if (info.nb < MAXNBOPENINGS) {
       if (openingAll (OPENINGDIR, (gamer.color == -1) ? ".b.fen": ".w.fen", fen, info.comment, info.move)) {
-         moveGame (localSq64, -gamer.color, info.move);
-         memcpy (bestSq64, localSq64, GAMESIZE);
+         moveGame (sq64, -gamer.color, info.move);
          return nextL;
       }
    }
  
    // recherche par la methode minimax Alphabeta
-   *bestNote = gamer.color * MATE;
-   memcpy (bestSq64, list [0], GAMESIZE);
    for (k = 0; k < nextL; k++)
       if (pthread_create (&tThread [k], NULL, fThread, (void *) k)) {
          perror ("pthread_create");
@@ -720,21 +707,15 @@ int find (TGAME sq64, TGAME bestSq64, int *bestNote) { /* */
    for (k = 0; k < nextL; k++)
       info.moveList[k].eval = alphaBeta (list [k], -gamer.color, 0, -MATE, MATE);
    */
-   if (test) {
-      printGame (sq64, 0);
-      printf ("===============================\n");
-      for (int k = 0; k < nextL; k++) printGame (list [k], info.moveList[k].eval);
-   }
    // info.movList contient les évaluations de toutes les possibilites
    // recherche de la meilleure note
    qsort (info.moveList, nextL, sizeof (MOVELIST), comp); // tri croisant ou decroissant selon couleur gamer
-   *bestNote = info.moveList [0].eval;
+   info.evaluation = bestNote = info.moveList [0].eval;
    i = 0;
-   while (info.moveList[i].eval == *bestNote) i += 1; // il y a i meileeurs jeux
+   while (info.moveList[i].eval == bestNote) i += 1; // il y a i meileeurs jeux
    k = (getInfo.alea) ? rand () % i : 0; // indice du jeu choisi au hasard OU premier
-   
-   memcpy (bestSq64, info.moveList[k].jeu, GAMESIZE);
-   difference (sq64, info.moveList[k].jeu, -gamer.color, &info.lastCapturedByComputer, info.computerPlayC, info.computerPlayA, gamer.ep, computer.ep);
+   info.nBestNote = i;
+   memcpy (sq64, info.moveList[k].jeu, GAMESIZE);
    return nextL;
 }
 
@@ -764,8 +745,8 @@ int whereKings (TGAME sq64, int gamerColor, int *lGK, int *cGK, int *lCK, int *c
 
 void computerPlay (TGAME sq64) { /* */
    /* prepare le lancement de la recherche avec find */
+   TGAME localSq64;
    struct timeval tRef;
-   TGAME bestSq64;
    int lGK, cGK, lCK, cCK; // ligne colonnes Gamer et Computer King 
    lGK = cGK = lCK = cCK = -1,
    computer.kingState = gamer.kingState = NOEXIST;
@@ -773,6 +754,7 @@ void computerPlay (TGAME sq64) { /* */
    info.nPieces = whereKings (sq64, gamer.color, &lGK, &cGK, &lCK, &cCK);
    if ((lGK == -1) || (lCK == -1)) return; // manque de roi 
    computer.kingState = gamer.kingState = EXIST;
+   memcpy (localSq64, sq64, GAMESIZE);
 
    // check etat du joueur
    if (LCkingInCheck (sq64, gamer.color, lGK, cGK)) {
@@ -801,12 +783,12 @@ void computerPlay (TGAME sq64) { /* */
    info.nClock = clock ();
 
    // lancement de la recherche par l'ordi
-   if ((computer.nValidPos = find (sq64, bestSq64, &info.evaluation)) != 0) {
+   if ((computer.nValidPos = find (sq64)) != 0) {
+      difference (localSq64, sq64, -gamer.color, &info.lastCapturedByComputer, info.computerPlayC, info.computerPlayA, gamer.ep, computer.ep);
       if (gamer.color == -1) info.nb += 1;
       if (abs (info.computerPlayC [0] == 'P') ||  info.computerPlayC [3] == 'x') // si un pion bouge ou si prise
          info.cpt50 = 0;
       else info.cpt50 += 1;
-      memcpy(sq64, bestSq64, GAMESIZE);
    }
    info.nClock = clock () - info.nClock;
    gettimeofday (&tRef, NULL);
@@ -912,8 +894,7 @@ int main (int argc, char *argv[]) { /* */
       else gamer.color = -fenToGame (getInfo.fenString, sq64, gamer.ep, &info.cpt50, &info.nb);
       if (argc > 3) getInfo.level = atoi (argv [3]);
       switch (argv [1][1]) {
-      case 'q': case 'v': case 'V' : // q quiet, v verbose, V very verbose
-         test = (argv [1][1] == 'V');
+      case 'q': case 'v': // q quiet, v verbose
          getInfo.trans = (argv [1][2] != 'n');
          if (argv [1][3] >= 3) getInfo.alea = (argv [1][3] != 'n');
          computerPlay (sq64);
