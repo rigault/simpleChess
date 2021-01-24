@@ -36,7 +36,6 @@
 // le roi n'a pas de valeur. Le roi qui a roque a un bonus
 // Voir fonction d'evaluation
 const int val [] = {0, 100, 300, 300, 500, 900, 0, BONUSCASTLE};
-int tEval [MAXTHREADS];
 
 FILE *flog;
 bool test = false;                 // positionne pour visualiser les possibilits evaluees. Mode CLI
@@ -641,8 +640,15 @@ int alphaBeta (TGAME sq64, int who, int p, int refAlpha, int refBeta) { /* */
 void *fThread (void *arg) { /* */
    /* association des thread a alphabeta */
    long k = (long) arg;
-   tEval [k] = alphaBeta (list [k], -gamer.color, 0, -MATE, MATE);
+   info.moveList[k].eval = alphaBeta (list [k], -gamer.color, 0, -MATE, MATE);
    pthread_exit (NULL);
+}
+
+int comp (const void *a, const void *b) {
+   /*comparaison evaluation de deux move pour tri croissant si couleur gamer blanche, decroissante sinon */
+   const MOVELIST *pa = a;
+   const MOVELIST *pb = b;
+   return (gamer.color == -1) ? pb->eval - pa->eval : pa -> eval - pb -> eval;
 }
 
 int find (TGAME sq64, TGAME bestSq64, int *bestNote) { /* */
@@ -653,6 +659,7 @@ int find (TGAME sq64, TGAME bestSq64, int *bestNote) { /* */
    pthread_t tThread [MAXTHREADS];
    int possible [MAXSIZELIST]; // tableau contenant les indice de jeux ayant la meilleure note
    char fen [MAXBUFFER] = "";
+   char trash [100];
    
    *bestNote = 0; 
    
@@ -661,6 +668,11 @@ int find (TGAME sq64, TGAME bestSq64, int *bestNote) { /* */
    nextL = buildListEnPassant (sq64, -gamer.color, gamer.ep, list, nextL);
    computer.nValidPos = nextL;
    info.maxDepth = fMaxDepth (getInfo.level, gamer.nValidPos, computer.nValidPos);
+   // memorisation de tous les deplacements possibles pour envoi
+   for (k = 0; k < nextL; k++) {
+      difference (sq64, list [k], -gamer.color, trash, info.moveList [k].move, trash, trash, trash);
+      // info.moveList [k].eval = -1;
+   }
 
    strcpy (info.comment, "");
    if (nextL == 0) return 0;
@@ -709,32 +721,33 @@ int find (TGAME sq64, TGAME bestSq64, int *bestNote) { /* */
       }
    /*
    for (k = 0; k < nextL; k++)
-      tEval [k] = alphaBeta (list [k], -gamer.color, 0, -MATE, MATE);
+      info.moveList[k].eval = alphaBeta (list [k], -gamer.color, 0, -MATE, MATE);
    */
    if (test) {
       printGame (sq64, 0);
       printf ("===============================\n");
-      for (int k = 0; k < nextL; k++) printGame (list [k], tEval [k]);
+      for (int k = 0; k < nextL; k++) printGame (list [k], info.moveList[k].eval);
    }
-   // tEval contient les évaluations de toutes les possibilites
+   // info.movList contient les évaluations de toutes les possibilites
    // recherche de la meilleure note
    for (k = 0; k < nextL; k++) {
-      if (gamer.color == -1 && tEval [k] > *bestNote)
-         *bestNote = tEval [k];
-      if (gamer.color == 1 && tEval [k] < *bestNote)
-         *bestNote = tEval [k];
+      if (gamer.color == -1 && info.moveList[k].eval > *bestNote)
+         *bestNote = info.moveList[k].eval;
+      if (gamer.color == 1 && info.moveList[k].eval < *bestNote)
+         *bestNote = info.moveList[k].eval;
    }
    // construction de la liste des jeux aillant la meilleure note
    i = 0;
    for (k = 0; k < nextL; k++)
-      if (tEval [k] == *bestNote)
+      if (info.moveList[k].eval == *bestNote)
          possible [i++] = k;  // liste des indice de jeux ayant la meilleure note
    if (test) printf ("Nb de jeu : %d ayant la meilleure note : %d \n", i, *bestNote); 
    info.nBestNote = i;
    random  = rand () % i;     // renvoie un entier >=  0 et strictement inferieur a i
    k = (getInfo.alea) ? possible [random]: 0; // indice du jeu choisi au hasard OU premier
+   difference (sq64, list [k], -gamer.color, &info.lastCapturedByComputer, info.computerPlayC, info.computerPlayA, gamer.ep, computer.ep);
+   qsort (info.moveList, nextL, sizeof (MOVELIST), comp); // tri croisant ou decroissant selon couleur gamer
    memcpy (bestSq64, list [k], GAMESIZE);
-
    return nextL;
 }
 
@@ -802,8 +815,6 @@ void computerPlay (TGAME sq64) { /* */
 
    // lancement de la recherche par l'ordi
    if ((computer.nValidPos = find (sq64, bestSq64, &info.evaluation)) != 0) {
-      difference (sq64, bestSq64, -gamer.color, &info.lastCapturedByComputer, info.computerPlayC, info.computerPlayA,
-         gamer.ep, computer.ep);
       if (gamer.color == -1) info.nb += 1;
       if (abs (info.computerPlayC [0] == 'P') ||  info.computerPlayC [3] == 'x') // si un pion bouge ou si prise
          info.cpt50 = 0;
