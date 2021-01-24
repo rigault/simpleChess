@@ -33,8 +33,9 @@
 typedef int8_t TGAME [N][N];              // jeu de 8 x 8 cases codant une piece sur un entier 8 bits avec signe
 typedef int8_t TLIST [MAXSIZELIST][N][N]; // liste de jeux constuits par la fonction buildList   
 typedef struct {
-      char move [15];
-      int eval;
+   TGAME jeu;
+   char move [15];
+   int eval;
 } MOVELIST;
 
 enum {VOID, PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING, CASTLEKING};            // VOID car PAWN = 1, ...

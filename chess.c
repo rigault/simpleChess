@@ -101,7 +101,7 @@ int fMaxDepth (int lev, int nGamerPos, int nComputerPos) { /* */
    /* renvoie la profondeur du jeu en fonction du niveau choisi et */
    /* de l'etat du jeu */
    const struct { int v; int inc;
-   } val [] = {{12, 7}, {25, 6}, {50, 5}, {100, 4}, {200, 3}, {400, 2},  {800, 1}};
+   } val [] = {{12, 7}, {25, 6}, {50, 5}, {100, 4}, {200, 3}, {400, 2},  {600, 1}};
 
    int prod = nComputerPos * nGamerPos;
    for (int i = 0; i < 7; i++)
@@ -654,14 +654,11 @@ int comp (const void *a, const void *b) {
 int find (TGAME sq64, TGAME bestSq64, int *bestNote) { /* */
    /* ordinateur joue renvoie le meilleur jeu possible et le nombre de jeux possibles */
    TGAME localSq64;
-   int i, random;
+   int i;
    long k;
    pthread_t tThread [MAXTHREADS];
-   int possible [MAXSIZELIST]; // tableau contenant les indice de jeux ayant la meilleure note
    char fen [MAXBUFFER] = "";
    char trash [100];
-   
-   *bestNote = 0; 
    
    gamer.nValidPos = buildList (sq64, gamer.color, gamer.kingCastleOK, gamer.queenCastleOK, list);
    nextL = buildList (sq64, -gamer.color, computer.kingCastleOK, computer.queenCastleOK, list);
@@ -671,7 +668,7 @@ int find (TGAME sq64, TGAME bestSq64, int *bestNote) { /* */
    // memorisation de tous les deplacements possibles pour envoi
    for (k = 0; k < nextL; k++) {
       difference (sq64, list [k], -gamer.color, trash, info.moveList [k].move, trash, trash, trash);
-      // info.moveList [k].eval = -1;
+      memcpy (info.moveList [k].jeu, list [k], GAMESIZE);
    }
 
    strcpy (info.comment, "");
@@ -730,24 +727,14 @@ int find (TGAME sq64, TGAME bestSq64, int *bestNote) { /* */
    }
    // info.movList contient les évaluations de toutes les possibilites
    // recherche de la meilleure note
-   for (k = 0; k < nextL; k++) {
-      if (gamer.color == -1 && info.moveList[k].eval > *bestNote)
-         *bestNote = info.moveList[k].eval;
-      if (gamer.color == 1 && info.moveList[k].eval < *bestNote)
-         *bestNote = info.moveList[k].eval;
-   }
-   // construction de la liste des jeux aillant la meilleure note
-   i = 0;
-   for (k = 0; k < nextL; k++)
-      if (info.moveList[k].eval == *bestNote)
-         possible [i++] = k;  // liste des indice de jeux ayant la meilleure note
-   if (test) printf ("Nb de jeu : %d ayant la meilleure note : %d \n", i, *bestNote); 
-   info.nBestNote = i;
-   random  = rand () % i;     // renvoie un entier >=  0 et strictement inferieur a i
-   k = (getInfo.alea) ? possible [random]: 0; // indice du jeu choisi au hasard OU premier
-   difference (sq64, list [k], -gamer.color, &info.lastCapturedByComputer, info.computerPlayC, info.computerPlayA, gamer.ep, computer.ep);
    qsort (info.moveList, nextL, sizeof (MOVELIST), comp); // tri croisant ou decroissant selon couleur gamer
-   memcpy (bestSq64, list [k], GAMESIZE);
+   *bestNote = info.moveList [0].eval;
+   i = 0;
+   while (info.moveList[i].eval == *bestNote) i += 1; // il y a i meileeurs jeux
+   k = (getInfo.alea) ? rand () % i : 0; // indice du jeu choisi au hasard OU premier
+   
+   memcpy (bestSq64, info.moveList[k].jeu, GAMESIZE);
+   difference (sq64, info.moveList[k].jeu, -gamer.color, &info.lastCapturedByComputer, info.computerPlayC, info.computerPlayA, gamer.ep, computer.ep);
    return nextL;
 }
 
