@@ -11,19 +11,19 @@
 #define SEP ";"
 #include "chessUtil.h"
 
-
 void process (FILE *fe) { /* */
    /* lit le fichier FEN */
    /* ce fichier est au format CSV : FENstring ; dep ; commentaire */
    /* dep contient le deplacement en notation algebrique complete Xe2-e4[=Y] | O-O | O-O-O */
    /* X : piece joue. Y : promotion,  O-O : petit roque,  O-O-O : grand roque */
-   char line [MAXLEN];
+   char line [MAXLENGTH];
    char *sFEN, *ptDep, *ptEval, *ptComment;
    int cpt50, nb;
    int eval = 0;
+   char ep [3];
    TGAME jeu;
    int len;
-   while (fgets (line, MAXLEN, fe) != NULL) {
+   while (fgets (line, MAXLENGTH, fe) != NULL) {
       len = strlen (line);
       if ((sFEN = strtok (line, SEP)) != NULL) {
          if ((ptDep = strtok (NULL, SEP)) != NULL) {
@@ -34,13 +34,12 @@ void process (FILE *fe) { /* */
          }
 
       }
-      fenToGame (sFEN, jeu, &cpt50, &nb);
+      fenToGame (sFEN, jeu, ep, &cpt50, &nb);
       printGame (jeu, eval);
       printf ("dep: %s\n", ptDep);
       printf ("Comment: %s\n", (ptComment != NULL) ? ptComment : "");
    }
 }
-
 
 int main (int argc, char *argv []) { /* */
    FILE *fe;
