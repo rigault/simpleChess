@@ -4,7 +4,7 @@
 #define PATHTABLE "/var/www/html/chessdata"  // table de fin de jeux SYZYGY.
 #define OPENINGDIR "/var/www/html/bigfen"    // repertoire des ouvertures
 #define F_LOG "chess.log"              // log des jeux
-#define N 8
+#define N 8                            // nombre de lignes/colonnes
 #define MAXSIZELIST 128                // taille max liste des jeux
 #define MAXTHREADS 128                 // nombre max de thread. Garder ces deux valeurs egales.
 #define GAMESIZE 64                    // taille du jeu = N * N * sizeeof (int8_t) = 8 * 8 * 1 ATTENTION PORTABILITE
@@ -15,6 +15,8 @@
 #define MAXPIECESSYZYGY 6              // a partir de cette valeur on consule les tables endgame syzygy
 #define MAXNBOPENINGS 8                // on ne regarde pas la biblio ouverture a partir de ce nb de coups
 
+#define WHITE (-1)                     // Blancs
+#define BLACK 1                        // Noir
 #define KINGINCHECKEVAL 1              // evaluation du gain d'un echec au roi..
 #define BONUSCASTLE 10                 // Le roi qui a roque a un bonus
 #define BONUSCENTER 1                  // evaluation du gain d'avoir cavalier fou tour reine dans carre central
@@ -40,7 +42,7 @@ typedef struct {
 
 enum {VOID, PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING, CASTLEKING};            // VOID car PAWN = 1, ...
 enum KingState {NOEXIST, EXIST, ISINCHECK, UNVALIDINCHECK, ISMATE, ISPAT};   // type etat  
-enum Score {ERROR, ONGOING, BLACKWIN, DRAW, WHITEWIN};                              // type scores finaux
+enum Score {ERROR, ONGOING, BLACKWIN, DRAW, WHITEWIN};                       // type scores finaux
 
 struct Sinfo {
    int nb;                       // nb de coup recus
@@ -84,7 +86,7 @@ struct Player {
 extern int fenToGame (char *fenComplete, TGAME sq64, char *ep, int *cpt50, int *nb);
 extern char *gameToFen (TGAME sq64, char *fen, int color, char sep, bool complete, char *ep, int cpt50, int nb);
 extern bool openingAll (const char *dir, const char *filter, char *gameFen, char *sComment, char *move);
-extern char *difference (TGAME jeu1, TGAME jeu2, int color, char *prise, char *complete, char *abbr, char *epGamer, char *epComputer);
+extern char *difference (TGAME jeu1, TGAME jeu2, int color, char *prise, char *complete, char *abbr, char *epGamer, char *epComputer, bool *queenCastleOK, bool *kingCastleOK);
 extern void sendGame (bool http, const char *fen, int reqType);
 extern void moveGame (TGAME jeu, int color, char *move);
 extern void printGame (TGAME jeu, int eval);
