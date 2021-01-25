@@ -12,7 +12,6 @@
 #include "vt100.h"
 
 // Pawn, kNight, Bishop, Rook, Queen, King, rOckking
-// FEN notation
 // White : Majuscules, negatives. Black: Minuscules, positives. 
 
 static const char dict [] = {'-', 'P', 'N', 'B', 'R', 'Q', 'K', 'K'};
@@ -50,17 +49,17 @@ void printGame (TGAME jeu, int eval) { /* */
 }
 
 char *castleToStr (bool whiteIsCastled, bool blackIsCastled, char *str) { /* */
-   /* traduit booleen decrivant les possibilits de roque en string */
+   /* traduit booleen decrivant les possibilites de roque en string */
    strcpy (str, "");
 
-   if (((whiteIsCastled) && (gamer.color == -1)) || ((blackIsCastled) && (gamer.color == 1))) { 
+   if (((whiteIsCastled) && (gamer.color == WHITE)) || ((blackIsCastled) && (gamer.color == BLACK))) { 
       gamer.kingCastleOK = gamer.queenCastleOK = false;
    }
-   if (((whiteIsCastled) && (gamer.color == 1)) || ((blackIsCastled) && (gamer.color == -1))) {
+   if (((whiteIsCastled) && (gamer.color == BLACK)) || ((blackIsCastled) && (gamer.color == WHITE))) {
       computer.kingCastleOK = computer.queenCastleOK = false;
    }
 
-   if (gamer.color == -1) {
+   if (gamer.color == WHITE) {
       if (gamer.kingCastleOK) strcat (str, "K");
       if (gamer.queenCastleOK) strcat (str, "Q");
       if (computer.kingCastleOK) strcat (str, "k");
@@ -84,19 +83,19 @@ void strToCastle (char *str, int color, bool *whiteCanCastle, bool *blackCanCast
    gamer.kingCastleOK = computer.kingCastleOK = gamer.queenCastleOK = computer.queenCastleOK = false;
    while ((car = *str++) != '\0') {
       switch (car) {
-      case 'K': if (color == 1) gamer.kingCastleOK = true;
+      case 'K': if (color == BLACK) gamer.kingCastleOK = true;
                 else computer.kingCastleOK = true;
                 *whiteCanCastle = true;
                 break;
-      case 'k': if (color == -1) gamer.kingCastleOK = true;
+      case 'k': if (color == WHITE) gamer.kingCastleOK = true;
                 else computer.kingCastleOK = true;
                 *blackCanCastle = true;
                 break;
-      case 'Q': if (color == 1) gamer.queenCastleOK = true;
+      case 'Q': if (color == BLACK) gamer.queenCastleOK = true;
                 else computer.queenCastleOK = true;
                 *whiteCanCastle = true;
                 break;
-      case 'q': if (color == -1) gamer.queenCastleOK = true;
+      case 'q': if (color == WHITE) gamer.queenCastleOK = true;
                 else computer.queenCastleOK = true;
                 *blackCanCastle = true;
                 break;
@@ -120,12 +119,12 @@ int fenToGame (char *fenComplete, TGAME sq64, char *ep, int *cpt50, int *nb) { /
    char copyFen [MAXBUFFER];
    bool bCastleW = false; // defaut le roi blanc ne peut pas roquer  
    bool bCastleB = false;
-   int activeColor = 1; //par defaut : noir
+   int activeColor = BLACK; //par defaut : noir
    *cpt50 = *nb = 0;
    strcpy (copyFen, fenComplete);
    fen = strtok (copyFen, "+ ");
    if ((sColor = strtok (NULL, "+ ")) != NULL)        // couleur
-      activeColor = (sColor [0] == 'b') ? 1 : -1;    
+      activeColor = (sColor [0] == 'b') ? BLACK : WHITE;    
    if ((sCastle = strtok (NULL, "+ ")) != NULL) {     // roques
       strToCastle (sCastle, activeColor, &bCastleW, &bCastleB);
    }
@@ -164,7 +163,7 @@ char *gameToFen (TGAME sq64, char *fen, int color, char sep, bool complete, char
    /* Forsyth–Edwards Notation */
    /* genere le jeu sous la forme d'une chaine de caracteres au format FEN */
    /* le separateur est donne en parametre : normalement soit espace soit "+" */
-   /* si le boolean "complete" est vrai vrai alors on transmet le roque, la valeur en passant, */
+   /* si le boolean "complete" est vrai alors on transmet le roque, la valeur en passant, */
    /* le compteur des 50 coups et le nb de coups */
    int n, v;
    int i = 0;
@@ -200,17 +199,17 @@ void moveGame (TGAME sq64, int color, char *move) { /* */
    /* modifie jeu avec le deplacement move */
    /* move en notation algébique Pa2-a4 ou Pa2xc3 */
    /* tolere e2e4 e2-e4 e:e4 e2xe4 */
-   int base = (color == -1) ? 0 : 7;      // Roque non teste
+   int base = (color == WHITE) ? 0 : 7;      // Roque non teste
    int cDep, lDep, cDest, lDest, i, j;
    
-   if (strcmp (move, "O-O-O") == 0) {     // grand Roque
+   if (strncmp (move, "O-O-O", 5) == 0) {     // grand Roque
       sq64 [base][4] = 0;
       sq64 [base][3] = ROOK * color;
       sq64 [base][2] = KING * color;
       sq64 [base][0] = 0;
       return;
    }
-   if (strcmp (move, "O-O") == 0) {       // petit Roque
+   if (strncmp (move, "O-O", 3) == 0) {       // petit Roque
       sq64 [base][4] = 0;
       sq64 [base][5] = ROOK * color;
       sq64 [base][6] = KING * color;
@@ -235,7 +234,7 @@ bool opening (const char *fileName, char *gameFen, char *sComment, char *move) {
    /* ce fichier est au format CSV : FENstring ; dep ; commentaire */
    /* dep contient le deplacement en notation algebrique complete Xe2:e4[Y] | O-O | O-O-O */
    /* X : piece joue. Y : promotion,  O-O : petit roque,  O-O-O : grand roque */
-   /* renseihne la chaine move (deplacement choisi) et le commentaire associe */
+   /* renseigne la chaine move (deplacement choisi) et le commentaire associe */
    /* renvoie vrai si ouverture trouvee dans le fichier, faux sinon */
    FILE *fe;
    char line [MAXBUFFER];
@@ -262,8 +261,8 @@ bool opening (const char *fileName, char *gameFen, char *sComment, char *move) {
 bool openingAll (const char *dir, const char *filter, char *gameFen, char *sComment, char *move) {
    /* liste les fichier du repertoire dir contenant la chaine filter */
    /* fichier dans l'ordre alphabetique */
-   /* donc nommer les fichier les plus prioritaires en debut d'alphabet */
-   /* appelle opening sur les fichiers listes jusqu a trouver */
+   /* donc nommer les fichiers les plus prioritaires en debut d'alphabet */
+   /* appelle opening sur les fichiers listes jusqu'a trouver */
    /* renvoie vrai si gameFen est trouvee dans l'un des fichiers faux sinon */
    struct dirent **namelist;
    int n;
@@ -286,13 +285,13 @@ bool openingAll (const char *dir, const char *filter, char *gameFen, char *sComm
 }
 
 bool symetryV (TGAME sq64, int l1, int c1, int cDest) { /* */ 
-   /* vraie si il y a une piece egale a l1, c1 dans le symetrique par rapport a la colonne cDest */
+   /* vraie si il y a une piece egale a celle pointee par l1, c1 dans le symetrique par rapport a la colonne cDest */
    int cSym = cDest + cDest - c1;
    return (cSym >= 0 && cSym < N) ? (sq64 [l1][c1] == sq64 [l1][cSym]) : false;
 }
 
 bool symetryH (TGAME sq64, int l1, int c1, int lDest) { /* */ 
-   /* vraie si il y a une piece egale a l1, c1 dans le symetrique par rapport a la ligne lDest */
+   /* vraie si il y a une piece egale a celle pointee par l1, c1 dans le symetrique par rapport a la ligne lDest */
    int lSym = lDest + lDest - l1;
    return (lSym >= 0 && lSym < N) ? (sq64 [l1][c1] == sq64 [lSym][c1]): false;
 }
@@ -378,7 +377,6 @@ char *abbrev (TGAME sq64, char *complete, char *abbr) { /* */
    return abbr;
 }
 
-
 char *enPassant (int color, char *complete, char *strEp) { /* */
    /* renvoie les coordonnees eventuelles de la case en passant au format e5 */
    /* sinon renvoie "-" */
@@ -392,10 +390,10 @@ char *enPassant (int color, char *complete, char *strEp) { /* */
    return strEp;
 }
 
-char *difference (TGAME sq64_1, TGAME sq64_2, int color, char *prise, char *complete, char *abbr, char *epGamer, char *epComputer) { /* */
+char *difference (TGAME sq64_1, TGAME sq64_2, int color, char *prise, char *complete, char *abbr, char *epGamer, char *epComputer, bool *queenCastleOK, bool *kingCastleOK) { /* */
    /* color = 1 pour les noirs, - 1 pour les blancs */
    /* retrouve le coup joue par Ordi */
-   /* traite le roque. Et met a jour les booleans de la struct. ino liés au Roque */
+   /* traite le roque. Et met a jour les booleans liés au Roque */
    /* traite le en passant suggere par le joueur */
    /* en dehors de ces deux cas suppose qu'il n'y a que deux cases differentes (l1,c1) (l2, c2) */
    /* renvoie la chaine decrivant la difference */
@@ -411,39 +409,39 @@ char *difference (TGAME sq64_1, TGAME sq64_2, int color, char *prise, char *comp
    *prise = '\0';
    sprintf (complete, "%s", "");
    l1 = c1 = l2 = c2 = -1;
-   lCastling = (color == -1) ? 0 : 7;
+   lCastling = (color == WHITE) ? 0 : 7;
    if (sq64_1[lCastling][4] == color*KING && sq64_2[lCastling][4] == 0 && // roque gauche
       sq64_1[lCastling][0] == color*ROOK && sq64_2 [lCastling][0] == 0) {
-      sprintf (complete, "%s", "O-O-O");
-      sprintf (abbr, "%s", "O-O-O");
-      computer.kingCastleOK = computer.queenCastleOK = false; // plus de roque possible
+      sprintf (complete, "%s", "O-O-O ");
+      sprintf (abbr, "%s", "O-O-O ");
+      *kingCastleOK = *queenCastleOK = false; // plus de roque possible
       return complete;
    }
    if (sq64_1[lCastling][4] == color*KING && sq64_2[lCastling][4] == 0 && // roque droit
       sq64_1[lCastling][7] == color*ROOK && sq64_2 [lCastling][7] == 0) {
-      sprintf (complete, "%s", "O-O");
-      sprintf (abbr, "%s", "O-O");
-      computer.kingCastleOK = computer.queenCastleOK = false; // plus de roque possible
+      sprintf (complete, "%s", "O-O   ");
+      sprintf (abbr, "%s", "O-O   ");
+      *kingCastleOK = *queenCastleOK = false; // plus de roque possible
       return complete;
    }
 
-   if (epGamer [0] != '-') {     // prise en passant par color
+   if (epGamer [0] != '-') { // prise en passant par color
       lEp = epGamer [1] - '1';
       cEp = epGamer [0] - 'a';
-      if ((cEp > 0) && (sq64_1 [lEp+color][cEp-1] == color * PAWN) &&      // vers droite
+      if ((cEp > 0) && (sq64_1 [lEp+color][cEp-1] == color * PAWN) &&            // vers droite
          (sq64_1[lEp][cEp] == 0) && (sq64_1 [lEp+color][cEp] == -color * PAWN) &&
          (sq64_2 [lEp+color][cEp-1] == 0) && 
          (sq64_2 [lEp][cEp] == color * PAWN) && (sq64_2 [lEp+color][cEp] == 0)) {
-         *prise = (color == 1) ? dict [PAWN] : tolower (dict [PAWN]);      // on prend la couleur opposee
+         *prise = (color == BLACK) ? dict [PAWN] : tolower (dict [PAWN]);        // on prend la couleur opposee
          sprintf (complete, "%c%c%d%c%c%d .e.p.", cCharPiece, cEp-1+'a', lEp+color+ 1 , 'x', cEp + 'a', lEp + 1);
          sprintf (abbr, "%c%c%c%d .e.p", cEp-1+'a', 'x', cEp + 'a', lEp + 1);
          return complete;
       }
-      if ((cEp < N) && (sq64_1 [lEp+color][cEp+1] == color * PAWN) &&      // vers gauche
+      if ((cEp < N) && (sq64_1 [lEp+color][cEp+1] == color * PAWN) &&            // vers gauche
          (sq64_1 [lEp][cEp] == 0) && (sq64_1 [lEp+color][cEp] == -color * PAWN) &&
          (sq64_2 [lEp+color][cEp+1] == 0) && 
          (sq64_2 [lEp][cEp] == color * PAWN) && (sq64_2 [lEp+color][cEp] == 0)) {
-         *prise = (color == 1) ? dict [PAWN] : tolower (dict [PAWN]);      // on prend la couleur opposee
+         *prise = (color == BLACK) ? dict [PAWN] : tolower (dict [PAWN]);        // on prend la couleur opposee
          sprintf (complete, "%c%c%d%c%c%d .e.p.", cCharPiece, cEp+1+'a', lEp+color+ 1 , 'x', cEp + 'a', lEp + 1);
          sprintf (abbr, "%c%c%c%d .e.p", cEp+1+'a', 'x', cEp + 'a', lEp + 1);
          return complete;
@@ -452,9 +450,9 @@ char *difference (TGAME sq64_1, TGAME sq64_2, int color, char *prise, char *comp
 
    for (int l = 0; l < N; l++) {
       for (int c = 0; c < N; c++) {
-         if (sq64_1 [l][c] * sq64_2 [l][c] < 0) {        // couleur opposee => prise par couleur coul
+         if (sq64_1 [l][c] * sq64_2 [l][c] < 0) { // couleur opposee => prise par couleur coul
             v = abs (sq64_1 [l][c]);
-            *prise = (color == 1) ? dict [v] : tolower (dict [v]);      // on prend la couleur opposee
+            *prise = (color == BLACK) ? dict [v] : tolower (dict [v]);  // on prend la couleur opposee
             l2 = l;
             c2 = c;
          }
@@ -478,11 +476,11 @@ char *difference (TGAME sq64_1, TGAME sq64_2, int color, char *prise, char *comp
    if ((v >= -CASTLEKING) && (v <= CASTLEKING)) {
       cCharPiece = (v > 0) ? dict [v] : tolower(dict [-v]);
       if ((v * color) == ROOK && l1 == lCastling) { // on bouge une tour. Conseqquences Castling...
-         if (c1 == 7) computer.kingCastleOK = false;
-         if (c1 == 0) computer.queenCastleOK = false;
+         if (c1 == 7) *kingCastleOK = false;
+         if (c1 == 0) *queenCastleOK = false;
       }
       if ((v * color) == KING) { // on bouge le roi. PLus e roque possible.
-         computer.kingCastleOK = computer.queenCastleOK = false;
+         *kingCastleOK = *queenCastleOK = false;
       }
    }
    else cCharPiece = '?';
@@ -499,7 +497,7 @@ char *difference (TGAME sq64_1, TGAME sq64_2, int color, char *prise, char *comp
 }
 
 void sendGame (bool http, const char *fen, int reqType) { /* */
-   /* envoie le jeu decrit par fen et info au format JSON */
+   /* envoie le jeu decrit par fen et les struct computer et info au format JSON */
    int k;
    if (http) {
       printf ("Access-Control-Allow-Origin: *\n"); // obligatoire !
