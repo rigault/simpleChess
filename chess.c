@@ -54,7 +54,7 @@ int nextL; // nombre total utilisé dans la file
 typedef struct  {                  // tables de transposition
    int16_t eval;                   // derniere eval
    int8_t p;                       // profondeur
-   // TGAME t[64];               // jeu optionnel
+   // TGAME t[64];                 // jeu optionnel
 } StrTa;
 StrTa *trTa = NULL;                // Ce pointeur va servir de tableau après l'appel du malloc
 
@@ -647,76 +647,7 @@ int comp (const void *a, const void *b) {
    /*comparaison evaluation de deux move pour tri croissant si couleur gamer blanche, decroissante sinon */
    const MOVELIST *pa = a;
    const MOVELIST *pb = b;
-   return (gamer.color == -1) ? pb->eval - pa->eval : pa -> eval - pb -> eval;
-}
-
-int find (TGAME sq64) { /* */
-   /* ordinateur joue renvoie le meilleur jeu possible et le nombre de jeux possibles */
-   int bestNote = gamer.color * MATE; // la pire des notes possibleq
-   int i;
-   long k;
-   pthread_t tThread [MAXTHREADS];
-   char fen [MAXBUFFER] = "";
-   char trash [100];
-   
-   gamer.nValidPos = buildList (sq64, gamer.color, gamer.kingCastleOK, gamer.queenCastleOK, list);
-   nextL = buildList (sq64, -gamer.color, computer.kingCastleOK, computer.queenCastleOK, list);
-   nextL = buildListEnPassant (sq64, -gamer.color, gamer.ep, list, nextL);
-   computer.nValidPos = nextL;
-   info.maxDepth = fMaxDepth (getInfo.level, gamer.nValidPos, computer.nValidPos);
-   // memorisation de tous les deplacements possibles pour envoi
-   for (k = 0; k < nextL; k++) {
-      difference (sq64, list [k], -gamer.color, trash, info.moveList [k].move, trash, trash, trash);
-      memcpy (info.moveList [k].jeu, list [k], GAMESIZE);
-   }
-
-   strcpy (info.comment, "");
-   if (nextL == 0) return 0;
-
-   gameToFen (sq64, fen, -gamer.color, ' ', false, computer.ep, 0, 0);
-
-   // recherche de fin de partie voir https://syzygy-tables.info/
-   if ((info.nPieces) <= MAXPIECESSYZYGY) {
-      sprintf (fen, "%s - - %d %d", fen, info.cpt50, info.nb); // pour regle des 50 coups
-      if (syzygyRR (PATHTABLE, fen, &info.wdl, info.move, info.endName)) {
-         moveGame (sq64, -gamer.color, info.move);
-	      return nextL;
-      }
-   }
-     
-   // ouvertures
-   if (info.nb < MAXNBOPENINGS) {
-      if (openingAll (OPENINGDIR, (gamer.color == -1) ? ".b.fen": ".w.fen", fen, info.comment, info.move)) {
-         moveGame (sq64, -gamer.color, info.move);
-         return nextL;
-      }
-   }
- 
-   // recherche par la methode minimax Alphabeta
-   for (k = 0; k < nextL; k++)
-      if (pthread_create (&tThread [k], NULL, fThread, (void *) k)) {
-         perror ("pthread_create");
-         return EXIT_FAILURE;
-      }
-   for (k = 0; k < nextL; k++)
-      if (pthread_join (tThread [k], NULL)) {
-          perror ("pthread_join");
-          return EXIT_FAILURE;
-      }
-   /*
-   for (k = 0; k < nextL; k++)
-      info.moveList[k].eval = alphaBeta (list [k], -gamer.color, 0, -MATE, MATE);
-   */
-   // info.movList contient les évaluations de toutes les possibilites
-   // recherche de la meilleure note
-   qsort (info.moveList, nextL, sizeof (MOVELIST), comp); // tri croisant ou decroissant selon couleur gamer
-   info.evaluation = bestNote = info.moveList [0].eval;
-   i = 0;
-   while (info.moveList[i].eval == bestNote) i += 1; // il y a i meileeurs jeux
-   k = (getInfo.alea) ? rand () % i : 0; // indice du jeu choisi au hasard OU premier
-   info.nBestNote = i;
-   memcpy (sq64, info.moveList[k].jeu, GAMESIZE);
-   return nextL;
+   return (gamer.color == WHITE) ? pb->eval - pa->eval : pa -> eval - pb -> eval;
 }
 
 int whereKings (TGAME sq64, int gamerColor, int *lGK, int *cGK, int *lCK, int *cCK) { /* */
@@ -743,25 +674,44 @@ int whereKings (TGAME sq64, int gamerColor, int *lGK, int *cGK, int *lCK, int *c
    return n;
 }
 
-void computerPlay (TGAME sq64) { /* */
-   /* prepare le lancement de la recherche avec find */
+int computerPlay () { /* */
+   /* retourn 0 ou indication status */
+   /* sq64 est le jeu en variable globale */
+   /* construit la liste des jeux possibles et selon le cas */
+   /* appel de la biblio ouverture openingAll */
+   /* appel des tables de fin de jeux syzygy */
+   /* appel alphaBeta en multithread */
+   enum {INIT, OUV, ENDGAME, ALPHABETA} status = INIT;
+   char fen [MAXBUFFER] = "";
+   pthread_t tThread [MAXTHREADS];
+   int bestNote = gamer.color * MATE; // la pire des notes possibleq
+   int i;
+   long k;
+   char trash [100];
+   bool bTrash;
    TGAME localSq64;
    struct timeval tRef;
    int lGK, cGK, lCK, cCK; // ligne colonnes Gamer et Computer King 
    lGK = cGK = lCK = cCK = -1,
+   info.wdl = 9;                    // valeur inateignable montrant que syzygy n'a pas ete appelee
    computer.kingState = gamer.kingState = NOEXIST;
    info.score = ERROR;
    info.nPieces = whereKings (sq64, gamer.color, &lGK, &cGK, &lCK, &cCK);
-   if ((lGK == -1) || (lCK == -1)) return; // manque de roi 
+   if ((lGK == -1) || (lCK == -1)) return 0; // manque de roi 
    computer.kingState = gamer.kingState = EXIST;
    memcpy (localSq64, sq64, GAMESIZE);
+   if (getInfo.trans) {
+      if ((trTa = malloc (sizeof (StrTa) * MAXTRANSTABLE)) == NULL) exit (0);
+      initTable();                     // pour table hachage Zobrist
+      for (int i = 0; i < MAXTRANSTABLE;  i++) trTa [i].p = INITPROF; // tables de transpositiopns
+   }
 
    // check etat du joueur
    if (LCkingInCheck (sq64, gamer.color, lGK, cGK)) {
       if (kingCannotMove(sq64, gamer.color)) gamer.kingState = ISMATE;
       else gamer.kingState = UNVALIDINCHECK;
       info.score = ERROR;
-      return; // le joueur n'a pas le droit de se presenter en echec apres avoir joue
+      return 0; // le joueur n'a pas le droit de se presenter en echec apres avoir joue
    }
    // check du computer
    if (LCkingInCheck(sq64, -gamer.color, lCK, cCK))
@@ -769,27 +719,80 @@ void computerPlay (TGAME sq64) { /* */
    if (kingCannotMove(sq64, -gamer.color)) {
       if (computer.kingState == ISINCHECK) {
          computer.kingState = ISMATE;
-         info.score = (gamer.color == -1) ? WHITEWIN : BLACKWIN;
+         info.score = (gamer.color == WHITE) ? WHITEWIN : BLACKWIN;
       }
       else {
          computer.kingState = ISPAT;
          info.score = DRAW;
-         return;
+         return 0;
       }
    }
 
    gettimeofday (&tRef, NULL);
    info.computeTime = tRef.tv_sec * MILLION + tRef.tv_usec;
    info.nClock = clock ();
+   strcpy (info.comment, "");
+   gamer.nValidPos = buildList (sq64, gamer.color, gamer.kingCastleOK, gamer.queenCastleOK, list);
+   nextL = buildList (sq64, -gamer.color, computer.kingCastleOK, computer.queenCastleOK, list);
+   nextL = buildListEnPassant (sq64, -gamer.color, gamer.ep, list, nextL);
+   computer.nValidPos = nextL;
+   if (nextL == 0) return 0;
+   info.maxDepth = fMaxDepth (getInfo.level, gamer.nValidPos, computer.nValidPos);
+   // memorisation de tous les deplacements possibles pour envoi
+   for (k = 0; k < nextL; k++) {
+      difference (sq64, list [k], -gamer.color, trash, info.moveList [k].move, trash, trash, trash, &bTrash, &bTrash);
+      memcpy (info.moveList [k].jeu, list [k], GAMESIZE);
+   }
 
    // lancement de la recherche par l'ordi
-   if ((computer.nValidPos = find (sq64)) != 0) {
-      difference (localSq64, sq64, -gamer.color, &info.lastCapturedByComputer, info.computerPlayC, info.computerPlayA, gamer.ep, computer.ep);
-      if (gamer.color == -1) info.nb += 1;
-      if (abs (info.computerPlayC [0] == 'P') ||  info.computerPlayC [3] == 'x') // si un pion bouge ou si prise
-         info.cpt50 = 0;
-      else info.cpt50 += 1;
+   gameToFen (sq64, fen, -gamer.color, ' ', false, computer.ep, 0, 0);
+   // recherche de fin de partie voir https://syzygy-tables.info/
+   if ((info.nPieces) <= MAXPIECESSYZYGY) {
+      sprintf (fen, "%s - - %d %d", fen, info.cpt50, info.nb); // pour regle des 50 coups
+      if (syzygyRR (PATHTABLE, fen, &info.wdl, info.move, info.endName)) {
+         moveGame (sq64, -gamer.color, info.move);
+	      status = OUV;
+      }
    }
+   else {
+   // ouvertures
+      if ((info.nb < MAXNBOPENINGS) &&
+         (openingAll (OPENINGDIR, (gamer.color == WHITE) ? ".b.fen": ".w.fen", fen, info.comment, info.move))) {
+            moveGame (sq64, -gamer.color, info.move);
+            status = ENDGAME;
+         }
+      }
+   if (status == INIT) {
+   // recherche par la methode minimax Alphabeta
+      for (k = 0; k < nextL; k++)
+         if (pthread_create (&tThread [k], NULL, fThread, (void *) k)) {
+            perror ("pthread_create");
+            return 0;
+         }
+      for (k = 0; k < nextL; k++)
+         if (pthread_join (tThread [k], NULL)) {
+            perror ("pthread_join");
+            return 0;
+         }
+      // for (k = 0; k < nextL; k++) info.moveList[k].eval = alphaBeta (list [k], -gamer.color, 0, -MATE, MATE);
+      // info.movList contient les évaluations de toutes les possibilites
+      // recherche de la meilleure note
+      status = ALPHABETA;
+      qsort (info.moveList, nextL, sizeof (MOVELIST), comp); // tri croisant ou decroissant selon couleur gamer
+      info.evaluation = bestNote = info.moveList [0].eval;
+      i = 0;
+      while (info.moveList[i].eval == bestNote) i += 1; // il y a i meilleurs jeux
+      k = (getInfo.alea) ? rand () % i : 0; // indice du jeu choisi au hasard OU premier
+      info.nBestNote = i;
+      memcpy (sq64, info.moveList[k].jeu, GAMESIZE);
+   }
+   difference (localSq64, sq64, -gamer.color, &info.lastCapturedByComputer, info.computerPlayC, 
+      info.computerPlayA, gamer.ep, computer.ep, &computer.queenCastleOK, &computer.kingCastleOK);
+   if (gamer.color == WHITE) info.nb += 1;
+   if (abs (info.computerPlayC [0] == 'P') ||  info.computerPlayC [3] == 'x') // si un pion bouge ou si prise
+      info.cpt50 = 0;
+   else info.cpt50 += 1;
+   
    info.nClock = clock () - info.nClock;
    gettimeofday (&tRef, NULL);
    info.computeTime = tRef.tv_sec * MILLION + tRef.tv_usec - info.computeTime;
@@ -798,7 +801,7 @@ void computerPlay (TGAME sq64) { /* */
    computer.kingState = gamer.kingState = NOEXIST;
    info.score = ERROR;
    info.nPieces = whereKings (sq64, gamer.color, &lGK, &cGK, &lCK, &cCK);
-   if ((lGK == -1) || (lCK == -1)) return; // manque de roi 
+   if ((lGK == -1) || (lCK == -1)) return 0; // manque de roi 
    computer.kingState = gamer.kingState = EXIST;
    info.score = ONGOING;
 
@@ -806,7 +809,7 @@ void computerPlay (TGAME sq64) { /* */
    if (kingCannotMove (sq64, gamer.color)) {
       if (gamer.kingState == ISINCHECK) {
          gamer.kingState = ISMATE;
-         info.score = (gamer.color == -1) ? BLACKWIN : WHITEWIN;
+         info.score = (gamer.color == WHITE) ? BLACKWIN : WHITEWIN;
       }
       else {
          gamer.kingState = ISPAT;
@@ -818,6 +821,8 @@ void computerPlay (TGAME sq64) { /* */
       computer.kingState = UNVALIDINCHECK;
       info.score = ERROR;
    }
+   if (info.cpt50 > 50) info.score = DRAW;
+   return status;
 }
 
 bool cgi () { /* */
@@ -858,7 +863,7 @@ bool cgi () { /* */
  
    if (getInfo.reqType != 0) {                 // on lance le jeu
        gamer.color = -fenToGame (getInfo.fenString, sq64, gamer.ep, &info.cpt50, &info.nb);
-       computerPlay (sq64);
+       computerPlay ();
        gameToFen (sq64, fen, gamer.color, '+', true, computer.ep, info.cpt50, info.nb);
        sendGame (true, fen, getInfo.reqType);
        fprintf (flog, "%2d; %s; %s; %d", getInfo.level, getInfo.fenString, info.computerPlayC, info.evaluation);
@@ -876,29 +881,20 @@ int main (int argc, char *argv[]) { /* */
    char strMove [15];
    char car;
    TGAME oldSq64;
-   // initialisations
-   info.wdl = 9;                    // valeur inateignable montrant que syzygy n'a pas ete appelee
-   srand (time (NULL));             // initialise l'autre generateur aleatoire
-   info.score = ONGOING;
-   if (getInfo.trans) {
-      if ((trTa = malloc (sizeof (StrTa) * MAXTRANSTABLE)) == NULL) exit (0);
-      initTable();                     // pour table hachage Zobrist
-      for (int i = 0; i < MAXTRANSTABLE;  i++) trTa [i].p = INITPROF; // tables de transpositiopns
-   }
-
+   srand (time (NULL));             // initialise le generateur aleatoire
    flog = fopen (F_LOG, "a");       // preparation du fichier log 
 
    // si pas de parametres on va au cgi (fin de main)
    if (argc >= 2 && argv [1][0] == '-') { // si il y a des parametres. On choidi un test
-      if (argc > 2) gamer.color = -fenToGame (argv [2], sq64, gamer.ep, &info.cpt50, &info.nb);
-      else gamer.color = -fenToGame (getInfo.fenString, sq64, gamer.ep, &info.cpt50, &info.nb);
+      if (argc > 2) strcpy (getInfo.fenString, argv [2]);
       if (argc > 3) getInfo.level = atoi (argv [3]);
+      gamer.color = -fenToGame (getInfo.fenString, sq64, gamer.ep, &info.cpt50, &info.nb);
       switch (argv [1][1]) {
       case 'q': case 'v': // q quiet, v verbose
          getInfo.trans = (argv [1][2] != 'n');
          if (argv [1][3] >= 3) getInfo.alea = (argv [1][3] != 'n');
-         computerPlay (sq64);
-         if (toupper (argv [1][1]) == 'V') {
+         computerPlay ();
+         if (argv [1][1] == 'v') {
             printf ("--------resultat--------------\n");
             printGame (sq64, evaluation (sq64, -gamer.color, &info.pat));
          }
@@ -936,12 +932,13 @@ int main (int argc, char *argv[]) { /* */
          for (int i = 0; i < nextL; i++) printGame (list [i], evaluation (list [i], -gamer.color, &info.pat));
          break;
       case 'p': // play
+         info.score = ONGOING;
          do printf ("\nb)lack or w)hite ? : ");
          while  (((car = toupper (getchar ())) != 'B') && (car != 'W'));
-         gamer.color = (car == 'W') ? -1 : 1;
-         printf ("You have the: %s\n", (gamer.color == -1) ? "Whites" : "Blacks");
+         gamer.color = (car == 'W') ? WHITE : BLACK;
+         printf ("You have the: %s\n", (gamer.color == WHITE) ? "Whites" : "Blacks");
          printGame (sq64, evaluation (sq64, -gamer.color, &info.pat));
-         bool player = (gamer.color == -1); 
+         bool player = (gamer.color == WHITE); 
          while (info.score == ONGOING) {
             if (player) { // joueur joue
                printf ("gamer move (ex : e2e4 or Pe7-e8=Q) : ");
@@ -951,7 +948,7 @@ int main (int argc, char *argv[]) { /* */
             }
             else { // ordinateur joue
                memcpy (oldSq64, sq64, GAMESIZE);
-               computerPlay (sq64);
+               computerPlay ();
                printGame (sq64, evaluation (sq64, -gamer.color, &info.pat));
                printf ("comment: %s%s\n", info.comment, info.endName);
                printf ("computer move: %s %c\n", info.computerPlayC, info.lastCapturedByComputer);
