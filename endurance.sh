@@ -11,15 +11,15 @@ while [ $score == "-" ]; do
    score=`grep ^\"score temp | cut -d: -f 2 | tr -d \ \"\,`
    move1=`grep ^\"computePlayC temp | cut -d: -f 2 | tr -d \ \"\,`
    nEvalCall=`grep ^\"nEvalCall temp | cut -d: -f 2 | tr -d \ \"\,`
-   nbtrta=`grep nbTrTa= temp | cut -d= -f 2 | sed -e s/nbMatchTrans.*//`
+   #nbtrta=`grep nbTrTa= temp | cut -d= -f 2 | sed -e s/nbMatchTrans.*//`
    if (($nEvalCall > $maxEval)); then
       maxEval=$nEvalCall
    fi 
-   if (($nbtrta > $maxTr)); then
-      maxTr=$nbtrta
-   fi 
+   #if (($nbtrta > $maxTr)); then
+   #   maxTr=$nbtrta
+   #fi 
    echo maxEval=$maxEval
-   echo maxTr=$maxTr
+   #echo maxTr=$maxTr
    cat temp
    if [[ $score == "-" ]]; then
       # les noirs jouent

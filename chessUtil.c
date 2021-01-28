@@ -50,6 +50,8 @@ void printGame (TGAME jeu, int eval) { /* */
 
 char *castleToStr (bool whiteIsCastled, bool blackIsCastled, char *str) { /* */
    /* traduit booleen decrivant les possibilites de roque en string */
+   /* modifie : gamer et computer */
+   /* renvoie str de la forme KQkq */
    strcpy (str, "");
 
    if (((whiteIsCastled) && (gamer.color == WHITE)) || ((blackIsCastled) && (gamer.color == BLACK))) { 
@@ -76,7 +78,8 @@ char *castleToStr (bool whiteIsCastled, bool blackIsCastled, char *str) { /* */
 }
 
 void strToCastle (char *str, int color, bool *whiteCanCastle, bool *blackCanCastle) { /* */
-   /* traduit les possibilits de roque en booleens */
+   /* traduit les possibilites de roque en booleens */
+   /* modifie : gamer et computer */
    char car;
    *whiteCanCastle = false;
    *blackCanCastle = false;
@@ -106,9 +109,9 @@ void strToCastle (char *str, int color, bool *whiteCanCastle, bool *blackCanCast
 
 int fenToGame (char *fenComplete, TGAME sq64, char *ep, int *cpt50, int *nb) { /* */
    /* Forsyth–Edwards Notation */
+   /* ex : 3kq3/8/8/8/8/3K4/+w+-- */
    /* le jeu est recu sous la forme d'une chaine de caracteres du navigateur au format fen */
-   /* fenToGame traduit cette chaine et renvoie l'objet jeu ainsi que la couleur */
-   /* 3kq3/8/8/8/8/3K4/+w+-- */
+   /* fenToGame traduit cette chaine et renvoie l'objet TGAME sq64  ainsi que la couleur */
    /* retour 1 si noir, -1 si blanc */
    /* le roque est contenu dans la valeur du roi : KING ou CASTLEKING */
    /* les valeurs : en passant, cpt 50 coups et nb de coups sont renvoyées */
@@ -199,7 +202,7 @@ void moveGame (TGAME sq64, int color, char *move) { /* */
    /* modifie jeu avec le deplacement move */
    /* move en notation algébique Pa2-a4 ou Pa2xc3 */
    /* tolere e2e4 e2-e4 e:e4 e2xe4 */
-   int base = (color == WHITE) ? 0 : 7;      // Roque non teste
+   int base = (color == WHITE) ? 0 : 7;       // Roque non teste
    int cDep, lDep, cDest, lDest, i, j;
    
    if (strncmp (move, "O-O-O", 5) == 0) {     // grand Roque
@@ -410,6 +413,7 @@ char *difference (TGAME sq64_1, TGAME sq64_2, int color, char *prise, char *comp
    sprintf (complete, "%s", "");
    l1 = c1 = l2 = c2 = -1;
    lCastling = (color == WHITE) ? 0 : 7;
+   sprintf (epComputer, "-");
    if (sq64_1[lCastling][4] == color*KING && sq64_2[lCastling][4] == 0 && // roque gauche
       sq64_1[lCastling][0] == color*ROOK && sq64_2 [lCastling][0] == 0) {
       sprintf (complete, "%s", "O-O-O ");
@@ -510,8 +514,9 @@ void sendGame (bool http, const char *fen, int reqType) { /* */
    printf ("\"version\" : \"%s\"", VERSION);
    if (reqType > 0) {
       printf (",\n");
-      printf ("\"clockTime\":%lf,\n", (double) info.nClock/CLOCKS_PER_SEC);
+      printf ("\"clockTime\": %lf,\n", (double) info.nClock/CLOCKS_PER_SEC);
       printf ("\"time\" : %lf,\n", (double) info.computeTime/MILLION);
+      printf ("\"nbThread\" : %d,\n", info.nbThread);
       printf ("\"eval\" : %d,\n", info.evaluation);
       printf ("\"computerStatus\" : \"%d : %s\",\n", computer.kingState, strStatus [computer.kingState]);
       printf ("\"playerStatus\" : \"%d : %s\",\n", gamer.kingState, strStatus [gamer.kingState]);

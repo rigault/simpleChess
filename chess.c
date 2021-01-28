@@ -15,10 +15,11 @@
 /*   Blancs : negatifs  (Majuscules) */
 
 #define MASQMAXTRANSTABLE 0x1fffffff            // 29 bits a 1 : 2 puissance 29-1 > 500  millions
-// #define MASQMAXTRANSTABLE 0x0ffffff          // 24 bits a 1 : 2 puisssance 24 - 1 
+//#define MASQMAXTRANSTABLE 0x0ffffff          // 24 bits a 1 : 2 puisssance 24 - 1 
 #define MAXTRANSTABLE (MASQMAXTRANSTABLE + 1)
 #define INITPROF 127 // pour table transpo
 #define WHO(x)    ((x==-1)?0:0xffffffff)        //
+#include <unistd.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -45,7 +46,8 @@ struct {                           // description de la requete emise par le cli
    int level;                      // la profondeur de la recherche souhaitee
    bool alea;                      // vrai si on prend un jeu de facon aleatoire quand plusieurs solutions
    bool trans;                     // vrai si on utilise les tables de transpo
-} getInfo = {"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR+w+KQkq", 2, 4, true, true}; // par defaut
+   bool multi;                     // vrai si multithread
+} getInfo = {"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR+w+KQkq", 2, 4, true, true, true}; // par defaut
 
 TGAME sq64;
 TLIST list;
@@ -54,7 +56,8 @@ int nextL; // nombre total utilisé dans la file
 typedef struct  {                  // tables de transposition
    int16_t eval;                   // derniere eval
    int8_t p;                       // profondeur
-   // TGAME t[64];                 // jeu optionnel
+   int8_t used;                    // boolen sur 8 bits. Utilise
+//   TGAME t[64];                  // jeu optionnel
 } StrTa;
 StrTa *trTa = NULL;                // Ce pointeur va servir de tableau après l'appel du malloc
 
@@ -95,7 +98,6 @@ uint32_t computeHash (TGAME sq64, int who) { /* */
     return (h ^ WHO (who)) & MASQMAXTRANSTABLE; 
 }
   
-// Main Function 
 int fMaxDepth (int lev, int nGamerPos, int nComputerPos) { /* */
    /* renvoie la profondeur du jeu en fonction du niveau choisi et */
    /* de l'etat du jeu */
@@ -587,7 +589,7 @@ int alphaBeta (TGAME sq64, int who, int p, int refAlpha, int refBeta) { /* */
 
    if (getInfo.trans) {
       uint32_t hash = computeHash (sq64, who);
-      if (trTa [hash].p <= p) { 
+      if (trTa [hash].used && (trTa [hash].p <= p)) { 
          // if (memcmp (sq64, trTa [hash].t, 64) == 0) {
          if (sameParity (trTa [hash].p, p)) {
             info.nbMatchTrans += 1;
@@ -595,10 +597,10 @@ int alphaBeta (TGAME sq64, int who, int p, int refAlpha, int refBeta) { /* */
          }
          else info.nbColl += 1;    // optionnelle de collisions
       }
-      note = evaluation (sq64, who, &pat);
-      info.nbTrTa += 1;
+      trTa [hash].eval = note = evaluation (sq64, who, &pat);
       trTa [hash].p = p;
-      trTa [hash].eval = note;
+      trTa [hash].used = true;
+      info.nbTrTa += 1;
       // memcpy (trTa [hash].t, sq64, 64); // optionnel. Sauvegarde du jeu
    }
    else { 
@@ -675,7 +677,7 @@ int whereKings (TGAME sq64, int gamerColor, int *lGK, int *cGK, int *lCK, int *c
 }
 
 int computerPlay () { /* */
-   /* retourn 0 ou indication status */
+   /* retourne 0 ou indication status */
    /* sq64 est le jeu en variable globale */
    /* construit la liste des jeux possibles et selon le cas */
    /* appel de la biblio ouverture openingAll */
@@ -694,6 +696,7 @@ int computerPlay () { /* */
    int lGK, cGK, lCK, cCK; // ligne colonnes Gamer et Computer King 
    lGK = cGK = lCK = cCK = -1,
    info.wdl = 9;                    // valeur inateignable montrant que syzygy n'a pas ete appelee
+   info.nbThread = (getInfo.multi) ? sysconf (_SC_NPROCESSORS_CONF) : 1;
    computer.kingState = gamer.kingState = NOEXIST;
    info.score = ERROR;
    info.nPieces = whereKings (sq64, gamer.color, &lGK, &cGK, &lCK, &cCK);
@@ -701,9 +704,11 @@ int computerPlay () { /* */
    computer.kingState = gamer.kingState = EXIST;
    memcpy (localSq64, sq64, GAMESIZE);
    if (getInfo.trans) {
-      if ((trTa = malloc (sizeof (StrTa) * MAXTRANSTABLE)) == NULL) exit (0);
+      if ((trTa = calloc (MAXTRANSTABLE, sizeof (StrTa))) == NULL) {
+         fprintf (stderr, "ERROR: malloc in computerPlay ()\n");
+         return (0);
+      }
       initTable();                     // pour table hachage Zobrist
-      for (int i = 0; i < MAXTRANSTABLE;  i++) trTa [i].p = INITPROF; // tables de transpositiopns
    }
 
    // check etat du joueur
@@ -727,7 +732,6 @@ int computerPlay () { /* */
          return 0;
       }
    }
-
    gettimeofday (&tRef, NULL);
    info.computeTime = tRef.tv_sec * MILLION + tRef.tv_usec;
    info.nClock = clock ();
@@ -736,11 +740,12 @@ int computerPlay () { /* */
    nextL = buildList (sq64, -gamer.color, computer.kingCastleOK, computer.queenCastleOK, list);
    nextL = buildListEnPassant (sq64, -gamer.color, gamer.ep, list, nextL);
    computer.nValidPos = nextL;
-   if (nextL == 0) return 0;
+   if (nextL == 0) return 0; // impossible de jouer... Bizarre
    info.maxDepth = fMaxDepth (getInfo.level, gamer.nValidPos, computer.nValidPos);
    // memorisation de tous les deplacements possibles pour envoi
    for (k = 0; k < nextL; k++) {
-      difference (sq64, list [k], -gamer.color, trash, info.moveList [k].move, trash, trash, trash, &bTrash, &bTrash);
+      difference (sq64, list [k], -gamer.color, &info.lastCapturedByComputer, info.moveList [k].move, 
+         trash, trash, trash, &bTrash, &bTrash);
       memcpy (info.moveList [k].jeu, list [k], GAMESIZE);
    }
 
@@ -755,7 +760,7 @@ int computerPlay () { /* */
       }
    }
    else {
-   // ouvertures
+      // ouvertures
       if ((info.nb < MAXNBOPENINGS) &&
          (openingAll (OPENINGDIR, (gamer.color == WHITE) ? ".b.fen": ".w.fen", fen, info.comment, info.move))) {
             moveGame (sq64, -gamer.color, info.move);
@@ -763,29 +768,38 @@ int computerPlay () { /* */
          }
       }
    if (status == INIT) {
-   // recherche par la methode minimax Alphabeta
-      for (k = 0; k < nextL; k++)
-         if (pthread_create (&tThread [k], NULL, fThread, (void *) k)) {
-            perror ("pthread_create");
-            return 0;
-         }
-      for (k = 0; k < nextL; k++)
-         if (pthread_join (tThread [k], NULL)) {
-            perror ("pthread_join");
-            return 0;
-         }
-      // for (k = 0; k < nextL; k++) info.moveList[k].eval = alphaBeta (list [k], -gamer.color, 0, -MATE, MATE);
+      // recherche par la methode minimax Alphabeta
+      if (getInfo.multi) { // Multi thread
+         for (k = 0; k < nextL; k++)
+            if (pthread_create (&tThread [k], NULL, fThread, (void *) k)) {
+               perror ("pthread_create");
+               return 0;
+            }
+         for (k = 0; k < nextL; k++)
+            if (pthread_join (tThread [k], NULL)) {
+               perror ("pthread_join");
+               return 0;
+            }
+      }
+      else {
+         for (k = 0; k < nextL; k++) info.moveList[k].eval = alphaBeta (list [k], -gamer.color, 0, -MATE, MATE);
+      }
       // info.movList contient les évaluations de toutes les possibilites
       // recherche de la meilleure note
       status = ALPHABETA;
+/*for (int i = 0; i < 10; i++) {
+   printGame (info.moveList[i].jeu, info.moveList[i].eval);
+   printf ("move : %s\n", info.moveList[i].move);
+} */
       qsort (info.moveList, nextL, sizeof (MOVELIST), comp); // tri croisant ou decroissant selon couleur gamer
       info.evaluation = bestNote = info.moveList [0].eval;
       i = 0;
-      while (info.moveList[i].eval == bestNote) i += 1; // il y a i meilleurs jeux
+      while ((info.moveList[i].eval == bestNote) && (i < nextL)) i += 1; // il y a i meilleurs jeux
       k = (getInfo.alea) ? rand () % i : 0; // indice du jeu choisi au hasard OU premier
       info.nBestNote = i;
       memcpy (sq64, info.moveList[k].jeu, GAMESIZE);
    }
+   if (getInfo.trans) free (trTa);
    difference (localSq64, sq64, -gamer.color, &info.lastCapturedByComputer, info.computerPlayC, 
       info.computerPlayA, gamer.ep, computer.ep, &computer.queenCastleOK, &computer.kingCastleOK);
    if (gamer.color == WHITE) info.nb += 1;
@@ -827,6 +841,8 @@ int computerPlay () { /* */
 
 bool cgi () { /* */
    /* MODE CGI */
+   /* gere le fichier log */
+   /* lit les variables d'environnement, lance computePlay */
    /* vrai si on peut lire les variables d'environnement */
    /* faux sinon */
    char fen [MAXLENGTH];
@@ -839,6 +855,7 @@ bool cgi () { /* */
    // log date heure et adresse IP du joueur
    time_t now = time (NULL); // pour .log
    struct tm *timeNow = localtime (&now);
+   flog = fopen (F_LOG, "a");       // preparation du fichier log 
    if ((env = getenv ("REMOTE_ADDR")) == NULL) return false;
    strftime (buffer, 80, "%F; %T", timeNow);
    fprintf (flog, "%s; ", buffer);           // log de la date et du temps
@@ -852,6 +869,8 @@ bool cgi () { /* */
 
    if ((env = getenv ("QUERY_STRING")) == NULL) return false;  // Les variables
 
+   if ((str = strstr (env, "nomulti")) != NULL) getInfo.multi = false;
+   if ((str = strstr (env, "noalea")) != NULL) getInfo.alea = false;
    if ((str = strstr (env, "noalea")) != NULL) getInfo.alea = false;
    if ((str = strstr (env, "notrans")) != NULL) getInfo.trans = false;
    if ((str = strstr (env, "fen=")) != NULL)
@@ -870,19 +889,19 @@ bool cgi () { /* */
    }
    else sendGame (true, "", getInfo.reqType);
    fprintf (flog, "\n");
+   fclose (flog);
    return true;
 }
 
 int main (int argc, char *argv[]) { /* */
    /* lit la ligne de commande */
-   /* si option "-x" existe on execute */
-   /* si pas d'argument CGI */
+   /* si une option "-x" existe on l'execute */
+   /* si pas d'argument alors CGI */
    char fen [MAXLENGTH];
    char strMove [15];
    char car;
    TGAME oldSq64;
    srand (time (NULL));             // initialise le generateur aleatoire
-   flog = fopen (F_LOG, "a");       // preparation du fichier log 
 
    // si pas de parametres on va au cgi (fin de main)
    if (argc >= 2 && argv [1][0] == '-') { // si il y a des parametres. On choidi un test
@@ -891,13 +910,12 @@ int main (int argc, char *argv[]) { /* */
       gamer.color = -fenToGame (getInfo.fenString, sq64, gamer.ep, &info.cpt50, &info.nb);
       switch (argv [1][1]) {
       case 'q': case 'v': // q quiet, v verbose
-         getInfo.trans = (argv [1][2] != 'n');
-         if (argv [1][3] >= 3) getInfo.alea = (argv [1][3] != 'n');
+         if (strlen (argv [1]) > 2) getInfo.trans = (argv [1][2] != 'n');
+         if (strlen (argv [1]) > 3) getInfo.alea = (argv [1][3] != 'n');
+         if (strlen (argv [1]) > 4) getInfo.multi = (argv [1][4] != 'n');
          computerPlay ();
-         if (argv [1][1] == 'v') {
-            printf ("--------resultat--------------\n");
+         if (argv [1][1] == 'v') 
             printGame (sq64, evaluation (sq64, -gamer.color, &info.pat));
-         }
          gameToFen (sq64, fen, gamer.color, '+', true, computer.ep, info.cpt50, info.nb); 
          sendGame (false, fen, getInfo.reqType);
          break;
@@ -914,22 +932,25 @@ int main (int argc, char *argv[]) { /* */
          printf ("buildList. clock: %lf\n", (double) (clock () - info.nClock)/CLOCKS_PER_SEC);
          
          info.nClock = clock ();
-         for (int i = 0; i < getInfo.level * MILLION; i++)
-            kingCannotMove (sq64, -1);
-         printf ("kingCannotMove. clock: %lf\n", (double) (clock () - info.nClock)/CLOCKS_PER_SEC);
+         trTa = calloc (sizeof (StrTa) * MAXTRANSTABLE, 1);
+         printf ("calloc...  clock: %lf\n", (double) (clock () - info.nClock)/CLOCKS_PER_SEC);
+         printf ("trTa[100].p = %d\n", trTa[100].p);
          
          info.nClock = clock ();
-         for (int i = 0; i < getInfo.level * MILLION; i++)
-            evaluation (sq64, 1, &info.pat);
-         printf ("evaluation. clock: %lf\n", (double) (clock () - info.nClock)/CLOCKS_PER_SEC);
+         trTa = calloc (MAXTRANSTABLE, sizeof (StrTa));
+         printf ("calloc...  clock: %lf\n", (double) (clock () - info.nClock)/CLOCKS_PER_SEC);
+         printf ("trTa[100].p = %d\n", trTa[100].p);
+         
+         info.nClock = clock ();
+         trTa = malloc (sizeof (StrTa) * MAXTRANSTABLE);
+         memset (trTa, 127, sizeof (StrTa) * MAXTRANSTABLE); // tables de transpositiopns
+         printf ("malloc. memset.... clock: %lf\n", (double) (clock () - info.nClock)/CLOCKS_PER_SEC);
+         printf ("trTa[100].p = %d\n", trTa[100].p);
+         
          break;
       case 't': // tests
-         printGame (sq64, evaluation (sq64, -gamer.color, &info.pat));
-         printf ("--------resultat--------------\n");
-         nextL = buildList (sq64, -gamer.color, computer.kingCastleOK, computer.queenCastleOK, list);         
-         nextL = buildListEnPassant (sq64, -gamer.color, gamer.ep, list, nextL);
-         printf ("Nombre de possibilites : %d\n", nextL);
-         for (int i = 0; i < nextL; i++) printGame (list [i], evaluation (list [i], -gamer.color, &info.pat));
+         printf ("hello world\n");
+         printf ("sizeof trta : %ld\n", sizeof (trTa));
          break;
       case 'p': // play
          info.score = ONGOING;
@@ -956,19 +977,12 @@ int main (int argc, char *argv[]) { /* */
             player = !player;
          }
          break;
-         case 'e':
-            printGame (sq64, 0);
-            printf ("Random 64 bits: %lx\n", rand64 ());
-            printf ("Hash   32 bits: %x\n", computeHash (sq64, -gamer.color));
-            printf ("Eval : %d %s\n", evaluation (sq64, -gamer.color, &info.pat), (info.pat ? "pat" : "non Pat"));
-            break;
-         default:
-            printf ("%s\n", HELP);
+      default:
+         printf ("%s\n", HELP);
       }
    }
    else 
    if ((argc <= 1) && cgi ()); // la voie normale : pas de parametre => cgi.
    else printf ("%s\n", HELP);
-   fclose (flog);
    exit (EXIT_SUCCESS);
 }
