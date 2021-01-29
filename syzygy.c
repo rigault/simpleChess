@@ -183,7 +183,7 @@ static void moveToStr (const struct pos *pos, unsigned move, char *str) { /* */
    *str++ = '\0';
 }
 
-bool syzygyRR (const char* path, const char *fen, unsigned *wdl, char *bestMove, char *comment) { /* */
+bool syzygyRR (const char* path, const char *fen, int *wdl, char *bestMove, char *comment) { /* */
    /* recherche dans la tablebase sygyzy situee dans path le jeu decrit en notation */
    /* FEN par fen. Renvoie le deplacement au format algebrique complet dans bestMove */
    /* le commentaire contient ce deplacement et les valeur WIN WDL DTZ */
