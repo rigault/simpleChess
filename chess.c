@@ -57,7 +57,7 @@ typedef struct  {                  // tables de transposition
    int16_t eval;                   // derniere eval
    int8_t p;                       // profondeur
    int8_t used;                    // boolen sur 8 bits. Utilise
-//   TGAME t[64];                  // jeu optionnel
+   int32_t check;                  // pour verid collisions
 } StrTa;
 StrTa *trTa = NULL;                // Ce pointeur va servir de tableau après l'appel du malloc
 
@@ -81,7 +81,7 @@ void initTable() { /* */
             ZobristTable[l][c][k] = rand64 ();
 }
 
-uint32_t computeHash (TGAME sq64, int who) { /* */
+uint64_t computeHash (TGAME sq64, int who) { /* */
    /* Computes the hashvalue of a given game. Zobrist */
    int v;     // valeurs de -7 a 7. Case vide = 0. Pieces neg : blanches. Pos : noires.
    int piece; // valeurs de piece de 0 a 13. Case vide non representee
@@ -95,7 +95,7 @@ uint32_t computeHash (TGAME sq64, int who) { /* */
        }
     }
     // h est la valeur de Zobrist sur 64 bits. Que l'on va réduire à 32 bits.
-    return (h ^ WHO (who)) & MASQMAXTRANSTABLE; 
+    return (h ^ WHO (who)); 
 }
   
 int fMaxDepth (int lev, int nGamerPos, int nComputerPos) { /* */
@@ -588,20 +588,21 @@ int alphaBeta (TGAME sq64, int who, int p, int refAlpha, int refBeta) { /* */
    int beta = refBeta;
 
    if (getInfo.trans) {
-      uint32_t hash = computeHash (sq64, who);
+      uint64_t zobrist = computeHash (sq64, who);
+      uint32_t hash = zobrist & MASQMAXTRANSTABLE; 
+      uint32_t check = zobrist >> 32; 
       if (trTa [hash].used && (trTa [hash].p <= p)) { 
-         // if (memcmp (sq64, trTa [hash].t, 64) == 0) {
-         if (sameParity (trTa [hash].p, p)) {
+         if ((trTa [hash].check == check) && (sameParity (trTa [hash].p, p))) {
             info.nbMatchTrans += 1;
             return (trTa [hash].eval);
          }
-         else info.nbColl += 1;    // optionnelle de collisions
+         else info.nbColl += 1;    // détection de collisions
       }
       trTa [hash].eval = note = evaluation (sq64, who, &pat);
       trTa [hash].p = p;
       trTa [hash].used = true;
+      trTa [hash].check = check;
       info.nbTrTa += 1;
-      // memcpy (trTa [hash].t, sq64, 64); // optionnel. Sauvegarde du jeu
    }
    else { 
       note = evaluation (sq64, who, &pat);
@@ -695,17 +696,20 @@ int computerPlay () { /* */
    struct timeval tRef;
    int lGK, cGK, lCK, cCK; // ligne colonnes Gamer et Computer King 
    lGK = cGK = lCK = cCK = -1,
-   info.wdl = 9;                    // valeur inateignable montrant que syzygy n'a pas ete appelee
+   info.wdl = -1;                    // valeur inatteignable montrant que syzygy n'a pas ete appelee
    info.nbThread = (getInfo.multi) ? sysconf (_SC_NPROCESSORS_CONF) : 1;
    computer.kingState = gamer.kingState = NOEXIST;
    info.score = ERROR;
    info.nPieces = whereKings (sq64, gamer.color, &lGK, &cGK, &lCK, &cCK);
-   if ((lGK == -1) || (lCK == -1)) return 0; // manque de roi 
+   if ((lGK == -1) || (lCK == -1)) {
+      strcpy (info.comment, "ERR: No king");
+      return 0; // manque de roi
+   } 
    computer.kingState = gamer.kingState = EXIST;
    memcpy (localSq64, sq64, GAMESIZE);
    if (getInfo.trans) {
       if ((trTa = calloc (MAXTRANSTABLE, sizeof (StrTa))) == NULL) {
-         fprintf (stderr, "ERROR: malloc in computerPlay ()\n");
+         strcpy (info.comment, "ERR: malloc in computerPlay ()\n");
          return (0);
       }
       initTable();                     // pour table hachage Zobrist
@@ -740,7 +744,10 @@ int computerPlay () { /* */
    nextL = buildList (sq64, -gamer.color, computer.kingCastleOK, computer.queenCastleOK, list);
    nextL = buildListEnPassant (sq64, -gamer.color, gamer.ep, list, nextL);
    computer.nValidPos = nextL;
-   if (nextL == 0) return 0; // impossible de jouer... Bizarre
+   if (nextL == 0) {
+      strcpy (info.comment, "ERR: no move. Strange");
+      return 0; // impossible de jouer... Bizarre
+   }
    info.maxDepth = fMaxDepth (getInfo.level, gamer.nValidPos, computer.nValidPos);
    // memorisation de tous les deplacements possibles pour envoi
    for (k = 0; k < nextL; k++) {
@@ -754,7 +761,7 @@ int computerPlay () { /* */
    // recherche de fin de partie voir https://syzygy-tables.info/
    if ((info.nPieces) <= MAXPIECESSYZYGY) {
       sprintf (fen, "%s - - %d %d", fen, info.cpt50, info.nb); // pour regle des 50 coups
-      if (syzygyRR (PATHTABLE, fen, &info.wdl, info.move, info.endName)) {
+      if (syzygyRR (PATHTABLE, fen, &info.wdl, info.move, info.comment)) {
          moveGame (sq64, -gamer.color, info.move);
 	      status = OUV;
       }
@@ -772,12 +779,12 @@ int computerPlay () { /* */
       if (getInfo.multi) { // Multi thread
          for (k = 0; k < nextL; k++)
             if (pthread_create (&tThread [k], NULL, fThread, (void *) k)) {
-               perror ("pthread_create");
+               strcpy (info.comment, "ERR: pthread_create");
                return 0;
             }
          for (k = 0; k < nextL; k++)
             if (pthread_join (tThread [k], NULL)) {
-               perror ("pthread_join");
+               strcpy (info.comment, "ERR: pthread_join");
                return 0;
             }
       }
@@ -815,7 +822,10 @@ int computerPlay () { /* */
    computer.kingState = gamer.kingState = NOEXIST;
    info.score = ERROR;
    info.nPieces = whereKings (sq64, gamer.color, &lGK, &cGK, &lCK, &cCK);
-   if ((lGK == -1) || (lCK == -1)) return 0; // manque de roi 
+   if ((lGK == -1) || (lCK == -1)) {
+      strcpy (info.comment, "ERR: No king");
+      return 0; // manque de roi 
+   }
    computer.kingState = gamer.kingState = EXIST;
    info.score = ONGOING;
 
@@ -842,7 +852,7 @@ int computerPlay () { /* */
 bool cgi () { /* */
    /* MODE CGI */
    /* gere le fichier log */
-   /* lit les variables d'environnement, lance computePlay */
+   /* lit les variables d'environnement, lance computerPlay */
    /* vrai si on peut lire les variables d'environnement */
    /* faux sinon */
    char fen [MAXLENGTH];
@@ -898,9 +908,6 @@ int main (int argc, char *argv[]) { /* */
    /* si une option "-x" existe on l'execute */
    /* si pas d'argument alors CGI */
    char fen [MAXLENGTH];
-   char strMove [15];
-   char car;
-   TGAME oldSq64;
    srand (time (NULL));             // initialise le generateur aleatoire
 
    // si pas de parametres on va au cgi (fin de main)
@@ -910,6 +917,7 @@ int main (int argc, char *argv[]) { /* */
       gamer.color = -fenToGame (getInfo.fenString, sq64, gamer.ep, &info.cpt50, &info.nb);
       switch (argv [1][1]) {
       case 'q': case 'v': // q quiet, v verbose
+         printf ("argv1: %s\n", argv [1]);
          if (strlen (argv [1]) > 2) getInfo.trans = (argv [1][2] != 'n');
          if (strlen (argv [1]) > 3) getInfo.alea = (argv [1][3] != 'n');
          if (strlen (argv [1]) > 4) getInfo.multi = (argv [1][4] != 'n');
@@ -921,61 +929,23 @@ int main (int argc, char *argv[]) { /* */
          break;
       case 'f': //performance
          info.nClock = clock ();
-         for (int i = 0; i < MILLION; i++)
-            for (int j = 0; j < MILLION; j++)
-               LCBlackKingInCheck (sq64, 7, 4);         
-         printf ("LCBlackKingInCheck. clock: %lf\n", (double) (clock () - info.nClock)/CLOCKS_PER_SEC);
-         
-         info.nClock = clock ();
          for (int i = 0; i < getInfo.level * MILLION; i++)
             nextL = buildList (sq64, -gamer.color, true, true, list);         
          printf ("buildList. clock: %lf\n", (double) (clock () - info.nClock)/CLOCKS_PER_SEC);
-         
-         info.nClock = clock ();
-         trTa = calloc (sizeof (StrTa) * MAXTRANSTABLE, 1);
-         printf ("calloc...  clock: %lf\n", (double) (clock () - info.nClock)/CLOCKS_PER_SEC);
-         printf ("trTa[100].p = %d\n", trTa[100].p);
-         
-         info.nClock = clock ();
-         trTa = calloc (MAXTRANSTABLE, sizeof (StrTa));
-         printf ("calloc...  clock: %lf\n", (double) (clock () - info.nClock)/CLOCKS_PER_SEC);
-         printf ("trTa[100].p = %d\n", trTa[100].p);
-         
-         info.nClock = clock ();
-         trTa = malloc (sizeof (StrTa) * MAXTRANSTABLE);
-         memset (trTa, 127, sizeof (StrTa) * MAXTRANSTABLE); // tables de transpositiopns
-         printf ("malloc. memset.... clock: %lf\n", (double) (clock () - info.nClock)/CLOCKS_PER_SEC);
-         printf ("trTa[100].p = %d\n", trTa[100].p);
-         
          break;
       case 't': // tests
-         printf ("hello world\n");
-         printf ("sizeof trta : %ld\n", sizeof (trTa));
+         printf ("sizeof trta : %ld\n", sizeof (StrTa));
          break;
-      case 'p': // play
-         info.score = ONGOING;
-         do printf ("\nb)lack or w)hite ? : ");
-         while  (((car = toupper (getchar ())) != 'B') && (car != 'W'));
-         gamer.color = (car == 'W') ? WHITE : BLACK;
-         printf ("You have the: %s\n", (gamer.color == WHITE) ? "Whites" : "Blacks");
-         printGame (sq64, evaluation (sq64, -gamer.color, &info.pat));
-         bool player = (gamer.color == WHITE); 
-         while (info.score == ONGOING) {
-            if (player) { // joueur joue
-               printf ("gamer move (ex : e2e4 or Pe7-e8=Q) : ");
-               while (scanf ("%s", strMove) != 1);
-               moveGame (sq64, gamer.color, strMove);
-               printGame (sq64, evaluation (sq64, gamer.color, &info.pat));
-            }
-            else { // ordinateur joue
-               memcpy (oldSq64, sq64, GAMESIZE);
-               computerPlay ();
-               printGame (sq64, evaluation (sq64, -gamer.color, &info.pat));
-               printf ("comment: %s%s\n", info.comment, info.endName);
-               printf ("computer move: %s %c\n", info.computerPlayC, info.lastCapturedByComputer);
-            }
-            player = !player;
-         }
+      case 'd': case 'D': // display
+         if (argv [1][1] == 'D') printGame (sq64, evaluation (sq64, gamer.color, &info.pat));
+         gameToFen (sq64, fen, gamer.color, '+', true, computer.ep, info.cpt50, info.nb); 
+         printf ("{ \"fen\" : \"%s\"}\n",fen);
+         break; 
+      case 'm': case 'M': // move
+         moveGame (sq64, gamer.color, argv [argc-1]);        
+         if (argv [1][1] == 'M') printGame (sq64, evaluation (sq64, gamer.color, &info.pat));
+         gameToFen (sq64, fen, gamer.color, '+', true, computer.ep, info.cpt50, info.nb); 
+         printf ("{ \"fen\" : \"%s\"}\n",fen);
          break;
       default:
          printf ("%s\n", HELP);
