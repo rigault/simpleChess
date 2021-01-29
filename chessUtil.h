@@ -60,11 +60,10 @@ struct Sinfo {
    char lastCapturedByComputer;     // derniere piece prise par Ordi
    int calculatedMaxDepth;          // profondeur max atteinte
    char comment [MAXBUFFER];        // nom de l'ouverture si trouvee ou fin de partie
-   char endName [MAXBUFFER];        // nom de la database de fermeture si trouvee
    long computeTime;                // temps de calcul
    clock_t nClock;                  // utilisation du processeur
    char move [15];                  // deplacement donne par fonction ouverture
-   unsigned wdl;                    // retour de syzygy - end table
+   int wdl;                    // retour de syzygy - end table
    enum Score score;                // score : "ERROR' "-" "1-0" "0-1" "1/2-1/2"
    bool pat;                        // retour de evaluation. vrai si le jeu est pat
    int  nBestNote;                  // nombre de possibilites ayant la meilleure eval
