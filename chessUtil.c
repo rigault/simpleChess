@@ -524,35 +524,34 @@ void sendGame (bool http, const char *fen, int reqType) { /* */
       if (info.lastCapturedByComputer >= ' ' && info.lastCapturedByComputer <= 'z')
          printf ("\"lastTake\" : \"%c\",\n", info.lastCapturedByComputer);
       else printf ("\"lastTake\" : \"%c\",\n", ' ');
-      printf ("\"openingName\" : \"%s\",\n", info.comment);
-      printf ("\"endName\" : \"%s\",\n", info.endName);
-      printf ("\"wdl\" : %u,\n", info.wdl);
-      printf ("\"computePlayC\" : \"%s\",\n", info.computerPlayC);
-      printf ("\"computePlayA\" : \"%s\",\n", info.computerPlayA);      
-      printf ("\"maxDepth\" : %d,\n", info.maxDepth);
-      printf ("\"nEvalCall\" : %d,\n", info.nEvalCall);
-      printf ("\"nAlphaBeta\" : %d,\n", info.nAlphaBeta);
-      printf ("\"nBestNote\" : %d,\n", info.nBestNote);
-      printf ("\"nValidGamerPos\" : %d,\n", gamer.nValidPos);
-      printf ("\"nValidComputerPos\" : %d,\n", computer.nValidPos);
+      printf ("\"comment\" : \"%s\",\n", info.comment);
+      printf ("\"wdl\" : %d,\n", info.wdl);
+      printf ("\"move\" : \"%s\",\n", info.computerPlayC);
+      printf ("\"moveA\" : \"%s\",\n", info.computerPlayA);      
+      printf ("\"score\" : \"%s\",\n", scoreToStr [info.score]);
       printf ("\"moveList\" : [");
       for (k = 0; k < computer.nValidPos - 1; k++) {
-         if ((k % 5) == 0) printf ("\n   ");
+         if ((k % 7) == 0) printf ("\n   ");
          printf ("\"%s\", %5d, ", info.moveList [k].move, info.moveList [k].eval);
       }
-      if ((k % 5) == 0) printf ("\n   ");
-      printf ("\"%s\", %5d\n],\n", info.moveList [computer.nValidPos -1 ].move, info.moveList [computer.nValidPos - 1].eval);
-      printf ("\"score\" : \"%s\"", scoreToStr [info.score]);
+      if ((k % 7) == 0) printf ("\n   ");
+      printf ("\"%s\", %5d\n]", info.moveList [computer.nValidPos -1 ].move, info.moveList [computer.nValidPos - 1].eval);
    }
    if (reqType > 1) {
-      printf (",\n\"dump\" : { ");
+      printf (",\n\"dump\" : {\n   ");
+      printf ("\"maxDepth\" : %d, ", info.maxDepth);
+      printf ("\"nEvalCall\" : %d, ", info.nEvalCall);
+      printf ("\"nAlphaBeta\" : %d, ", info.nAlphaBeta);
+      printf ("\"nBestNote\" : %d, ", info.nBestNote);
+      printf ("\"nValidGamerPos\" : %d, ", gamer.nValidPos);
+      printf ("\"nValidComputerPos\" : %d,\n   ", computer.nValidPos);
       printf ("\"nbTrTa\" : %d, ", info.nbTrTa);
       printf ("\"nbMatchTrans\" : %d, ", info.nbMatchTrans);
       printf ("\"nCollision\" : %d, ", info.nbColl);
       printf ("\"nCallfHash\" : %d, ", info.nbCallfHash);
       printf ("\"nLCKingInCheck\" : %d, ", info.nLCKingInCheckCall);
-      printf ("\"nBuildList\" : %d", info.nBuildListCall);
-      printf (" }");
+      printf ("\"nBuildList\" : %d\n", info.nBuildListCall);
+      printf ("}");
    }
    printf ("\n}\n");
 }
