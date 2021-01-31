@@ -1,11 +1,36 @@
 #!/usr/bin/env python3
+import sys, os, subprocess, json
+import vt
+from subprocess import Popen, PIPE, STDOUT
 WHITE = (-1)
 BLACK = 1
 HELP = "usage: ./chess.py -e|-c|-p"
-import sys, os, subprocess, json
-from subprocess import Popen, PIPE, STDOUT
 fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR+w+KQkq+-+0+0"
-level = 3
+level = 5
+unicode = {"p": "♟", 'n' : "♞", "b":"♝", "r":"♜", "q":"♛", "k":"♚"};
+
+def printGame (fen) :
+   print (" a  b  c  d  e  f  g  h")
+   l = 8
+   normal = True
+   for x in fen :
+      if x == "/" : 
+         sys.stdout.write (vt.DEFAULT_COLOR)
+         print (" ", l)
+         normal =  ((l % 2) == 1)
+         l -= 1
+      elif x.isnumeric () :
+         for k in range (int (x)) :
+            sys.stdout.write ((vt.BG_CYAN if normal else vt.BG_BLACK) + "   ") 
+            normal = not normal
+      elif not x.isalnum () : break
+      else :
+         sys.stdout.write (vt.BG_CYAN if normal else vt.BG_BLACK) 
+         sys.stdout.write (vt.C_WHITE if x.isupper () else vt.C_RED)
+         sys.stdout.write (unicode [x.lower()] + "  " + vt.C_WHITE)
+         normal = not normal
+   sys.stdout.write (vt.DEFAULT_COLOR + vt.C_WHITE)
+   print (" ", l)
 
 def play (command) :
    maxTr = maxEval = nEvalCall = nbtrta = 0
@@ -29,19 +54,27 @@ def endurance (fen, level) :
    score = "-"
    while score == "-" :
       # les blancs jouent
-      fen, score = play ("./chess.cgi -voon " + fen + " " + str(level))
+      fen, score = play ("./chess.cgi -vono " + fen + " " + str(level))
       if score == "-" :
          # les noirs jouent
-         fen, score = play ("./chess.cgi -vnon " + fen + " " + str(level))
+         fen, score = play ("./chess.cgi -vnno " + fen + " " + str(level))
+
+   return score
 
 def comp (fen, level) :
+   nEgal = nDiff = 0
    score = "-"
    while score == "-" :
-      fen1, score = play ("./chess.cgi -vonn " + fen + " " + str(level))
-      fen2, score = play ("./chess.cgi -vnnn " + fen + " " + str(level))
-      if fen1 == fen2 : print ("equal")
-      else : print ("different")
+      fen1, score = play ("./chess.cgi -vnno " + fen + " " + str(level))
+      fen2, score = play ("./chess.cgi -vono " + fen + " " + str(level))
+      if fen1 == fen2 : 
+         print ("equal")
+         nEgal += 1
+      else : 
+         print ("different")
+         nDiff +=1
       fen = fen1
+   print ("nEgal = ", nEgal, " ; nDiff = ", nDiff); 
 
 def play2 (fen, level) :
    score = "-"
@@ -64,4 +97,5 @@ else :
    if sys.argv[1] == "-e" : endurance (fen, level)
    elif sys.argv[1] == "-c" : comp (fen, level)
    elif sys.argv[1] == "-p" : play2 (fen, level)
+   elif sys.argv[1] == "-t" : printGame (fen)
    else : print (HELP)
