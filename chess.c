@@ -57,16 +57,12 @@ typedef struct  {                  // tables de transposition
    int16_t eval;                   // derniere eval
    int8_t p;                       // profondeur
    int8_t used;                    // boolen sur 8 bits. Utilise
-   int32_t check;                  // pour verid collisions
+   int32_t check;                  // pour verif collisions
+//   TGAME game;
 } StrTa;
 StrTa *trTa = NULL;                // Ce pointeur va servir de tableau après l'appel du malloc
 
 uint64_t ZobristTable[8][8][14];   // 14 combinaisons avec RoiRoque
-
-inline bool sameParity (int a, int b) { /* */
-   /* retource vrai si a et b ont la meme parite */
-   return (a & 1) == (b & 1);
-}
 
 uint64_t rand64 () { /* */
    /* retourne un nb aleatoire sur 64 bits */
@@ -563,7 +559,7 @@ int evaluation (TGAME sq64, int who, bool *pat) { /* */
    // printf ("lwho: %d, cwho : %d, ladverse : %d, cadverse : %d\n", lwho, cwho, ladverse, cadverse);
    if (nBBishops >= 2) eval += BONUSBISHOP;
    if (nWBishops >= 2) eval -= BONUSBISHOP;
-   if (LCkingInCheck (sq64, who, lwho, cwho)) return -who * MATE; // who ne peut pas jouer et se mettre en echec
+   if (LCkingInCheck (sq64, who, lwho, cwho)) return -who * (MATE+1); // who ne peut pas jouer et se mettre en echec
    kingInCheck = LCkingInCheck (sq64, -who, ladverse, cadverse);
    if (kingCannotMove (sq64, -who)) { 
       if (kingInCheck) return who * MATE;
@@ -586,34 +582,37 @@ int alphaBeta (TGAME sq64, int who, int p, int refAlpha, int refBeta) { /* */
    int val;
    int alpha = refAlpha;
    int beta = refBeta;
-
+   uint32_t hash = 0, check = 0;
    if (getInfo.trans) {
       uint64_t zobrist = computeHash (sq64, who);
-      uint32_t hash = zobrist & MASQMAXTRANSTABLE; 
-      uint32_t check = zobrist >> 32; 
+      hash = zobrist & MASQMAXTRANSTABLE; 
+      check = zobrist >> 32; 
       if (trTa [hash].used && (trTa [hash].p <= p)) { 
-         if ((trTa [hash].check == check) && (sameParity (trTa [hash].p, p))) {
+         if (trTa [hash].check == check) {
             info.nbMatchTrans += 1;
             return (trTa [hash].eval);
          }
          else info.nbColl += 1;    // détection de collisions
       }
-      trTa [hash].eval = note = evaluation (sq64, who, &pat);
-      trTa [hash].p = p;
-      trTa [hash].used = true;
-      trTa [hash].check = check;
-      info.nbTrTa += 1;
-   }
-   else { 
-      note = evaluation (sq64, who, &pat);
    }
    if (info.calculatedMaxDepth < p) info.calculatedMaxDepth = p;
+   note = evaluation (sq64, who, &pat);
 
    // conditions de fin de jeu
-   if (note == MATE) return MATE - p;   // -p pour favoriser le choix avec faible profondeur
-   if (note == -MATE) return -MATE + p; // +p idem
+   if (note >= MATE) return note - p;   // -p pour favoriser le choix avec faible profondeur
+   if (note <= -MATE) return note + p;  // +p idem
    if (pat) return 0;
-   if (p >= info.maxDepth) return note;
+   if (p >= info.maxDepth) {
+      if (getInfo.trans) { 
+         trTa [hash].eval = note;
+         trTa [hash].p = p;
+         trTa [hash].used = true;
+         trTa [hash].check = check;
+         // memcpy (trTa [hash].game, sq64, GAMESIZE);
+         info.nbTrTa += 1;
+      }
+      return note;
+   }
    // pire des notes a ameliorer
    if (who == 1) {
       val = MATE;
@@ -802,7 +801,7 @@ int computerPlay () { /* */
       info.evaluation = bestNote = info.moveList [0].eval;
       i = 0;
       while ((info.moveList[i].eval == bestNote) && (i < nextL)) i += 1; // il y a i meilleurs jeux
-      k = (getInfo.alea) ? rand () % i : 0; // indice du jeu choisi au hasard OU premier
+      k = (getInfo.alea) ? rand () % i : (i-1); // indice du jeu choisi au hasard OU premier
       info.nBestNote = i;
       memcpy (sq64, info.moveList[k].jeu, GAMESIZE);
    }
