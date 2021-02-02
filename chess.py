@@ -6,7 +6,7 @@ WHITE = (-1)
 BLACK = 1
 HELP = "usage: ./chess.py -e|-c|-p"
 fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR+w+KQkq+-+0+0"
-level = 5
+level = 0
 unicode = {"p": "♟", 'n' : "♞", "b":"♝", "r":"♜", "q":"♛", "k":"♚"};
 
 def printGame (fen) :
@@ -65,13 +65,15 @@ def comp (fen, level) :
    nEgal = nDiff = 0
    score = "-"
    while score == "-" :
-      fen1, score = play ("./chess.cgi -vnno " + fen + " " + str(level))
-      fen2, score = play ("./chess.cgi -vono " + fen + " " + str(level))
+      fen1, score = play ("./chess.cgi -qnnn " + fen + " " + str(0))
+      fen2, score = play ("./chessOld.cgi -qnnn " + fen + " " + str(0))
       if fen1 == fen2 : 
          print ("equal")
          nEgal += 1
       else : 
          print ("different")
+         printGame (fen);
+         exit ()
          nDiff +=1
       fen = fen1
    print ("nEgal = ", nEgal, " ; nDiff = ", nDiff); 

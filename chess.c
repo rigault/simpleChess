@@ -933,7 +933,15 @@ int main (int argc, char *argv[]) { /* */
          printf ("buildList. clock: %lf\n", (double) (clock () - info.nClock)/CLOCKS_PER_SEC);
          break;
       case 't': // tests
-         printf ("sizeof trta : %ld\n", sizeof (StrTa));
+         strcpy (getInfo.fenString, "r1b1k2r/pppp1pp1/5q1p/4n3/2PN4/2P5/P2KPPPP/R2Q1B1R+b+kq+-+1+9");
+         gamer.color = -fenToGame (getInfo.fenString, sq64, gamer.ep, &info.cpt50, &info.nb);
+         printGame (sq64, evaluation (sq64, -gamer.color, &info.pat));
+         /*printf ("--------------------------------------\n");
+         nextL = buildList (sq64, -gamer.color, true, true, list);
+         for (int i = 0; i < nextL; i++) {
+            printGame (list [i], evaluation (sq64, -gamer.color, &info.pat));
+         }         
+         */
          break;
       case 'd': case 'D': // display
          if (argv [1][1] == 'D') printGame (sq64, evaluation (sq64, gamer.color, &info.pat));
