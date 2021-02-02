@@ -12,6 +12,7 @@
     "More help: firefox|google-chrome|lynx ../front/chessdoc.html"
 #define MAXBUFFER 10000                      // tampon de caracteres pour longues chaines
 #define MAXLENGTH 255                        // pour ligne
+#define MAXSTRMOVE 15                        // Longueur MOVE au format complet
 #define MAXPIECESSYZYGY 6                    // a partir de cette valeur on consule les tables endgame syzygy
 #define MAXNBOPENINGS 8                      // on ne regarde pas la biblio ouverture a partir de ce nb de coups
 
@@ -33,16 +34,31 @@
 #define COL(z)        ((z) & 0x07)           // z % 8 (pour trouver colonne
 
 typedef int8_t TGAME [N][N];                 // jeu de 8 x 8 cases codant une piece sur un entier 8 bits avec signe
-typedef int8_t TLIST [MAXSIZELIST][N][N];    // liste de jeux constuits par la fonction buildList   
-typedef struct {                             // structure decrivant un deplacement, le jeu resultanr et son evaluation.
+
+typedef struct {
+   int8_t type;
+   int8_t who;
+   int8_t l1;
+   int8_t c1;
+   int8_t l2;
+   int8_t c2;
+   int8_t taken;
+   bool promotion;
+} TMOVE;
+
+typedef TMOVE TLISTMOVE [MAXSIZELIST]; 
+
+typedef struct {                             // structure decrivant un deplacement, le jeu resultant et son evaluation.
    TGAME jeu;
-   char move [15];
+   TMOVE move;
+   char strMove [MAXSTRMOVE];
    int eval;
-} MOVELIST;
+} TMOVEINFO;
 
 enum {VOID, PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING, CASTLEKING};            // VOID car PAWN = 1, ...
 enum KingState {NOEXIST, EXIST, ISINCHECK, UNVALIDINCHECK, ISMATE, ISPAT};   // type etat  
 enum Score {ERROR, ONGOING, BLACKWIN, DRAW, WHITEWIN};                       // type scores finaux
+enum {STD, ENPASSANT, KINGCASTLESIDE, QUEENCASTLESIDE, PROMOTION};
 
 struct Sinfo {
    int nbThread;                    // nombre de thread sur l'architecture utilisee
@@ -55,15 +71,14 @@ struct Sinfo {
    int nLCKingInCheckCall;          // nombre d'appels nLCLingInCheck (si gere)  
    int nBuildListCall;              // nombre d'appels nBuildList
    int evaluation;                  // evaluation rendue par la fonction d evaluation
-   char computerPlayC [15];         // dernier jeu ordi reconstruit par la fonction difference. Notation Alg. complete
-   char computerPlayA [15];         // dernier jeu ordi reconstruit par la fonction difference. Notation Alg. abegee
+   char computerPlayC [MAXSTRMOVE]; // dernier jeu ordi. Notation Alg. complete
+   char computerPlayA [MAXSTRMOVE]; // dernier jeu ordi. Notation Alg. abegee
    char lastCapturedByComputer;     // derniere piece prise par Ordi
    int calculatedMaxDepth;          // profondeur max atteinte
    char comment [MAXBUFFER];        // nom de l'ouverture si trouvee ou fin de partie
    long computeTime;                // temps de calcul
    clock_t nClock;                  // utilisation du processeur
-   char move [15];                  // deplacement donne par fonction ouverture
-   int wdl;                    // retour de syzygy - end table
+   int wdl;                         // retour de syzygy - end table
    enum Score score;                // score : "ERROR' "-" "1-0" "0-1" "1/2-1/2"
    bool pat;                        // retour de evaluation. vrai si le jeu est pat
    int  nBestNote;                  // nombre de possibilites ayant la meilleure eval
@@ -71,7 +86,7 @@ struct Sinfo {
    int nbColl;                      // nombre de collisions
    int nbCallfHash;                 // nombre appels fn de hachage.
    int nbMatchTrans;                // nombre de matching transposition  
-   MOVELIST moveList [MAXSIZELIST]; // liste des move possibles et leur evaluation
+   TMOVEINFO moveList [MAXSIZELIST];// liste des move possibles et leur evaluation
 } info;
 
 struct Player {
@@ -83,10 +98,12 @@ struct Player {
    char ep [3];                     // en passant au format c3
 } gamer, computer;
 
+extern void moveToStr (TMOVE move, char str [MAXSTRMOVE]);
 extern int fenToGame (char *fenComplete, TGAME sq64, char *ep, int *cpt50, int *nb);
 extern char *gameToFen (TGAME sq64, char *fen, int color, char sep, bool complete, char *ep, int cpt50, int nb);
 extern bool openingAll (const char *dir, const char *filter, char *gameFen, char *sComment, char *move);
-extern char *difference (TGAME jeu1, TGAME jeu2, int color, char *prise, char *complete, char *abbr, char *epGamer, char *epComputer, bool *queenCastleOK, bool *kingCastleOK);
+extern char *enPassant (int color, char *complete, char *strEp);
+extern char *abbrev (TGAME sq64, char *complete, char *abbr);
 extern void sendGame (bool http, const char *fen, int reqType);
 extern void moveGame (TGAME jeu, int color, char *move);
 extern void printGame (TGAME jeu, int eval);
