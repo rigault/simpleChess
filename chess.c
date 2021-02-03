@@ -696,13 +696,6 @@ int alphaBeta (TGAME sq64, int who, int p, int refAlpha, int refBeta) { /* */
       zobrist = computeHash (sq64);
       hash = zobrist & MASQMAXTRANSTABLE; 
       check = zobrist >> 32; 
-      if (trTa [hash].used && (trTa [hash].p <= p)) { 
-         if (trTa [hash].check == check) {
-            info.nbMatchTrans += 1;
-            return (trTa [hash].eval);
-         }
-         else info.nbColl += 1;    // détection de collisions
-      }
    }
    if (info.calculatedMaxDepth < p) info.calculatedMaxDepth = p;
    note = evaluation (sq64, who, &pat);
@@ -713,9 +706,6 @@ int alphaBeta (TGAME sq64, int who, int p, int refAlpha, int refBeta) { /* */
    if (pat) return 0;
    if (p >= info.maxDepth) {
       if (getInfo.trans) { 
-         zobrist = computeHash (sq64);
-         hash = zobrist & MASQMAXTRANSTABLE; 
-         check = zobrist >> 32;
          trTa [hash].eval = note;
          trTa [hash].p = p;
          trTa [hash].used = true;
@@ -730,8 +720,8 @@ int alphaBeta (TGAME sq64, int who, int p, int refAlpha, int refBeta) { /* */
       maxList = buildList (sq64, -1, true, true, list);
       for (k = 0; k < maxList; k++) {
          memcpy (localSq64, sq64, GAMESIZE);
-         // note = doMove (getInfo.trans, localSq64, list [k], p+1, zobrist, &noTrans);
-         doMove0 (localSq64, list [k]);
+         note = doMove (getInfo.trans, localSq64, list [k], p+1, zobrist, &noTrans);
+         //doMove0 (localSq64, list [k]);
          if (noTrans) note = alphaBeta (localSq64, -1, p+1, alpha, beta);
          if (note < val) val = note;   // val = minimum...
          if (alpha > val) return val;
@@ -744,8 +734,8 @@ int alphaBeta (TGAME sq64, int who, int p, int refAlpha, int refBeta) { /* */
       maxList = buildList (sq64, 1, true, true, list);//CORRIGER
       for (k = 0; k < maxList; k++) {
          memcpy (localSq64, sq64, GAMESIZE);
-         //note = doMove (getInfo.trans, localSq64, list [k], p+1, zobrist, &noTrans);
-         doMove0 (localSq64, list [k]);
+         note = doMove (getInfo.trans, localSq64, list [k], p+1, zobrist, &noTrans);
+         //doMove0 (localSq64, list [k]);
          if (noTrans) note = alphaBeta (localSq64, 1, p+1, alpha, beta);
          if (note > val) val = note;   // val = maximum...
          if (beta < val) return val;

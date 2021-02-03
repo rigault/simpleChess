@@ -48,35 +48,40 @@ def play (command) :
    print (game)
    for x in j : 
       if (str(j[x]).strip()) != "" :  print (x, "=", j[x])
-   return j["fen"], score
+   return j ["time"], j["fen"], score
 
 def endurance (fen, level) :
    score = "-"
    while score == "-" :
       # les blancs jouent
-      fen, score = play ("./chess.cgi -vono " + fen + " " + str(level))
+      t1, fen, score = play ("./chess.cgi -vono " + fen + " " + str(level))
       if score == "-" :
          # les noirs jouent
-         fen, score = play ("./chess.cgi -vnno " + fen + " " + str(level))
+         t2, fen, score = play ("./chess.cgi -vnno " + fen + " " + str(level))
 
    return score
 
 def comp (fen, level) :
    nEgal = nDiff = 0
    score = "-"
+   time1 = 0
+   time2 = 0
    while score == "-" :
-      fen1, score = play ("./chess.cgi -qono " + fen + " " + str(level))
-      fen2, score = play ("./chessOld.cgi -qnno " + fen + " " + str(level))
+      t1, fen1, score = play ("./chess.cgi -qono " + fen + " " + str(level))
+      t2, fen2, score = play ("./chess.cgi -qnno " + fen + " " + str(level))
       if fen1 == fen2 : 
          print ("equal")
          nEgal += 1
       else : 
          print ("different")
-         printGame (fen);
-         exit ();
+         printGame (fen)
+         exit ()
          nDiff +=1
       fen = fen1
-   print ("nEgal = ", nEgal, " ; nDiff = ", nDiff); 
+      time1 += t1
+      time2 += t2
+   print ("nEgal = ", nEgal, " ; nDiff = ", nDiff)
+   print ("Time1 = ", time1, " Time2 = ", time2) 
 
 def play2 (fen, level) :
    score = "-"
@@ -88,7 +93,7 @@ def play2 (fen, level) :
    while score == "-" :
       if player :
          move = input ("gamer move (ex : e2e4 or Pe7-e8=Q) : ");
-         fen, score = play ("./chess.cgi -M " + fen + " " + str(level) + " " + move);
+         t1, fen, score = play ("./chess.cgi -M " + fen + " " + str(level) + " " + move);
 
       else : # computer
          fen, score = play ("./chess.cgi -von " + fen + " " + str(level))
