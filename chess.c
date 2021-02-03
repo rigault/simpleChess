@@ -259,19 +259,91 @@ inline int pushMove (TLISTMOVE listMove, int who, int type, int nList, int l1, i
    return nList + 1;
 }
 
-inline void doMove (TGAME sq64, TMOVE move) { /* */
+inline int doMove (bool useTrans, TGAME sq64, TMOVE move, int p, uint64_t pZobrist, bool *noTrans) { /* */
+   /* execute le deplacement */
+   int base, sig;
+   uint64_t zobrist = pZobrist;
+   *noTrans = true;
+   switch (move.type) {
+   case STD:
+      move.taken = sq64 [move.l2][move.c2];
+      if (move.taken == 0) {
+         sq64 [move.l1] [move.c1] = 0;
+         zobrist ^= ZobristTable[move.l1][move.c1][indexOf(move.who)]; 
+         sq64 [move.l2] [move.c2] = move.who;
+         zobrist ^= ZobristTable[move.l2][move.c2][indexOf(move.who)]; 
+      }
+      else {
+         sq64 [move.l1] [move.c1] = 0;
+         zobrist ^= ZobristTable[move.l1][move.c1][indexOf(move.who)]; 
+         sq64 [move.l2] [move.c2] = 0;
+         zobrist ^= ZobristTable[move.l2][move.c2][indexOf(move.taken)]; 
+         sq64 [move.l2] [move.c2] = move.who;
+         zobrist ^= ZobristTable[move.l2][move.c2][indexOf(move.who)]; 
+         /*zobrist2 = computeHash (sq64);
+         if (zobrist == zobrist2) printf ("same\n");
+         else {
+            printf ("different\n");
+            printGame (sq64, 0);
+            exit (0);
+         }*/
+      }
+      break;
+   case PROMOTION:
+      move.taken = sq64 [move.l2][move.c2];
+      sq64 [move.l1] [move.c1] = 0;
+      sq64 [move.l2] [move.c2] = move.who;
+      break;
+   case ENPASSANT:
+      move.taken = sq64 [move.l2][move.c2];
+      sq64 [move.l2] [move.c2] = move.who;
+      sq64 [move.l1] [move.c1] = 0;
+      sq64 [move.l1] [move.c2] = 0;
+      break;
+   case QUEENCASTLESIDE:
+      base = (move.who <= WHITE) ? 0 : 7;
+      sig = (move.who <= WHITE) ? -1 : 1;
+      sq64 [base][0] = 0;
+      sq64 [base][2] = sig * CASTLEKING;
+      sq64 [base][3] = sig * ROOK;
+      sq64 [base][4] = 0;
+      break; 
+   case KINGCASTLESIDE:
+      base = (move.who <= WHITE) ? 0 : 7;
+      sig = (move.who <= WHITE) ? -1 : 1;
+      sq64 [base][4] = 0;
+      sq64 [base][5] = sig * ROOK;
+      sq64 [base][6] = sig * CASTLEKING;
+      sq64 [base][7] = 0; 
+      break; 
+   default:;
+   }
+   if (useTrans && move.type == STD) {
+      uint32_t hash = zobrist & MASQMAXTRANSTABLE; 
+      uint32_t check = zobrist >> 32;
+      if (trTa [hash].used && (trTa [hash].p <= p)) { 
+         if (trTa [hash].check == check) {
+            info.nbMatchTrans += 1;
+            *noTrans = false;
+            return trTa [hash].eval;
+         }
+         else info.nbColl += 1;    // détection de collisions
+      }
+   }
+   return 0;
+}
+
+inline void doMove0 (TGAME sq64, TMOVE move) { /* */
    /* execute le deplacement */
    int base, sig;
    switch (move.type) {
    case STD: case PROMOTION:
       move.taken = sq64 [move.l2][move.c2];
-      sq64 [move.l2] [move.c2] = move.who;
-      //if (sq64 [move.l2][move.c2] == KING) sq64[move.l2][move.c2] = CASTLEKING;
-      //else if (sq64 [move.l2][move.c2] == -KING) sq64[move.l2][move.c2] = -CASTLEKING;
       sq64 [move.l1] [move.c1] = 0;
+      sq64 [move.l2] [move.c2] = move.who;
       break;
    case ENPASSANT:
-      move.taken = sq64 [move.l2][move.c2];;
+      move.taken = sq64 [move.l2][move.c2];
       sq64 [move.l2] [move.c2] = move.who;
       sq64 [move.l1] [move.c1] = 0;
       sq64 [move.l1] [move.c2] = 0;
@@ -504,7 +576,7 @@ bool kingCannotMove (TGAME sq64, register int who) { /* */
    if (maxList == 0) return true;
    for (register int k = 0; k < maxList; k++) {
       memcpy (localSq64, sq64, GAMESIZE);
-      doMove (localSq64, list [k]);
+      doMove0 (localSq64, list [k]);
       if (! fKingInCheck (localSq64, who)) return false; //CORRIGER
    }
    return true;
@@ -618,8 +690,10 @@ int alphaBeta (TGAME sq64, int who, int p, int refAlpha, int refBeta) { /* */
    int alpha = refAlpha;
    int beta = refBeta;
    uint32_t hash = 0, check = 0;
+   bool noTrans = true;
+   uint64_t zobrist = 0;
    if (getInfo.trans) {
-      uint64_t zobrist = computeHash (sq64);
+      zobrist = computeHash (sq64);
       hash = zobrist & MASQMAXTRANSTABLE; 
       check = zobrist >> 32; 
       if (trTa [hash].used && (trTa [hash].p <= p)) { 
@@ -639,11 +713,13 @@ int alphaBeta (TGAME sq64, int who, int p, int refAlpha, int refBeta) { /* */
    if (pat) return 0;
    if (p >= info.maxDepth) {
       if (getInfo.trans) { 
+         zobrist = computeHash (sq64);
+         hash = zobrist & MASQMAXTRANSTABLE; 
+         check = zobrist >> 32;
          trTa [hash].eval = note;
          trTa [hash].p = p;
          trTa [hash].used = true;
          trTa [hash].check = check;
-         // memcpy (trTa [hash].game, sq64, GAMESIZE);
          info.nbTrTa += 1;
       }
       return note;
@@ -654,8 +730,9 @@ int alphaBeta (TGAME sq64, int who, int p, int refAlpha, int refBeta) { /* */
       maxList = buildList (sq64, -1, true, true, list);
       for (k = 0; k < maxList; k++) {
          memcpy (localSq64, sq64, GAMESIZE);
-         doMove (localSq64, list [k]);
-         note = alphaBeta (localSq64, -1, p+1, alpha, beta);
+         // note = doMove (getInfo.trans, localSq64, list [k], p+1, zobrist, &noTrans);
+         doMove0 (localSq64, list [k]);
+         if (noTrans) note = alphaBeta (localSq64, -1, p+1, alpha, beta);
          if (note < val) val = note;   // val = minimum...
          if (alpha > val) return val;
          if (val < beta) beta = val;   // beta = MIN (beta, val);
@@ -667,8 +744,9 @@ int alphaBeta (TGAME sq64, int who, int p, int refAlpha, int refBeta) { /* */
       maxList = buildList (sq64, 1, true, true, list);//CORRIGER
       for (k = 0; k < maxList; k++) {
          memcpy (localSq64, sq64, GAMESIZE);
-         doMove (localSq64, list [k]);
-         note = alphaBeta (localSq64, 1, p+1, alpha, beta);
+         //note = doMove (getInfo.trans, localSq64, list [k], p+1, zobrist, &noTrans);
+         doMove0 (localSq64, list [k]);
+         if (noTrans) note = alphaBeta (localSq64, 1, p+1, alpha, beta);
          if (note > val) val = note;   // val = maximum...
          if (beta < val) return val;
          if (val > alpha) alpha = val; // alpha = max (alpha, val);
@@ -815,7 +893,7 @@ int computerPlay () { /* */
       if (getInfo.multi) { // Multi thread
          for (k = 0; k < nextL; k++) {
             memcpy (info.moveList [k].jeu, sq64, GAMESIZE);
-            doMove (info.moveList [k].jeu, info.moveList[k].move);
+            doMove0 (info.moveList [k].jeu, info.moveList[k].move);
             if (pthread_create (&tThread [k], NULL, fThread, (void *) k)) {
                strcpy (info.comment, "ERR: pthread_create");
                return 0;
@@ -830,7 +908,7 @@ int computerPlay () { /* */
       else {
          for (k = 0; k < nextL; k++) {
             memcpy (info.moveList [k].jeu, sq64, GAMESIZE);
-            doMove (info.moveList [k].jeu, info.moveList [k].move);
+            doMove0 (info.moveList [k].jeu, info.moveList [k].move);
             info.moveList[k].eval = alphaBeta (info.moveList [k].jeu, -gamer.color, 0, -MATE, MATE);
          }
       }
