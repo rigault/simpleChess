@@ -67,7 +67,7 @@ def comp (fen, level) :
    time1 = 0
    time2 = 0
    while score == "-" :
-      t1, fen1, score = play ("./chess.cgi -vnno " + fen + " " + str(level))
+      t1, fen1, score = play ("./chess.cgi -vono " + fen + " " + str(level))
       t2, fen2, score = play ("./chessOld.cgi -vnno " + fen + " " + str(level))
       if fen1 == fen2 : 
          print ("equal")
