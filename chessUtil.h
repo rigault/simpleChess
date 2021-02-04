@@ -58,7 +58,7 @@ typedef struct {                             // structure decrivant un deplaceme
 enum {VOID, PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING, CASTLEKING};            // VOID car PAWN = 1, ...
 enum KingState {NOEXIST, EXIST, ISINCHECK, UNVALIDINCHECK, ISMATE, ISPAT};   // type etat  
 enum Score {ERROR, ONGOING, BLACKWIN, DRAW, WHITEWIN};                       // type scores finaux
-enum {STD, ENPASSANT, KINGCASTLESIDE, QUEENCASTLESIDE, PROMOTION};
+enum {STD, ENPASSANT, KINGCASTLESIDE, QUEENCASTLESIDE, PROMOTION, CHANGEKING};
 
 struct Sinfo {
    int nbThread;                    // nombre de thread sur l'architecture utilisee

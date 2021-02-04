@@ -17,6 +17,7 @@
 #define MASQMAXTRANSTABLE 0x1fffffff            // 29 bits a 1 : 2 puissance 29-1 > 500  millions
 //#define MASQMAXTRANSTABLE 0x0ffffff          // 24 bits a 1 : 2 puisssance 24 - 1 
 #define MAXTRANSTABLE (MASQMAXTRANSTABLE + 1)
+
 #define WHO(x)    ((x==-1)?0:0xffffffff)        //
 
 #include <unistd.h>
@@ -259,19 +260,22 @@ inline int pushMove (TLISTMOVE listMove, int who, int type, int nList, int l1, i
    return nList + 1;
 }
 
-inline int doMove (bool useTrans, TGAME sq64, TMOVE move, int p, uint64_t pZobrist, bool *noTrans) { /* */
+inline int doMove (bool useTrans, TGAME sq64, TMOVE move, int p, uint64_t zobrist, bool *noTrans) { /* */
    /* execute le deplacement */
-   int base, sig;
-   uint64_t zobrist = pZobrist;
+   int base;
+   // uint64_t zobrist2; 
+   int sig = (move.who <= WHITE) ? -1 : 1;
    *noTrans = true;
    switch (move.type) {
-   case STD:
+   case STD: case PROMOTION: case CHANGEKING:
       move.taken = sq64 [move.l2][move.c2];
       if (move.taken == 0) {
          sq64 [move.l1] [move.c1] = 0;
          zobrist ^= ZobristTable[move.l1][move.c1][indexOf(move.who)]; 
          sq64 [move.l2] [move.c2] = move.who;
          zobrist ^= ZobristTable[move.l2][move.c2][indexOf(move.who)]; 
+         if (move.type == CHANGEKING) {
+         }
       }
       else {
          sq64 [move.l1] [move.c1] = 0;
@@ -280,20 +284,14 @@ inline int doMove (bool useTrans, TGAME sq64, TMOVE move, int p, uint64_t pZobri
          zobrist ^= ZobristTable[move.l2][move.c2][indexOf(move.taken)]; 
          sq64 [move.l2] [move.c2] = move.who;
          zobrist ^= ZobristTable[move.l2][move.c2][indexOf(move.who)]; 
-         /*zobrist2 = computeHash (sq64);
-         if (zobrist == zobrist2) printf ("same\n");
-         else {
-            printf ("different\n");
-            printGame (sq64, 0);
-            exit (0);
-         }*/
       }
       break;
-   case PROMOTION:
-      move.taken = sq64 [move.l2][move.c2];
-      sq64 [move.l1] [move.c1] = 0;
-      sq64 [move.l2] [move.c2] = move.who;
-      break;
+      /*zobrist2 = computeHash (sq64);
+      if (zobrist != zobrist2) {
+         printf ("different\n");
+         printGame (sq64, 0);
+         exit (0);
+      }*/
    case ENPASSANT:
       move.taken = sq64 [move.l2][move.c2];
       sq64 [move.l2] [move.c2] = move.who;
@@ -302,7 +300,6 @@ inline int doMove (bool useTrans, TGAME sq64, TMOVE move, int p, uint64_t pZobri
       break;
    case QUEENCASTLESIDE:
       base = (move.who <= WHITE) ? 0 : 7;
-      sig = (move.who <= WHITE) ? -1 : 1;
       sq64 [base][0] = 0;
       sq64 [base][2] = sig * CASTLEKING;
       sq64 [base][3] = sig * ROOK;
@@ -310,7 +307,6 @@ inline int doMove (bool useTrans, TGAME sq64, TMOVE move, int p, uint64_t pZobri
       break; 
    case KINGCASTLESIDE:
       base = (move.who <= WHITE) ? 0 : 7;
-      sig = (move.who <= WHITE) ? -1 : 1;
       sq64 [base][4] = 0;
       sq64 [base][5] = sig * ROOK;
       sq64 [base][6] = sig * CASTLEKING;
@@ -318,7 +314,7 @@ inline int doMove (bool useTrans, TGAME sq64, TMOVE move, int p, uint64_t pZobri
       break; 
    default:;
    }
-   if (useTrans && move.type == STD) {
+   if (useTrans && (move.type == STD||move.type == PROMOTION || move.type == CHANGEKING)) {
       uint32_t hash = zobrist & MASQMAXTRANSTABLE; 
       uint32_t check = zobrist >> 32;
       if (trTa [hash].used && (trTa [hash].p <= p)) { 
@@ -335,12 +331,14 @@ inline int doMove (bool useTrans, TGAME sq64, TMOVE move, int p, uint64_t pZobri
 
 inline void doMove0 (TGAME sq64, TMOVE move) { /* */
    /* execute le deplacement */
-   int base, sig;
+   int base;
+   int sig = (move.who <= WHITE) ? -1 : 1;
    switch (move.type) {
-   case STD: case PROMOTION:
+   case STD: case PROMOTION: case CHANGEKING:
       move.taken = sq64 [move.l2][move.c2];
       sq64 [move.l1] [move.c1] = 0;
       sq64 [move.l2] [move.c2] = move.who;
+      if (move.type == CHANGEKING) move.who = sig * CASTLEKING;
       break;
    case ENPASSANT:
       move.taken = sq64 [move.l2][move.c2];
@@ -350,7 +348,6 @@ inline void doMove0 (TGAME sq64, TMOVE move) { /* */
       break;
    case QUEENCASTLESIDE:
       base = (move.who <= WHITE) ? 0 : 7;
-      sig = (move.who <= WHITE) ? -1 : 1;
       sq64 [base][0] = 0;
       sq64 [base][2] = sig * CASTLEKING;
       sq64 [base][3] = sig * ROOK;
@@ -358,7 +355,6 @@ inline void doMove0 (TGAME sq64, TMOVE move) { /* */
       break; 
    case KINGCASTLESIDE:
       base = (move.who <= WHITE) ? 0 : 7;
-      sig = (move.who <= WHITE) ? -1 : 1;
       sq64 [base][4] = 0;
       sq64 [base][5] = sig * ROOK;
       sq64 [base][6] = sig * CASTLEKING;
@@ -448,19 +444,19 @@ int buildList (TGAME refJeu, register int who, bool kingSide, bool queenSide, TL
             break;
          case KING: case CASTLEKING:
             if (c < 7 && (u * refJeu [l][c+1] <= 0))
-               nList = pushMove (listMove, who*CASTLEKING, 0, nList, l, c, l, c+1);
+               nList = pushMove (listMove, who*CASTLEKING, CHANGEKING, nList, l, c, l, c+1);
             if (c > 0 && (u * refJeu [l][c-1] <= 0))
-               nList = pushMove (listMove, who*CASTLEKING, 0, nList, l, c, l, c-1);
+               nList = pushMove (listMove, who*CASTLEKING, CHANGEKING,nList, l, c, l, c-1);
             if (l < 7 && (u * refJeu [l+1][c] <= 0))
-               nList = pushMove (listMove, who*CASTLEKING, 0, nList, l, c, l+1, c);
+               nList = pushMove (listMove, who*CASTLEKING, CHANGEKING, nList, l, c, l+1, c);
             if (l > 0 && (u * refJeu [l-1][c] <= 0))
-               nList = pushMove (listMove, who*CASTLEKING, 0, nList, l, c, l-1, c);
+               nList = pushMove (listMove, who*CASTLEKING, CHANGEKING, nList, l, c, l-1, c);
             if ((l < 7) && (c < 7) && (u * refJeu [l+1][c+1] <= 0))
-               nList = pushMove (listMove, who*CASTLEKING, 0, nList, l, c, l+1, c+1);
+               nList = pushMove (listMove, who*CASTLEKING, CHANGEKING, nList, l, c, l+1, c+1);
             if ((l < 7) && (c > 0) && (u * refJeu [l+1][c-1] <= 0))
-               nList = pushMove (listMove, who*CASTLEKING, 0, nList, l, c, l+1, c-1);
+               nList = pushMove (listMove, who*CASTLEKING, CHANGEKING, nList, l, c, l+1, c-1);
             if ((l > 0) && (c < 7) && (u * refJeu [l-1][c+1] <= 0))
-               nList = pushMove (listMove, who*CASTLEKING, 0, nList, l, c, l-1, c+1);
+               nList = pushMove (listMove, who*CASTLEKING, CHANGEKING, nList, l, c, l-1, c+1);
             if ((l > 0) && (c > 0) && (u * refJeu [l-1][c-1] <= 0))
                nList = pushMove (listMove, who*CASTLEKING, 0, nList, l, c, l-1, c-1);
             break;
