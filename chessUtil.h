@@ -53,6 +53,7 @@ typedef struct {                             // structure decrivant un deplaceme
    TMOVE move;
    char strMove [MAXSTRMOVE];
    int eval;
+   uint64_t zobrist;
 } TMOVEINFO;
 
 enum {VOID, PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING, CASTLEKING};            // VOID car PAWN = 1, ...
