@@ -265,9 +265,10 @@ inline int doMove (bool useTrans, TGAME sq64, TMOVE move, int p, uint64_t zobris
    int base;
    // uint64_t zobrist2; 
    int sig = (move.who <= WHITE) ? -1 : 1;
+   int old = 0;
    *noTrans = true;
    switch (move.type) {
-   case STD: case PROMOTION: case CHANGEKING:
+   case STD: case PROMOTION:
       move.taken = sq64 [move.l2][move.c2];
       if (move.taken == 0) {
          sq64 [move.l1] [move.c1] = 0;
@@ -286,35 +287,66 @@ inline int doMove (bool useTrans, TGAME sq64, TMOVE move, int p, uint64_t zobris
          zobrist ^= ZobristTable[move.l2][move.c2][indexOf(move.who)]; 
       }
       break;
-      /*zobrist2 = computeHash (sq64);
-      if (zobrist != zobrist2) {
-         printf ("different\n");
-         printGame (sq64, 0);
-         exit (0);
-      }*/
-   case ENPASSANT:
+   case CHANGEKING:
+      old = sq64 [move.l1][move.c1];
       move.taken = sq64 [move.l2][move.c2];
-      sq64 [move.l2] [move.c2] = move.who;
+      if (move.taken == 0) {
+         sq64 [move.l1] [move.c1] = 0;
+         zobrist ^= ZobristTable[move.l1][move.c1][indexOf(old)]; 
+         sq64 [move.l2] [move.c2] = sig * CASTLEKING;
+         zobrist ^= ZobristTable[move.l2][move.c2][indexOf(sig*CASTLEKING)]; 
+      }
+      else {
+         sq64 [move.l1] [move.c1] = 0;
+         zobrist ^= ZobristTable[move.l1][move.c1][indexOf(old)]; 
+         sq64 [move.l2] [move.c2] = 0;
+         zobrist ^= ZobristTable[move.l2][move.c2][indexOf(move.taken)]; 
+         sq64 [move.l2] [move.c2] = sig * CASTLEKING;
+         zobrist ^= ZobristTable[move.l2][move.c2][indexOf(sig*CASTLEKING)]; 
+      }
+      break;
+   case ENPASSANT:
+      move.taken = sq64 [move.l1][move.c2];
       sq64 [move.l1] [move.c1] = 0;
+      zobrist ^= ZobristTable[move.l1][move.c1][indexOf(move.who)]; 
+      sq64 [move.l2] [move.c2] = move.who;
+      zobrist ^= ZobristTable[move.l2][move.c2][indexOf(move.who)]; 
       sq64 [move.l1] [move.c2] = 0;
+      zobrist ^= ZobristTable[move.l1][move.c2][indexOf(move.taken)]; 
       break;
    case QUEENCASTLESIDE:
       base = (move.who <= WHITE) ? 0 : 7;
       sq64 [base][0] = 0;
-      sq64 [base][2] = sig * CASTLEKING;
+      zobrist ^= ZobristTable[base][0][indexOf(sig*ROOK)]; 
       sq64 [base][3] = sig * ROOK;
+      zobrist ^= ZobristTable[base][3][indexOf(sig*ROOK)]; 
       sq64 [base][4] = 0;
+      zobrist ^= ZobristTable[base][4][indexOf(sig*KING)]; 
+      sq64 [base][2] = sig * CASTLEKING;
+      zobrist ^= ZobristTable[base][2][indexOf(sig*CASTLEKING)];
       break; 
    case KINGCASTLESIDE:
       base = (move.who <= WHITE) ? 0 : 7;
-      sq64 [base][4] = 0;
+      sq64 [base][7] = 0;
+      zobrist ^= ZobristTable[base][7][indexOf(sig*ROOK)]; 
       sq64 [base][5] = sig * ROOK;
+      zobrist ^= ZobristTable[base][5][indexOf(sig*ROOK)]; 
+      sq64 [base][4] = 0;
+      zobrist ^= ZobristTable[base][4][indexOf(sig*KING)]; 
       sq64 [base][6] = sig * CASTLEKING;
-      sq64 [base][7] = 0; 
+      zobrist ^= ZobristTable[base][6][indexOf(sig*CASTLEKING)];
       break; 
    default:;
    }
-   if (useTrans && (move.type == STD||move.type == PROMOTION || move.type == CHANGEKING)) {
+   /*zobrist2 = computeHash (sq64);
+   if (zobrist != zobrist2) {
+      printf ("sig %d who %d l1 %d c1 %d l2 %d c2 %d\n", sig, move.who, move.l1, move.c1, move.l2, move.c2); 
+      printf ("different in chess.c doMove\n");
+      printGame (sq64, 0);
+      exit (0);
+   }
+   */
+   if (useTrans) {
       uint32_t hash = zobrist & MASQMAXTRANSTABLE; 
       uint32_t check = zobrist >> 32;
       if (trTa [hash].used && (trTa [hash].p <= p)) { 

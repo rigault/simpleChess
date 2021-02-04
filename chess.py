@@ -67,13 +67,13 @@ def comp (fen, level) :
    time1 = 0
    time2 = 0
    while score == "-" :
-      t1, fen1, score = play ("./chess.cgi -qnno " + fen + " " + str(level))
+      t1, fen1, score = play ("./chess.cgi -qono " + fen + " " + str(level))
       t2, fen2, score = play ("./chessOld.cgi -qnno " + fen + " " + str(level))
       if fen1 == fen2 : 
          print ("equal")
          nEgal += 1
       else : 
-         print ("different")
+         print ("different in chess.py com")
          printGame (fen)
          exit ()
          nDiff +=1
