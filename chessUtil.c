@@ -30,7 +30,7 @@ int charToInt (int c) { /* */
 void moveToStr (TMOVE move, char str [MAXSTRMOVE]) { /* */
    /* traduit move en chaine algébrique */
    switch (move.type) {
-   case STD: case PROMOTION: case ENPASSANT:
+   case STD: case PROMOTION: case ENPASSANT: case CHANGEKING:
       str [0] = (move.who == 0) ? '?' : dict [abs(move.who)];
       str [1] = move.c1 + 'a';
       str [2] = move.l1 + '1';

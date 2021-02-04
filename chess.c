@@ -857,7 +857,7 @@ int computerPlay () { /* */
       strcpy (info.comment, "ERR: no move. Strange");
       return 0; // impossible de jouer... Bizarre
    }
-   for (k = 0; k < nextL; k++) { // entegisteent des move possibles au niveau 0 dans info
+   for (k = 0; k < nextL; k++) { // entegistement des move possibles au niveau 0 dans info
       memcpy (&info.moveList [k].move, &listMove [k], sizeof (TMOVE));
       info.moveList [k].move.taken = sq64 [listMove [k].l2][listMove [k].c2]; 
       moveToStr (info.moveList [k].move, info.moveList [k].strMove);
