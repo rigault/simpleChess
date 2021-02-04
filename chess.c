@@ -367,7 +367,6 @@ inline void doMove0 (TGAME sq64, TMOVE move) { /* */
    default:;
    }
 }
-
 int buildListEnPassant (TGAME refJeu, int who, char *epGamer, TLISTMOVE listMove, int nextL) { /* */
    /* apporte le complement de positions a buildList prenant en compte en Passant suggere par le joueur */
    int nList = nextL;
@@ -696,6 +695,13 @@ int alphaBeta (TGAME sq64, int who, int p, int refAlpha, int refBeta) { /* */
       zobrist = computeHash (sq64);
       hash = zobrist & MASQMAXTRANSTABLE; 
       check = zobrist >> 32; 
+      if (trTa [hash].used && (trTa [hash].p <= p)) { 
+         if (trTa [hash].check == check) {
+            info.nbMatchTrans += 1;
+            return (trTa [hash].eval);
+         }
+         else info.nbColl += 1;    // détection de collisions
+      }
    }
    if (info.calculatedMaxDepth < p) info.calculatedMaxDepth = p;
    note = evaluation (sq64, who, &pat);
@@ -706,10 +712,13 @@ int alphaBeta (TGAME sq64, int who, int p, int refAlpha, int refBeta) { /* */
    if (pat) return 0;
    if (p >= info.maxDepth) {
       if (getInfo.trans) { 
+         zobrist = computeHash (sq64);
+         hash = zobrist & MASQMAXTRANSTABLE; 
          trTa [hash].eval = note;
          trTa [hash].p = p;
          trTa [hash].used = true;
-         trTa [hash].check = check;
+         trTa [hash].check = zobrist >> 32;
+         // memcpy (trTa [hash].game, sq64, GAMESIZE);
          info.nbTrTa += 1;
       }
       return note;
@@ -720,8 +729,7 @@ int alphaBeta (TGAME sq64, int who, int p, int refAlpha, int refBeta) { /* */
       maxList = buildList (sq64, -1, true, true, list);
       for (k = 0; k < maxList; k++) {
          memcpy (localSq64, sq64, GAMESIZE);
-         note = doMove (getInfo.trans, localSq64, list [k], p+1, zobrist, &noTrans);
-         //doMove0 (localSq64, list [k]);
+         doMove0 (localSq64, list [k]);
          if (noTrans) note = alphaBeta (localSq64, -1, p+1, alpha, beta);
          if (note < val) val = note;   // val = minimum...
          if (alpha > val) return val;
@@ -734,8 +742,7 @@ int alphaBeta (TGAME sq64, int who, int p, int refAlpha, int refBeta) { /* */
       maxList = buildList (sq64, 1, true, true, list);//CORRIGER
       for (k = 0; k < maxList; k++) {
          memcpy (localSq64, sq64, GAMESIZE);
-         note = doMove (getInfo.trans, localSq64, list [k], p+1, zobrist, &noTrans);
-         //doMove0 (localSq64, list [k]);
+         doMove0 (localSq64, list [k]);
          if (noTrans) note = alphaBeta (localSq64, 1, p+1, alpha, beta);
          if (note > val) val = note;   // val = maximum...
          if (beta < val) return val;
@@ -799,6 +806,8 @@ int computerPlay () { /* */
    TGAME localSq64;
    struct timeval tRef;
    int lGK, cGK, lCK, cCK; // ligne colonnes Gamer et Computer King 
+   uint64_t zobrist = 0;
+   bool noTrans = true;
    lGK = cGK = lCK = cCK = -1,
    info.wdl = -1;                    // valeur inatteignable montrant que syzygy n'a pas ete appelee
    info.nbThread = (getInfo.multi) ? sysconf (_SC_NPROCESSORS_CONF) : 1;
@@ -879,11 +888,13 @@ int computerPlay () { /* */
          }
       }
    if (status == INIT) {
+      if (getInfo.trans) zobrist = computeHash (sq64);
       // recherche par la methode minimax Alphabeta
       if (getInfo.multi) { // Multi thread
          for (k = 0; k < nextL; k++) {
             memcpy (info.moveList [k].jeu, sq64, GAMESIZE);
-            doMove0 (info.moveList [k].jeu, info.moveList[k].move);
+            doMove (getInfo.trans, info.moveList [k].jeu, info.moveList [k].move, 0, zobrist, &noTrans);
+            // doMove0 (info.moveList [k].jeu, info.moveList[k].move);
             if (pthread_create (&tThread [k], NULL, fThread, (void *) k)) {
                strcpy (info.comment, "ERR: pthread_create");
                return 0;
@@ -898,7 +909,8 @@ int computerPlay () { /* */
       else {
          for (k = 0; k < nextL; k++) {
             memcpy (info.moveList [k].jeu, sq64, GAMESIZE);
-            doMove0 (info.moveList [k].jeu, info.moveList [k].move);
+            doMove (getInfo.trans, info.moveList [k].jeu, info.moveList [k].move, 0, zobrist, &noTrans);
+            // doMove0 (info.moveList [k].jeu, info.moveList [k].move);
             info.moveList[k].eval = alphaBeta (info.moveList [k].jeu, -gamer.color, 0, -MATE, MATE);
          }
       }
