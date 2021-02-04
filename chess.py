@@ -54,10 +54,10 @@ def endurance (fen, level) :
    score = "-"
    while score == "-" :
       # les blancs jouent
-      t1, fen, score = play ("./chess.cgi -vono " + fen + " " + str(level))
+      t1, fen, score = play ("./chess.cgi -vnno " + fen + " " + str(level))
       if score == "-" :
          # les noirs jouent
-         t2, fen, score = play ("./chess.cgi -vnno " + fen + " " + str(level))
+         t2, fen, score = play ("./chess.cgi -vono " + fen + " " + str(level))
 
    return score
 
@@ -67,15 +67,15 @@ def comp (fen, level) :
    time1 = 0
    time2 = 0
    while score == "-" :
-      t1, fen1, score = play ("./chess.cgi -qono " + fen + " " + str(level))
-      t2, fen2, score = play ("./chessOld.cgi -qnno " + fen + " " + str(level))
+      t1, fen1, score = play ("./chess.cgi -vnno " + fen + " " + str(level))
+      t2, fen2, score = play ("./chessOld.cgi -vnno " + fen + " " + str(level))
       if fen1 == fen2 : 
          print ("equal")
          nEgal += 1
       else : 
          print ("different in chess.py com")
-         printGame (fen)
-         exit ()
+#         printGame (fen)
+#         exit ()
          nDiff +=1
       fen = fen1
       time1 += t1

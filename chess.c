@@ -104,7 +104,6 @@ int fMaxDepth (int lev, int nGamerPos, int nComputerPos) { /* */
    /* de l'etat du jeu */
    const struct { int v; int inc;
    } val [] = {{12, 7}, {25, 6}, {50, 5}, {100, 4}, {200, 3}, {400, 2},  {600, 1}};
-
    int prod = nComputerPos * nGamerPos;
    for (int i = 0; i < 7; i++)
       if (prod < val [i].v) return val [i].inc + lev;
@@ -263,7 +262,7 @@ inline int pushMove (TLISTMOVE listMove, int who, int type, int nList, int l1, i
 inline int doMove (bool useTrans, TGAME sq64, TMOVE move, int p, uint64_t zobrist, bool *noTrans) { /* */
    /* execute le deplacement */
    int base;
-   // uint64_t zobrist2; 
+   uint64_t zobrist2; 
    int sig = (move.who <= WHITE) ? -1 : 1;
    int old = 0;
    *noTrans = true;
@@ -273,10 +272,9 @@ inline int doMove (bool useTrans, TGAME sq64, TMOVE move, int p, uint64_t zobris
       if (move.taken == 0) {
          sq64 [move.l1] [move.c1] = 0;
          zobrist ^= ZobristTable[move.l1][move.c1][indexOf(move.who)]; 
+      if (sq64[move.l2][move.c2] != 0) printf ("ERROR: %d\n", sq64[move.l2][move.c2]);
          sq64 [move.l2] [move.c2] = move.who;
          zobrist ^= ZobristTable[move.l2][move.c2][indexOf(move.who)]; 
-         if (move.type == CHANGEKING) {
-         }
       }
       else {
          sq64 [move.l1] [move.c1] = 0;
@@ -338,14 +336,14 @@ inline int doMove (bool useTrans, TGAME sq64, TMOVE move, int p, uint64_t zobris
       break; 
    default:;
    }
-   /*zobrist2 = computeHash (sq64);
+/*   zobrist2 = computeHash (sq64);
    if (zobrist != zobrist2) {
-      printf ("sig %d who %d l1 %d c1 %d l2 %d c2 %d\n", sig, move.who, move.l1, move.c1, move.l2, move.c2); 
+      printf ("type %d taken %d who %d l1 %d c1 %d l2 %d c2 %d\n", move.type, move.taken, move.who, move.l1, move.c1, move.l2, move.c2); 
       printf ("different in chess.c doMove\n");
       printGame (sq64, 0);
       exit (0);
    }
-   */
+   
    if (useTrans) {
       uint32_t hash = zobrist & MASQMAXTRANSTABLE; 
       uint32_t check = zobrist >> 32;
@@ -357,7 +355,7 @@ inline int doMove (bool useTrans, TGAME sq64, TMOVE move, int p, uint64_t zobris
          }
          else info.nbColl += 1;    // détection de collisions
       }
-   }
+   }*/
    return 0;
 }
 
@@ -757,7 +755,8 @@ int alphaBeta (TGAME sq64, int who, int p, int refAlpha, int refBeta) { /* */
       maxList = buildList (sq64, -1, true, true, list);
       for (k = 0; k < maxList; k++) {
          memcpy (localSq64, sq64, GAMESIZE);
-         doMove0 (localSq64, list [k]);
+         doMove (getInfo.trans, localSq64, list[k], p+1, zobrist, &noTrans);
+         // doMove0 (localSq64, list [k]);
          if (noTrans) note = alphaBeta (localSq64, -1, p+1, alpha, beta);
          if (note < val) val = note;   // val = minimum...
          if (alpha > val) return val;
@@ -770,7 +769,8 @@ int alphaBeta (TGAME sq64, int who, int p, int refAlpha, int refBeta) { /* */
       maxList = buildList (sq64, 1, true, true, list);//CORRIGER
       for (k = 0; k < maxList; k++) {
          memcpy (localSq64, sq64, GAMESIZE);
-         doMove0 (localSq64, list [k]);
+         doMove (getInfo.trans, localSq64, list[k], p+1, zobrist, &noTrans);
+         //doMove0 (localSq64, list [k]);
          if (noTrans) note = alphaBeta (localSq64, 1, p+1, alpha, beta);
          if (note > val) val = note;   // val = maximum...
          if (beta < val) return val;
