@@ -6,7 +6,9 @@ WHITE = (-1)
 BLACK = 1
 HELP = "usage: ./chess.py -e|-c|-p"
 fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR+w+KQkq+-+0+0"
-level = 4
+curl1 = 'curl -s "http://23.251.143.190/cgi-bin/chess.cgi?reqType=2&level=4&noalea&notrans&fen='
+curl2 = 'curl -s "http://23.251.143.190/cgi-bin/chess.cgi?reqType=2&level=4&noalea&fen='
+level = 3
 unicode = {"p": "♟", 'n' : "♞", "b":"♝", "r":"♜", "q":"♛", "k":"♚"};
 
 def printGame (fen) :
@@ -69,6 +71,9 @@ def comp (fen, level) :
    while score == "-" :
       t1, fen1, score = play ("./chess.cgi -vono " + fen + " " + str(level))
       t2, fen2, score = play ("./chess.cgi -vnno " + fen + " " + str(level))
+      #t1, fen1, score = play (curl1 + fen + '"')
+      #t2, fen2, score = play (curl2 + fen + '"')
+      
       if fen1 == fen2 : 
          print ("equal")
          nEgal += 1

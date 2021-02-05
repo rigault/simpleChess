@@ -48,7 +48,7 @@ struct {                           // description de la requete emise par le cli
 
 TGAME sq64;
 TLISTMOVE listMove;
-int nextL; // nombre total utilisé dans la file
+int nextL;                         // nombre total utilisé dans la file
 
 typedef struct  {                  // tables de transposition
    int16_t eval;                   // derniere eval
@@ -76,7 +76,8 @@ void initTable() { /* */
 }
 
   
-int indexOf (int v) {
+inline int indexOf (int v) { /* */
+   /* index d'une piece pour transposition table */
    return (v > 0) ? v - 1 : (-v + 6); // 0=pion noir, 13=roiroque blanc
 }
 
@@ -88,7 +89,7 @@ uint64_t computeHash (TGAME sq64) { /* */
    for (int c = 0; c < N; c++)  {
       for (int l = 0; l < 8; l++) {
          if ((v = sq64[l][c]) != 0) { // Case vide non prise en compte
-            piece = (v > 0) ? v - 1 : (-v + 6); // 0=pion noir, 13=roiroque blanc
+            piece = indexOf (v); // 0=pion noir, 13=roiroque blanc
             h ^= ZobristTable[l][c][piece];
           }
        }
@@ -257,7 +258,7 @@ inline int pushMove (TLISTMOVE listMove, int who, int type, int nList, int l1, i
    return nList + 1;
 }
 
-uint64_t doMove (TGAME sq64, TMOVE move, uint64_t zobrist) { /* */
+inline uint64_t doMove (TGAME sq64, TMOVE move, uint64_t zobrist) { /* */
    /* execute le deplacement */
    /* renvoie le nouveau zobrist */
    int base;
@@ -388,6 +389,7 @@ inline void doMove0 (TGAME sq64, TMOVE move) { /* */
    default:;
    }
 }
+
 int buildListEnPassant (TGAME refJeu, int who, char *epGamer, TLISTMOVE listMove, int nextL) { /* */
    /* apporte le complement de positions a buildList prenant en compte en Passant suggere par le joueur */
    int nList = nextL;
@@ -711,6 +713,7 @@ int alphaBeta (TGAME sq64, int who, int p, int refAlpha, int refBeta, uint64_t z
    int beta = refBeta;
    uint64_t newZobrist = 0;
    uint32_t hash = 0, check = 0;
+   bool end = false;
    // uint64_t zobrist = computeHash (sq64);
    if (info.calculatedMaxDepth < p) info.calculatedMaxDepth = p;
    if (getInfo.trans) {
@@ -725,6 +728,10 @@ int alphaBeta (TGAME sq64, int who, int p, int refAlpha, int refBeta, uint64_t z
       }
    }
    note = evaluation (sq64, who, &pat);
+   // conditions de fin de jeu
+   if (note >= MATE) { end = true; note -= p; }   // -p pour favoriser le choix avec faible profondeur
+   if (note <= -MATE) { end = true; note += p; }  // +p idem
+   if (pat) { end = true; note = 0; }
    if (p >= info.maxDepth) {
       if (getInfo.trans) { 
          trTa [hash].eval = note;
@@ -735,10 +742,8 @@ int alphaBeta (TGAME sq64, int who, int p, int refAlpha, int refBeta, uint64_t z
       }
       return note;
    }
-   // conditions de fin de jeu
-   if (note >= MATE) return note - p;   // -p pour favoriser le choix avec faible profondeur
-   if (note <= -MATE) return note + p;  // +p idem
-   if (pat) return 0;
+   if (end) return note;
+   
    // pire des notes a ameliorer
    if (who == 1) {
       val = MATE;
@@ -1077,19 +1082,6 @@ int main (int argc, char *argv[]) { /* */
          printf ("buildList. clock: %lf\n", (double) (clock () - info.nClock)/CLOCKS_PER_SEC);
          break;
       case 't': // tests
-         /*printf ("---------------------------------------");
-         nextL = buildList (sq64, -gamer.color, true, true, listMove);
-         for (int i = 0; i < nextL; i++) {
-            memcpy (localSq64, sq64, GAMESIZE);
-            doMove (localSq64, listMove [i]);
-            printGame (localSq64, evaluation (localSq64, gamer.color, &info.pat));
-            gameToFen (localSq64, fen, gamer.color, '+', true, computer.ep, info.cpt50, info.nb);
-            printf ("fen :%s\n", fen); 
-            moveToStr (listMove [i], str);
-            printf ("Move: %s\n", str);
-         }
-         printf ("----------------------------------------------------");
-         */
          printGame (sq64, evaluation (sq64, -gamer.color, &info.pat));
          break;
       case 'd': case 'D': // display
@@ -1109,25 +1101,11 @@ int main (int argc, char *argv[]) { /* */
          uint64_t hashValue = computeHash (sq64); 
          printf("The hash value is     : %lu\n", hashValue); 
          uint8_t piece = sq64[0][3]; 
-  
          sq64 [0][3] = 0; 
          hashValue ^= ZobristTable[0][3][indexOf(piece)]; 
-  
          sq64 [0][2] = piece; 
          hashValue ^= ZobristTable[0][2][indexOf(piece)]; 
-  
          printf("The new hash value is : %lu\n", hashValue); 
-  
-         // Undo the white king move 
-         piece = sq64[0][2]; 
-  
-         sq64[0][2] = 9; 
-         hashValue ^= ZobristTable[0][2][indexOf(piece)]; 
-  
-         sq64[0][3] = piece; 
-         hashValue ^= ZobristTable[0][3][indexOf(piece)]; 
-  
-         printf("The old hash value is : %lu\n", hashValue); 
       break;
       default:
          printf ("%s\n", HELP);
