@@ -14,11 +14,8 @@
 /*   Noirs : positifs  (Minuscules) */
 /*   Blancs : negatifs  (Majuscules) */
 
-#define MASQMAXTRANSTABLE 0x1fffffff            // 29 bits a 1 : 2 puissance 29-1 > 500  millions
-//#define MASQMAXTRANSTABLE 0x0ffffff          // 24 bits a 1 : 2 puisssance 24 - 1 
+#define MASQMAXTRANSTABLE 0x0ffffff            // 29 bits a 1 : 2 puissance 29-1 > 500  millions
 #define MAXTRANSTABLE (MASQMAXTRANSTABLE + 1)
-
-#define WHO(x)    ((x==-1)?0:0xffffffff)        //
 
 #include <unistd.h>
 #include <stdint.h>
@@ -61,6 +58,7 @@ typedef struct  {                  // tables de transposition
 //   TGAME game;
 } StrTa;
 StrTa *trTa = NULL;                // Ce pointeur va servir de tableau après l'appel du malloc
+// StrTa trTa [MAXTRANSTABLE];           // Tableau tables transpo
 
 uint64_t ZobristTable[8][8][14];   // 14 combinaisons avec RoiRoque
 
@@ -259,46 +257,46 @@ inline int pushMove (TLISTMOVE listMove, int who, int type, int nList, int l1, i
    return nList + 1;
 }
 
-inline int doMove (bool useTrans, TGAME sq64, TMOVE move, int p, uint64_t *zobrist, bool *noTrans) { /* */
+uint64_t doMove (TGAME sq64, TMOVE move, uint64_t zobrist) { /* */
    /* execute le deplacement */
+   /* renvoie le nouveau zobrist */
    int base;
-   // uint64_t zobrist2; 
    int sig = (move.who <= WHITE) ? -1 : 1;
    int old = 0;
-   *noTrans = true;
+   // if (zobrist != computeHash (sq64)) {printf ("ERR In DoMove 1\n"); exit (0);};
    switch (move.type) {
    case STD:
       move.taken = sq64 [move.l2][move.c2];
       if (move.taken == 0) {
          sq64 [move.l1] [move.c1] = 0;
-         *zobrist ^= ZobristTable[move.l1][move.c1][indexOf(move.who)]; 
+         zobrist ^= ZobristTable[move.l1][move.c1][indexOf(move.who)]; 
          sq64 [move.l2] [move.c2] = move.who;
-         *zobrist ^= ZobristTable[move.l2][move.c2][indexOf(move.who)]; 
+         zobrist ^= ZobristTable[move.l2][move.c2][indexOf(move.who)]; 
       }
       else {
          sq64 [move.l1] [move.c1] = 0;
-         *zobrist ^= ZobristTable[move.l1][move.c1][indexOf(move.who)]; 
+         zobrist ^= ZobristTable[move.l1][move.c1][indexOf(move.who)]; 
          sq64 [move.l2] [move.c2] = 0;
-         *zobrist ^= ZobristTable[move.l2][move.c2][indexOf(move.taken)]; 
+         zobrist ^= ZobristTable[move.l2][move.c2][indexOf(move.taken)]; 
          sq64 [move.l2] [move.c2] = move.who;
-         *zobrist ^= ZobristTable[move.l2][move.c2][indexOf(move.who)]; 
+         zobrist ^= ZobristTable[move.l2][move.c2][indexOf(move.who)]; 
       }
       break;
    case PROMOTION:
       move.taken = sq64 [move.l2][move.c2];
       if (move.taken == 0) {
          sq64 [move.l1] [move.c1] = 0;
-         *zobrist ^= ZobristTable[move.l1][move.c1][indexOf(sig*PAWN)]; 
+         zobrist ^= ZobristTable[move.l1][move.c1][indexOf(sig*PAWN)]; 
          sq64 [move.l2] [move.c2] = move.who;
-         *zobrist ^= ZobristTable[move.l2][move.c2][indexOf(move.who)]; 
+         zobrist ^= ZobristTable[move.l2][move.c2][indexOf(move.who)]; 
       }
       else {
          sq64 [move.l1] [move.c1] = 0;
-         *zobrist ^= ZobristTable[move.l1][move.c1][indexOf(sig*PAWN)]; 
+         zobrist ^= ZobristTable[move.l1][move.c1][indexOf(sig*PAWN)]; 
          sq64 [move.l2] [move.c2] = 0;
-         *zobrist ^= ZobristTable[move.l2][move.c2][indexOf(move.taken)]; 
+         zobrist ^= ZobristTable[move.l2][move.c2][indexOf(move.taken)]; 
          sq64 [move.l2] [move.c2] = move.who;
-         *zobrist ^= ZobristTable[move.l2][move.c2][indexOf(move.who)]; 
+         zobrist ^= ZobristTable[move.l2][move.c2][indexOf(move.who)]; 
       }
       break;
    case CHANGEKING:
@@ -306,74 +304,54 @@ inline int doMove (bool useTrans, TGAME sq64, TMOVE move, int p, uint64_t *zobri
       move.taken = sq64 [move.l2][move.c2];
       if (move.taken == 0) {
          sq64 [move.l1] [move.c1] = 0;
-         *zobrist ^= ZobristTable[move.l1][move.c1][indexOf(old)]; 
+         zobrist ^= ZobristTable[move.l1][move.c1][indexOf(old)]; 
          sq64 [move.l2] [move.c2] = sig * CASTLEKING;
-         *zobrist ^= ZobristTable[move.l2][move.c2][indexOf(sig*CASTLEKING)]; 
+         zobrist ^= ZobristTable[move.l2][move.c2][indexOf(sig*CASTLEKING)]; 
       }
       else {
          sq64 [move.l1] [move.c1] = 0;
-         *zobrist ^= ZobristTable[move.l1][move.c1][indexOf(old)]; 
+         zobrist ^= ZobristTable[move.l1][move.c1][indexOf(old)]; 
          sq64 [move.l2] [move.c2] = 0;
-         *zobrist ^= ZobristTable[move.l2][move.c2][indexOf(move.taken)]; 
+         zobrist ^= ZobristTable[move.l2][move.c2][indexOf(move.taken)]; 
          sq64 [move.l2] [move.c2] = sig * CASTLEKING;
-         *zobrist ^= ZobristTable[move.l2][move.c2][indexOf(sig*CASTLEKING)]; 
+         zobrist ^= ZobristTable[move.l2][move.c2][indexOf(sig*CASTLEKING)]; 
       }
       break;
    case ENPASSANT:
       move.taken = sq64 [move.l1][move.c2];
       sq64 [move.l1] [move.c1] = 0;
-      *zobrist ^= ZobristTable[move.l1][move.c1][indexOf(move.who)]; 
+      zobrist ^= ZobristTable[move.l1][move.c1][indexOf(move.who)]; 
       sq64 [move.l2] [move.c2] = move.who;
-      *zobrist ^= ZobristTable[move.l2][move.c2][indexOf(move.who)]; 
+      zobrist ^= ZobristTable[move.l2][move.c2][indexOf(move.who)]; 
       sq64 [move.l1] [move.c2] = 0;
-      *zobrist ^= ZobristTable[move.l1][move.c2][indexOf(move.taken)]; 
+      zobrist ^= ZobristTable[move.l1][move.c2][indexOf(move.taken)]; 
       break;
    case QUEENCASTLESIDE:
       base = (move.who <= WHITE) ? 0 : 7;
       sq64 [base][0] = 0;
-      *zobrist ^= ZobristTable[base][0][indexOf(sig*ROOK)]; 
+      zobrist ^= ZobristTable[base][0][indexOf(sig*ROOK)]; 
       sq64 [base][3] = sig * ROOK;
-      *zobrist ^= ZobristTable[base][3][indexOf(sig*ROOK)]; 
+      zobrist ^= ZobristTable[base][3][indexOf(sig*ROOK)]; 
       sq64 [base][4] = 0;
-      *zobrist ^= ZobristTable[base][4][indexOf(sig*KING)]; 
+      zobrist ^= ZobristTable[base][4][indexOf(sig*KING)]; 
       sq64 [base][2] = sig * CASTLEKING;
-      *zobrist ^= ZobristTable[base][2][indexOf(sig*CASTLEKING)];
+      zobrist ^= ZobristTable[base][2][indexOf(sig*CASTLEKING)];
       break; 
    case KINGCASTLESIDE:
       base = (move.who <= WHITE) ? 0 : 7;
       sq64 [base][7] = 0;
-      *zobrist ^= ZobristTable[base][7][indexOf(sig*ROOK)]; 
+      zobrist ^= ZobristTable[base][7][indexOf(sig*ROOK)]; 
       sq64 [base][5] = sig * ROOK;
-      *zobrist ^= ZobristTable[base][5][indexOf(sig*ROOK)]; 
+      zobrist ^= ZobristTable[base][5][indexOf(sig*ROOK)]; 
       sq64 [base][4] = 0;
-      *zobrist ^= ZobristTable[base][4][indexOf(sig*KING)]; 
+      zobrist ^= ZobristTable[base][4][indexOf(sig*KING)]; 
       sq64 [base][6] = sig * CASTLEKING;
-      *zobrist ^= ZobristTable[base][6][indexOf(sig*CASTLEKING)];
+      zobrist ^= ZobristTable[base][6][indexOf(sig*CASTLEKING)];
       break; 
    default:;
    }
-   /*zobrist2 = computeHash (sq64);
-   if (*zobrist != zobrist2) {
-      printf ("index %d type %d taken %d who %d l1 %d c1 %d l2 %d c2 %d\n", 
-         indexOf (move.who), move.type, move.taken, move.who, move.l1, move.c1, move.l2, move.c2); 
-      printf ("different in chess.c doMove\n");
-      printGame (sq64, 0);
-      exit (0);
-   }*/
-   
-   if (useTrans) {
-      uint32_t hash = *zobrist & MASQMAXTRANSTABLE; 
-      uint32_t check = *zobrist >> 32;
-      if (trTa [hash].used && (trTa [hash].p <= p)) { 
-         if (trTa [hash].check == check) {
-            info.nbMatchTrans += 1;
-            *noTrans = false;
-            return trTa [hash].eval;
-         }
-         else info.nbColl += 1;    // détection de collisions
-      }
-   }
-   return 0;
+   // if (zobrist != computeHash (sq64)) {printf ("ERR In DoMove 2\n"); exit (0);};
+   return zobrist;
 }
 
 inline void doMove0 (TGAME sq64, TMOVE move) { /* */
@@ -720,7 +698,7 @@ int evaluation (TGAME sq64, int who, bool *pat) { /* */
    return eval;
 }
 
-int alphaBeta (TGAME sq64, int who, int p, int refAlpha, int refBeta) { /* */
+int alphaBeta (TGAME sq64, int who, int p, int refAlpha, int refBeta, uint64_t zobrist) { /* */
    /* le coeur du programme */
    info.nAlphaBeta += 1;
    TLISTMOVE list;
@@ -731,37 +709,46 @@ int alphaBeta (TGAME sq64, int who, int p, int refAlpha, int refBeta) { /* */
    int val;
    int alpha = refAlpha;
    int beta = refBeta;
+   uint64_t newZobrist = 0;
    uint32_t hash = 0, check = 0;
-   bool noTrans = true;
-   uint64_t zobrist = 0;
-   if (getInfo.trans) zobrist = computeHash (sq64);
+   // uint64_t zobrist = computeHash (sq64);
    if (info.calculatedMaxDepth < p) info.calculatedMaxDepth = p;
+   if (getInfo.trans) {
+      hash = zobrist & MASQMAXTRANSTABLE;
+      check = zobrist >> 32; 
+      if (trTa [hash].used && (trTa [hash].p <= p)) { 
+         if (trTa [hash].check == check) {
+            info.nbMatchTrans += 1;
+            return (trTa [hash].eval);
+         }
+         else info.nbColl += 1;    // détection de collisions
+      }
+   }
    note = evaluation (sq64, who, &pat);
-
-   // conditions de fin de jeu
-   if (note >= MATE) return note - p;   // -p pour favoriser le choix avec faible profondeur
-   if (note <= -MATE) return note + p;  // +p idem
-   if (pat) return 0;
    if (p >= info.maxDepth) {
-      if (noTrans && getInfo.trans) { 
-         hash = zobrist & MASQMAXTRANSTABLE; 
+      if (getInfo.trans) { 
          trTa [hash].eval = note;
          trTa [hash].p = p;
          trTa [hash].used = true;
-         trTa [hash].check = zobrist >> 32;
+         trTa [hash].check = check;
          info.nbTrTa += 1;
       }
       return note;
    }
+   // conditions de fin de jeu
+   if (note >= MATE) return note - p;   // -p pour favoriser le choix avec faible profondeur
+   if (note <= -MATE) return note + p;  // +p idem
+   if (pat) return 0;
    // pire des notes a ameliorer
    if (who == 1) {
       val = MATE;
       maxList = buildList (sq64, -1, true, true, list);
       for (k = 0; k < maxList; k++) {
          memcpy (localSq64, sq64, GAMESIZE);
-         note = doMove (getInfo.trans, localSq64, list[k], p+1, &zobrist, &noTrans);
-         // doMove0 (localSq64, list [k]);
-         if (noTrans) note = alphaBeta (localSq64, -1, p+1, alpha, beta);
+         if (getInfo.trans) newZobrist = doMove (localSq64, list [k], zobrist);
+         else doMove0 (localSq64, list [k]);
+         // if (newZobrist != computeHash (localSq64)) {printf ("ERR: Zobrist 1\n"); exit (0);};
+         note = alphaBeta (localSq64, -1, p+1, alpha, beta, newZobrist);
          if (note < val) val = note;   // val = minimum...
          if (alpha > val) return val;
          if (val < beta) beta = val;   // beta = MIN (beta, val);
@@ -773,9 +760,10 @@ int alphaBeta (TGAME sq64, int who, int p, int refAlpha, int refBeta) { /* */
       maxList = buildList (sq64, 1, true, true, list);//CORRIGER
       for (k = 0; k < maxList; k++) {
          memcpy (localSq64, sq64, GAMESIZE);
-         note = doMove (getInfo.trans, localSq64, list[k], p+1, &zobrist, &noTrans);
-         // doMove0 (localSq64, list [k]);
-         if (noTrans) note = alphaBeta (localSq64, 1, p+1, alpha, beta);
+         if (getInfo.trans) newZobrist = doMove (localSq64, list [k], zobrist);
+         else doMove0 (localSq64, list [k]);
+         // if (newZobrist != computeHash (localSq64)) {printf ("ERR: Zobrist 2\n"); exit (0);};
+         note = alphaBeta (localSq64, 1, p+1, alpha, beta, newZobrist);
          if (note > val) val = note;   // val = maximum...
          if (beta < val) return val;
          if (val > alpha) alpha = val; // alpha = max (alpha, val);
@@ -787,7 +775,7 @@ int alphaBeta (TGAME sq64, int who, int p, int refAlpha, int refBeta) { /* */
 void *fThread (void *arg) { /* */
    /* association des thread a alphabeta */
    long k = (long) arg;
-   info.moveList[k].eval = alphaBeta (info.moveList [k].jeu, -gamer.color, 0, -MATE, MATE);
+   info.moveList[k].eval = alphaBeta (info.moveList [k].jeu, -gamer.color, 0, -MATE, MATE, info.moveList [k].zobrist);
    pthread_exit (NULL);
 }
 
@@ -839,7 +827,6 @@ int computerPlay () { /* */
    struct timeval tRef;
    int lGK, cGK, lCK, cCK; // ligne colonnes Gamer et Computer King 
    uint64_t zobrist = 0;
-   bool noTrans = true;
    lGK = cGK = lCK = cCK = -1,
    info.wdl = -1;                    // valeur inatteignable montrant que syzygy n'a pas ete appelee
    info.nbThread = (getInfo.multi) ? sysconf (_SC_NPROCESSORS_CONF) : 1;
@@ -858,7 +845,8 @@ int computerPlay () { /* */
          return (0);
       }
       initTable();                     // pour table hachage Zobrist
-   }
+      zobrist = computeHash (sq64);
+    }
 
    // check etat du joueur
    if (LCkingInCheck (sq64, gamer.color, lGK, cGK)) {
@@ -893,7 +881,7 @@ int computerPlay () { /* */
       strcpy (info.comment, "ERR: no move. Strange");
       return 0; // impossible de jouer... Bizarre
    }
-   for (k = 0; k < nextL; k++) { // entegistement des move possibles au niveau 0 dans info
+   for (k = 0; k < nextL; k++) { // enregistrement des move possibles au niveau 0 dans info
       memcpy (&info.moveList [k].move, &listMove [k], sizeof (TMOVE));
       info.moveList [k].move.taken = sq64 [listMove [k].l2][listMove [k].c2]; 
       moveToStr (info.moveList [k].move, info.moveList [k].strMove);
@@ -920,13 +908,13 @@ int computerPlay () { /* */
          }
       }
    if (status == INIT) {
-      if (getInfo.trans) zobrist = computeHash (sq64);
       // recherche par la methode minimax Alphabeta
       if (getInfo.multi) { // Multi thread
          for (k = 0; k < nextL; k++) {
             memcpy (info.moveList [k].jeu, sq64, GAMESIZE);
-            doMove (getInfo.trans, info.moveList [k].jeu, info.moveList [k].move, 0, &zobrist, &noTrans);
-            // doMove0 (info.moveList [k].jeu, info.moveList[k].move);
+            if (getInfo.trans) info.moveList [k].zobrist = doMove (info.moveList [k].jeu, info.moveList [k].move, zobrist);
+            else doMove0 (info.moveList [k].jeu, info.moveList [k].move);
+            // if (info.moveList [k].zobrist != computeHash (info.moveList [k].jeu)) { printf ("Error Zobrist in computerPlay lauch thread\n"); exit (0);};
             if (pthread_create (&tThread [k], NULL, fThread, (void *) k)) {
                strcpy (info.comment, "ERR: pthread_create");
                return 0;
@@ -941,9 +929,10 @@ int computerPlay () { /* */
       else {
          for (k = 0; k < nextL; k++) {
             memcpy (info.moveList [k].jeu, sq64, GAMESIZE);
-            doMove (getInfo.trans, info.moveList [k].jeu, info.moveList [k].move, 0, &zobrist, &noTrans);
-            // doMove0 (info.moveList [k].jeu, info.moveList [k].move);
-            info.moveList[k].eval = alphaBeta (info.moveList [k].jeu, -gamer.color, 0, -MATE, MATE);
+            if (getInfo.trans) info.moveList [k].zobrist = doMove (info.moveList [k].jeu, info.moveList [k].move, zobrist);
+            else doMove0 (info.moveList [k].jeu, info.moveList [k].move);
+            // if (info.moveList [k].zobrist != computeHash (info.moveList [k].jeu)) {printf ("Error Zobrist in computerPlay part 2\n"); exit (0);};
+            info.moveList[k].eval = alphaBeta (info.moveList [k].jeu, -gamer.color, 0, -MATE, MATE, info.moveList [k].zobrist);
          }
       }
       // info.moveList contient les évaluations de toutes les possibilites

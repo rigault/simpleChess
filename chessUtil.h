@@ -87,6 +87,7 @@ struct Sinfo {
    int nbColl;                      // nombre de collisions
    int nbCallfHash;                 // nombre appels fn de hachage.
    int nbMatchTrans;                // nombre de matching transposition  
+   int nDoMove;                     // nombre d'appls a doMove  
    TMOVEINFO moveList [MAXSIZELIST];// liste des move possibles et leur evaluation
 } info;
 

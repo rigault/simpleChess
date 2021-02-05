@@ -468,8 +468,9 @@ void sendGame (bool http, const char *fen, int reqType) { /* */
       printf ("\"nBestNote\" : %d, ", info.nBestNote);
       printf ("\"nValidGamerPos\" : %d, ", gamer.nValidPos);
       printf ("\"nValidComputerPos\" : %d,\n   ", computer.nValidPos);
-      printf ("\"nbTrTa\" : %d, ", info.nbTrTa);
-      printf ("\"nbMatchTrans\" : %d, ", info.nbMatchTrans);
+      printf ("\"nDoMove\" : %d, ", info.nDoMove);
+      printf ("\"nTrTa\" : %d, ", info.nbTrTa);
+      printf ("\"nMatchTrans\" : %d, ", info.nbMatchTrans);
       printf ("\"nCollision\" : %d, ", info.nbColl);
       printf ("\"nCallfHash\" : %d, ", info.nbCallfHash);
       printf ("\"nLCKingInCheck\" : %d, ", info.nLCKingInCheckCall);

@@ -6,7 +6,7 @@ WHITE = (-1)
 BLACK = 1
 HELP = "usage: ./chess.py -e|-c|-p"
 fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR+w+KQkq+-+0+0"
-level = 3
+level = 4
 unicode = {"p": "♟", 'n' : "♞", "b":"♝", "r":"♜", "q":"♛", "k":"♚"};
 
 def printGame (fen) :
