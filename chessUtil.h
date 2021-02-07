@@ -43,7 +43,6 @@ typedef struct {
    int8_t l2;
    int8_t c2;
    int8_t taken;
-   bool promotion;
 } TMOVE;
 
 typedef TMOVE TLISTMOVE [MAXSIZELIST]; 

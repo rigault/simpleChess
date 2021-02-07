@@ -193,7 +193,7 @@ bool syzygyRR (const char* path, const char *fen, int *wdl, char *bestMove, char
    unsigned move;
 
    // init
-   if (path == NULL) path = getenv("TB_PATH");
+   if (path == NULL) path = getenv ("TB_PATH");
    tb_init (path);
    if (TB_LARGEST == 0) {
       sprintf (comment, "ERR: no tablebase file:");

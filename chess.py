@@ -70,7 +70,7 @@ def comp (fen, level) :
    time2 = 0
    while score == "-" :
       t1, fen1, score = play ("./chess.cgi -vono " + fen + " " + str(level))
-      t2, fen2, score = play ("./chess.cgi -vnno " + fen + " " + str(level))
+      t2, fen2, score = play ("./chessOK.cgi -vono " + fen + " " + str(level))
       #t1, fen1, score = play (curl1 + fen + '"')
       #t2, fen2, score = play (curl2 + fen + '"')
       

@@ -55,7 +55,6 @@ typedef struct  {                  // tables de transposition
    int8_t p;                       // profondeur
    int8_t used;                    // boolen sur 8 bits. Utilise
    int32_t check;                  // pour verif collisions
-//   TGAME game;
 } StrTa;
 StrTa *trTa = NULL;                // Ce pointeur va servir de tableau après l'appel du malloc
 // StrTa trTa [MAXTRANSTABLE];           // Tableau tables transpo
@@ -263,7 +262,6 @@ inline uint64_t doMove (TGAME sq64, TMOVE move, uint64_t zobrist) { /* */
    /* renvoie le nouveau zobrist */
    int base;
    int sig = (move.who <= WHITE) ? -1 : 1;
-   int old = 0;
    // if (zobrist != computeHash (sq64)) {printf ("ERR In DoMove 1\n"); exit (0);};
    switch (move.type) {
    case STD:
@@ -301,17 +299,16 @@ inline uint64_t doMove (TGAME sq64, TMOVE move, uint64_t zobrist) { /* */
       }
       break;
    case CHANGEKING:
-      old = sq64 [move.l1][move.c1];
       move.taken = sq64 [move.l2][move.c2];
       if (move.taken == 0) {
          sq64 [move.l1] [move.c1] = 0;
-         zobrist ^= ZobristTable[move.l1][move.c1][indexOf(old)]; 
+         zobrist ^= ZobristTable[move.l1][move.c1][indexOf(move.who)];
          sq64 [move.l2] [move.c2] = sig * CASTLEKING;
          zobrist ^= ZobristTable[move.l2][move.c2][indexOf(sig*CASTLEKING)]; 
       }
       else {
          sq64 [move.l1] [move.c1] = 0;
-         zobrist ^= ZobristTable[move.l1][move.c1][indexOf(old)]; 
+         zobrist ^= ZobristTable[move.l1][move.c1][indexOf(move.who)]; 
          sq64 [move.l2] [move.c2] = 0;
          zobrist ^= ZobristTable[move.l2][move.c2][indexOf(move.taken)]; 
          sq64 [move.l2] [move.c2] = sig * CASTLEKING;
@@ -363,8 +360,8 @@ inline void doMove0 (TGAME sq64, TMOVE move) { /* */
    case STD: case PROMOTION: case CHANGEKING:
       move.taken = sq64 [move.l2][move.c2];
       sq64 [move.l1] [move.c1] = 0;
-      sq64 [move.l2] [move.c2] = move.who;
       if (move.type == CHANGEKING) move.who = sig * CASTLEKING;
+      sq64 [move.l2] [move.c2] = move.who;
       break;
    case ENPASSANT:
       move.taken = sq64 [move.l2][move.c2];
@@ -416,6 +413,7 @@ int buildList (TGAME refJeu, register int who, bool kingSide, bool queenSide, TL
    register int nList = 0;
    int8_t *pr = &refJeu [0][0];
    int base = (who == WHITE) ? 0 : 7;
+   int change;
    // info.nBuildListCall += 1;
   
    u = refJeu [base][4];
@@ -470,22 +468,23 @@ int buildList (TGAME refJeu, register int who, bool kingSide, bool queenSide, TL
             }
             break;
          case KING: case CASTLEKING:
+            change = ((v == KING) ? CHANGEKING : 0);
             if (c < 7 && (u * refJeu [l][c+1] <= 0))
-               nList = pushMove (listMove, who*CASTLEKING, CHANGEKING, nList, l, c, l, c+1);
+               nList = pushMove (listMove, u, change, nList, l, c, l, c+1);
             if (c > 0 && (u * refJeu [l][c-1] <= 0))
-               nList = pushMove (listMove, who*CASTLEKING, CHANGEKING,nList, l, c, l, c-1);
+               nList = pushMove (listMove, u, change, nList, l, c, l, c-1);
             if (l < 7 && (u * refJeu [l+1][c] <= 0))
-               nList = pushMove (listMove, who*CASTLEKING, CHANGEKING, nList, l, c, l+1, c);
+               nList = pushMove (listMove, u, change, nList, l, c, l+1, c);
             if (l > 0 && (u * refJeu [l-1][c] <= 0))
-               nList = pushMove (listMove, who*CASTLEKING, CHANGEKING, nList, l, c, l-1, c);
+               nList = pushMove (listMove, u, change, nList, l, c, l-1, c);
             if ((l < 7) && (c < 7) && (u * refJeu [l+1][c+1] <= 0))
-               nList = pushMove (listMove, who*CASTLEKING, CHANGEKING, nList, l, c, l+1, c+1);
+               nList = pushMove (listMove, u, change, nList, l, c, l+1, c+1);
             if ((l < 7) && (c > 0) && (u * refJeu [l+1][c-1] <= 0))
-               nList = pushMove (listMove, who*CASTLEKING, CHANGEKING, nList, l, c, l+1, c-1);
+               nList = pushMove (listMove, u, change, nList, l, c, l+1, c-1);
             if ((l > 0) && (c < 7) && (u * refJeu [l-1][c+1] <= 0))
-               nList = pushMove (listMove, who*CASTLEKING, CHANGEKING, nList, l, c, l-1, c+1);
+               nList = pushMove (listMove, u, change, nList, l, c, l-1, c+1);
             if ((l > 0) && (c > 0) && (u * refJeu [l-1][c-1] <= 0))
-               nList = pushMove (listMove, who*CASTLEKING, CHANGEKING, nList, l, c, l-1, c-1);
+               nList = pushMove (listMove, u, change, nList, l, c, l-1, c-1);
             break;
 
          case KNIGHT:
@@ -743,6 +742,7 @@ int alphaBeta (TGAME sq64, int who, int p, int refAlpha, int refBeta, uint64_t z
       return note;
    }
    if (end) return note;
+   // memcpy (localSq64, sq64, GAMESIZE);
    
    // pire des notes a ameliorer
    if (who == 1) {
@@ -844,15 +844,7 @@ int computerPlay () { /* */
    } 
    computer.kingState = gamer.kingState = EXIST;
    memcpy (localSq64, sq64, GAMESIZE);
-   if (getInfo.trans) {
-      if ((trTa = calloc (MAXTRANSTABLE, sizeof (StrTa))) == NULL) {
-         strcpy (info.comment, "ERR: malloc in computerPlay ()\n");
-         return (0);
-      }
-      initTable();                     // pour table hachage Zobrist
-      zobrist = computeHash (sq64);
-    }
-
+   
    // check etat du joueur
    if (LCkingInCheck (sq64, gamer.color, lGK, cGK)) {
       if (kingCannotMove(sq64, gamer.color)) gamer.kingState = ISMATE;
@@ -901,7 +893,7 @@ int computerPlay () { /* */
       sprintf (fen, "%s - - %d %d", fen, info.cpt50, info.nb); // pour regle des 50 coups
       if (syzygyRR (PATHTABLE, fen, &info.wdl, info.computerPlayC, info.comment)) {
          moveGame (sq64, -gamer.color, info.computerPlayC);
-	      status = OUV;
+	      status = ENDGAME;
       }
    }
    else {
@@ -909,17 +901,26 @@ int computerPlay () { /* */
       if ((info.nb < MAXNBOPENINGS) &&
          (openingAll (OPENINGDIR, (gamer.color == WHITE) ? ".b.fen": ".w.fen", fen, info.comment, info.computerPlayC))) {
             moveGame (sq64, -gamer.color, info.computerPlayC);
-            status = ENDGAME;
+            status = OUV;
          }
       }
    if (status == INIT) {
+      if (getInfo.trans) {
+         if ((trTa = calloc (MAXTRANSTABLE, sizeof (StrTa))) == NULL) {
+            strcpy (info.comment, "ERR: malloc in computerPlay ()\n");
+            return 0;
+         }
+         initTable();                     // pour table hachage Zobrist
+         zobrist = computeHash (sq64);
+      }
+
       // recherche par la methode minimax Alphabeta
       if (getInfo.multi) { // Multi thread
          for (k = 0; k < nextL; k++) {
             memcpy (info.moveList [k].jeu, sq64, GAMESIZE);
             if (getInfo.trans) info.moveList [k].zobrist = doMove (info.moveList [k].jeu, info.moveList [k].move, zobrist);
             else doMove0 (info.moveList [k].jeu, info.moveList [k].move);
-            // if (info.moveList [k].zobrist != computeHash (info.moveList [k].jeu)) { printf ("Error Zobrist in computerPlay lauch thread\n"); exit (0);};
+            // if (info.moveList [k].zobrist != computeHash (info.moveList [k].jeu)) {printf ("Error Zobrist \n")};
             if (pthread_create (&tThread [k], NULL, fThread, (void *) k)) {
                strcpy (info.comment, "ERR: pthread_create");
                return 0;
@@ -936,7 +937,7 @@ int computerPlay () { /* */
             memcpy (info.moveList [k].jeu, sq64, GAMESIZE);
             if (getInfo.trans) info.moveList [k].zobrist = doMove (info.moveList [k].jeu, info.moveList [k].move, zobrist);
             else doMove0 (info.moveList [k].jeu, info.moveList [k].move);
-            // if (info.moveList [k].zobrist != computeHash (info.moveList [k].jeu)) {printf ("Error Zobrist in computerPlay part 2\n"); exit (0);};
+            // if (info.moveList [k].zobrist != computeHash (info.moveList [k].jeu)) {printf ("Error Zobrist\n");};
             info.moveList[k].eval = alphaBeta (info.moveList [k].jeu, -gamer.color, 0, -MATE, MATE, info.moveList [k].zobrist);
          }
       }
@@ -1013,7 +1014,7 @@ bool cgi () { /* */
    // log date heure et adresse IP du joueur
    time_t now = time (NULL); // pour .log
    struct tm *timeNow = localtime (&now);
-   flog = fopen (F_LOG, "a");       // preparation du fichier log 
+   flog = fopen (F_LOG, "a");                // preparation du fichier log 
    if ((env = getenv ("REMOTE_ADDR")) == NULL) return false;
    strftime (buffer, 80, "%F; %T", timeNow);
    fprintf (flog, "%s; ", buffer);           // log de la date et du temps
@@ -1057,7 +1058,8 @@ int main (int argc, char *argv[]) { /* */
    /* si pas d'argument alors CGI */
    char fen [MAXLENGTH];
    srand (time (NULL));             // initialise le generateur aleatoire
-
+   TGAME localSq64;
+   uint64_t hashValue; 
    // si pas de parametres on va au cgi (fin de main)
    if (argc >= 2 && argv [1][0] == '-') { // si il y a des parametres. On choidi un test
       if (argc > 2) strcpy (getInfo.fenString, argv [2]);
@@ -1076,16 +1078,20 @@ int main (int argc, char *argv[]) { /* */
          sendGame (false, fen, getInfo.reqType);
          break;
       case 'f': //performance
+         initTable ();
+         hashValue = computeHash (sq64); 
          info.nClock = clock ();
-         for (int i = 0; i < getInfo.level * MILLION; i++)
-            nextL = buildList (sq64, -gamer.color, true, true, listMove);         
-         printf ("buildList. clock: %lf\n", (double) (clock () - info.nClock)/CLOCKS_PER_SEC);
+         for (uint64_t i = 0; i < getInfo.level * MILLION; i++) {
+            memcpy (sq64, localSq64, GAMESIZE);
+            memcpy (localSq64, sq64, GAMESIZE);
+         }         
+         printf ("memcpy. clock: %ld\n", (clock () - info.nClock));
          break;
       case 't': // tests
          printGame (sq64, evaluation (sq64, -gamer.color, &info.pat));
          break;
-      case 'd': case 'D': // display
-         if (argv [1][1] == 'D') printGame (sq64, evaluation (sq64, gamer.color, &info.pat));
+      case 'd': // display
+         printGame (sq64, evaluation (sq64, gamer.color, &info.pat));
          gameToFen (sq64, fen, gamer.color, '+', true, computer.ep, info.cpt50, info.nb); 
          printf ("{ \"fen\" : \"%s\"}\n",fen);
          break; 
@@ -1098,7 +1104,7 @@ int main (int argc, char *argv[]) { /* */
       case 'z': // Zobrist
          // Move the white king to the left 
          initTable(); 
-         uint64_t hashValue = computeHash (sq64); 
+         hashValue = computeHash (sq64); 
          printf("The hash value is     : %lu\n", hashValue); 
          uint8_t piece = sq64[0][3]; 
          sq64 [0][3] = 0; 
@@ -1106,7 +1112,7 @@ int main (int argc, char *argv[]) { /* */
          sq64 [0][2] = piece; 
          hashValue ^= ZobristTable[0][2][indexOf(piece)]; 
          printf("The new hash value is : %lu\n", hashValue); 
-      break;
+         break;
       default:
          printf ("%s\n", HELP);
       }
