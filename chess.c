@@ -357,14 +357,15 @@ inline void doMove0 (TGAME sq64, TMOVE move) { /* */
    int base;
    int sig = (move.who <= WHITE) ? -1 : 1;
    switch (move.type) {
-   case STD: case PROMOTION: case CHANGEKING:
-      move.taken = sq64 [move.l2][move.c2];
+   case STD: case PROMOTION:
       sq64 [move.l1] [move.c1] = 0;
-      if (move.type == CHANGEKING) move.who = sig * CASTLEKING;
       sq64 [move.l2] [move.c2] = move.who;
       break;
+   case CHANGEKING:
+      sq64 [move.l1] [move.c1] = 0;
+      sq64 [move.l2] [move.c2] = sig * CASTLEKING;
+      break;
    case ENPASSANT:
-      move.taken = sq64 [move.l2][move.c2];
       sq64 [move.l2] [move.c2] = move.who;
       sq64 [move.l1] [move.c1] = 0;
       sq64 [move.l1] [move.c2] = 0;
