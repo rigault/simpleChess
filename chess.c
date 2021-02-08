@@ -1,9 +1,9 @@
 /*   Pour produire la doc sur les fonctions : grep "\/\*" chess.c | sed 's/^\([a-zA-Z]\)/\n\1/' */
 /*   Jeu d'echec */
-/*   ./chess.cgi -q |-v [FENGame] [profondeur] : CLI avec sortie JSON q)uiet v)erbose */
+/*   ./chess.cgi -q |-v [FENGame] [profondeur] [exp] : CLI avec sortie JSON q)uiet v)erbose */
 /*   ./chess.cgi -f : test performance */
 /*   ./chess.cgi -t [FENGame] : test unitaire */
-/*   ./chess.cgi -p [FENGame] [profondeur] : play mode CLI */
+/*   ./chess.cgi -p [FENGame] [profondeur] [exp] : play mode CLI */
 /*   ./chess.cgi -h : help */
 /*   sans parametre ni option :  CGI gérant une API restful (GET) avec les réponses au format JSON */
 /*   fichiers associes : chess.log, chessB.fen, chessW.fen, chessUtil.c, syzygy.c, tbprobes.c tbcore.c et .h associes  */
@@ -14,8 +14,8 @@
 /*   Noirs : positifs  (Minuscules) */
 /*   Blancs : negatifs  (Majuscules) */
 
-#define MASQMAXTRANSTABLE 0x0ffffff            // 29 bits a 1 : 2 puissance 29-1 > 500  millions
-#define MAXTRANSTABLE (MASQMAXTRANSTABLE + 1)
+// #define MASQMAXTRANSTABLE 0x0ffffff            // 29 bits a 1 : 2 puissance 29-1 > 500  millions
+// #define MAXTRANSTABLE (MASQMAXTRANSTABLE + 1)
 
 #include <unistd.h>
 #include <stdint.h>
@@ -34,6 +34,7 @@
 // tour = fou + 2 pions, dame >= fou + tour + pion
 // le roi n'a pas de valeur. Le roi qui a roque a un bonus
 // Voir fonction d'evaluation
+
 const int val [] = {0, 100, 300, 300, 500, 900, 0, BONUSCASTLE};
 FILE *flog;
 
@@ -44,7 +45,10 @@ struct {                           // description de la requete emise par le cli
    bool alea;                      // vrai si on prend un jeu de facon aleatoire quand plusieurs solutions
    bool trans;                     // vrai si on utilise les tables de transpo
    bool multi;                     // vrai si multithread
-} getInfo = {"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR+w+KQkq", 2, 4, true, true, true}; // par defaut
+   int  exp;                       // nombre de bits a 1 pour le masque masqMaxTransTable = pow (2, exp) - 1;
+} getInfo = {"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR+w+KQkq", 2, 4, true, true, true, 24}; // par defaut
+
+uint64_t masqMaxTransTable;        // idem (2 puissance exp) - 1. Quasi constante initialisee dans computerPlay.
 
 TGAME sq64;
 TLISTMOVE listMove;
@@ -57,7 +61,6 @@ typedef struct  {                  // tables de transposition
    int32_t check;                  // pour verif collisions
 } StrTa;
 StrTa *trTa = NULL;                // Ce pointeur va servir de tableau après l'appel du malloc
-// StrTa trTa [MAXTRANSTABLE];           // Tableau tables transpo
 
 uint64_t ZobristTable[8][8][14];   // 14 combinaisons avec RoiRoque
 
@@ -717,7 +720,7 @@ int alphaBeta (TGAME sq64, int who, int p, int refAlpha, int refBeta, uint64_t z
    // uint64_t zobrist = computeHash (sq64);
    if (info.calculatedMaxDepth < p) info.calculatedMaxDepth = p;
    if (getInfo.trans) {
-      hash = zobrist & MASQMAXTRANSTABLE;
+      hash = zobrist & masqMaxTransTable;
       check = zobrist >> 32; 
       if (trTa [hash].used && (trTa [hash].p <= p)) { 
          if (trTa [hash].check == check) {
@@ -833,6 +836,7 @@ int computerPlay () { /* */
    struct timeval tRef;
    int lGK, cGK, lCK, cCK; // ligne colonnes Gamer et Computer King 
    uint64_t zobrist = 0;
+   masqMaxTransTable  = (1 << getInfo.exp) - 1; // idem (2 puissance exp) - 1
    lGK = cGK = lCK = cCK = -1,
    info.wdl = -1;                    // valeur inatteignable montrant que syzygy n'a pas ete appelee
    info.nbThread = (getInfo.multi) ? sysconf (_SC_NPROCESSORS_CONF) : 1;
@@ -907,7 +911,8 @@ int computerPlay () { /* */
       }
    if (status == INIT) {
       if (getInfo.trans) {
-         if ((trTa = calloc (MAXTRANSTABLE, sizeof (StrTa))) == NULL) {
+         masqMaxTransTable  = (1 << getInfo.exp) - 1; // idem (2 puissance exp) - 1
+         if ((trTa = calloc (masqMaxTransTable + 1, sizeof (StrTa))) == NULL) {
             strcpy (info.comment, "ERR: malloc in computerPlay ()\n");
             return 0;
          }
@@ -1039,6 +1044,8 @@ bool cgi () { /* */
       sscanf (str, "level=%d", &getInfo.level);
    if ((str = strstr (env, "reqType=")) != NULL)
       sscanf (str, "reqType=%d", &getInfo.reqType);
+   if ((str = strstr (env, "exp=")) != NULL)
+      sscanf (str, "exp=%d", &getInfo.exp);
  
    if (getInfo.reqType != 0) {                 // on lance le jeu
        gamer.color = -fenToGame (getInfo.fenString, sq64, gamer.ep, &info.cpt50, &info.nb);
@@ -1065,6 +1072,9 @@ int main (int argc, char *argv[]) { /* */
    if (argc >= 2 && argv [1][0] == '-') { // si il y a des parametres. On choidi un test
       if (argc > 2) strcpy (getInfo.fenString, argv [2]);
       if (argc > 3) getInfo.level = atoi (argv [3]);
+      if (argc > 4) getInfo.exp = atoi (argv [4]);
+      masqMaxTransTable  = (1 << getInfo.exp) - 1; // idem (2 puissance exp) - 1
+      printf ("Maxtranstable = %lx\n", masqMaxTransTable + 1);
       gamer.color = -fenToGame (getInfo.fenString, sq64, gamer.ep, &info.cpt50, &info.nb);
       switch (argv [1][1]) {
       case 'q': case 'v': // q quiet, v verbose
@@ -1100,7 +1110,9 @@ int main (int argc, char *argv[]) { /* */
          moveGame (sq64, gamer.color, argv [argc-1]);        
          if (argv [1][1] == 'M') printGame (sq64, evaluation (sq64, gamer.color, &info.pat));
          gameToFen (sq64, fen, gamer.color, '+', true, computer.ep, info.cpt50, info.nb); 
-         printf ("{ \"fen\" : \"%s\"}\n",fen);
+         printf ("{ \"fen\" : \"%s\", ",fen);
+         printf (" \"score\" : \"-\", ");
+         printf (" \"time\" : 0}\n");
          break;
       case 'z': // Zobrist
          // Move the white king to the left 
