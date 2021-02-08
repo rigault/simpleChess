@@ -4,11 +4,13 @@ import vt
 from subprocess import Popen, PIPE, STDOUT
 WHITE = (-1)
 BLACK = 1
-HELP = "usage: ./chess.py -e|-c|-p"
+HELP = "usage: ./chess.py -e|-c|-p|-m"
 fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR+w+KQkq+-+0+0"
 curl1 = 'curl -s "http://23.251.143.190/cgi-bin/chess.cgi?reqType=2&level=4&noalea&notrans&fen='
 curl2 = 'curl -s "http://23.251.143.190/cgi-bin/chess.cgi?reqType=2&level=4&noalea&fen='
-level = 3
+level = 4
+exp = 24
+
 unicode = {"p": "♟", 'n' : "♞", "b":"♝", "r":"♜", "q":"♛", "k":"♚"};
 
 def printGame (fen) :
@@ -52,25 +54,28 @@ def play (command) :
       if (str(j[x]).strip()) != "" :  print (x, "=", j[x])
    return j ["time"], j["fen"], score
 
-def endurance (fen, level) :
+def endurance (fen, level, exp) :
    score = "-"
+   time1 = 0
+   time2 = 0
    while score == "-" :
       # les blancs jouent
-      t1, fen, score = play ("./chess.cgi -vnno " + fen + " " + str(level))
+      t1, fen, score = play ("./chess.cgi -vono " + fen + " " + str(level) + " " + str (exp))
+      time1 += t1
       if score == "-" :
          # les noirs jouent
-         t2, fen, score = play ("./chess.cgi -vono " + fen + " " + str(level))
+         t2, fen, score = play ("./chess.cgi -vono " + fen + " " + str(level) + " " + str (exp))
+         time2 += t2
+   return time1 + time2
 
-   return score
-
-def comp (fen, level) :
+def comp (fen, level, exp) :
    nEgal = nDiff = 0
    score = "-"
    time1 = 0
    time2 = 0
    while score == "-" :
-      t1, fen1, score = play ("./chess.cgi -vono " + fen + " " + str(level))
-      t2, fen2, score = play ("./chessOK.cgi -vono " + fen + " " + str(level))
+      t1, fen1, score = play ("./chess0.cgi -vono " + fen + " " + str(level) + " " + str (exp))
+      t2, fen2, score = play ("./chess.cgi -vono " + fen + " " + str(level) + " " + str (exp))
       #t1, fen1, score = play (curl1 + fen + '"')
       #t2, fen2, score = play (curl2 + fen + '"')
       
@@ -79,8 +84,6 @@ def comp (fen, level) :
          nEgal += 1
       else : 
          print ("different in chess.py com")
-#         printGame (fen)
-#         exit ()
          nDiff +=1
       fen = fen1
       time1 += t1
@@ -88,7 +91,7 @@ def comp (fen, level) :
    print ("nEgal = ", nEgal, " ; nDiff = ", nDiff)
    print ("Time1 = ", time1, " Time2 = ", time2) 
 
-def play2 (fen, level) :
+def play2 (fen, leveli, exp) :
    score = "-"
    car = input ("\nb)lack or w)hite ? : ").upper ()
    color = WHITE if (car == "W") else BLACK
@@ -101,13 +104,24 @@ def play2 (fen, level) :
          t1, fen, score = play ("./chess.cgi -M " + fen + " " + str(level) + " " + move);
 
       else : # computer
-         fen, score = play ("./chess.cgi -von " + fen + " " + str(level))
+         t1, fen, score = play ("./chess.cgi -von " + fen + " " + str(level) + " " + str (exp))
       player = not player;
 
+def mesure (fen, level) :
+   strRep = ""
+
+   #for exp in [18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29] :
+   for exp in range (20, 30) :
+      time = endurance (fen, level, exp)
+      strRep += "Exp = " + str (exp) + ", Time = " + str (time) + "\n"
+   print ("------RESULTAT-Level " + str (level) + "---")
+   print (strRep)
+   
 if len (sys.argv) <= 1 : print (HELP)
 else :
-   if sys.argv[1] == "-e" : endurance (fen, level)
-   elif sys.argv[1] == "-c" : comp (fen, level)
-   elif sys.argv[1] == "-p" : play2 (fen, level)
+   if sys.argv[1] == "-e" : print ("Total Time : " + str (endurance (fen, level, exp)))
+   elif sys.argv[1] == "-c" : comp (fen, level, exp)
+   elif sys.argv[1] == "-p" : play2 (fen, level, exp)
+   elif sys.argv[1] == "-m" : mesure (fen, level)
    elif sys.argv[1] == "-t" : printGame (fen)
    else : print (HELP)
