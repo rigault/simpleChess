@@ -28,6 +28,7 @@
 #include <ctype.h>
 #include "chessUtil.h"
 #include "syzygy.h"
+#define LCkingInCheck(sq64,who,l,c)    ((who == 1) ? LCBlackKingInCheck (sq64, l, c) : LCWhiteKingInCheck (sq64, l, c))
 
 // valorisation des pieces dans l'ordre PAWN KNIGHT BISHOP ROOK QUEEN KING CASTLEKING
 // Le roi qui a deja roque a le code 7, le roi normal a le code 6
@@ -78,7 +79,7 @@ void initTable() { /* */
 }
 
   
-inline int indexOf (int v) { /* */
+inline int indexOf (register int v) { /* */
    /* index d'une piece pour transposition table */
    return (v > 0) ? v - 1 : (-v + 6); // 0=pion noir, 13=roiroque blanc
 }
@@ -125,8 +126,8 @@ bool LCBlackKingInCheck (TGAME sq64, register int l, register int c) { /* */
    if (c > 0 && (-sq64 [l][c-1] >= KING)) return true;
    if (l < 7 && c < 7 && (-sq64 [l+1][c+1] >= KING)) return true;
    if (l < 7 && c > 0 && (-sq64 [l+1][c-1] >= KING)) return true;
-   if (l > 0 && c < 7 && (-sq64 [l-1][c+1] >= KING || -sq64 [l-1][c+1] == PAWN)) return true;
-   if (l > 0 && c > 0 && (-sq64 [l-1][c-1] >= KING || -sq64 [l-1][c-1] == PAWN)) return true;
+   if (l > 0 && c < 7 && ((w = (-sq64 [l-1][c+1])) >= KING || w == PAWN)) return true;
+   if (l > 0 && c > 0 && ((w = (-sq64 [l-1][c-1])) >= KING || w == PAWN)) return true;
 
    // cavalier menace
    if (l < 7 && c < 6 && (-sq64 [l+1][c+2] == KNIGHT)) return true;
@@ -189,8 +190,8 @@ bool LCWhiteKingInCheck (TGAME sq64, register int l, register int c) { /* */
    if (l > 0 && (sq64 [l-1][c] >= KING)) return true;
    if (c < 7 && (sq64 [l][c+1] >= KING)) return true;
    if (c > 0 && (sq64 [l][c-1] >= KING)) return true;
-   if (l < 7 && c < 7 && (sq64 [l+1][c+1] >= KING || sq64 [l+1][c+1] == PAWN)) return true;
-   if (l < 7 && c > 0 && (sq64 [l+1][c-1] >= KING || sq64 [l+1][c-1] == PAWN)) return true;
+   if (l < 7 && c < 7 && ((w = sq64 [l+1][c+1]) >= KING || w == PAWN)) return true;
+   if (l < 7 && c > 0 && ((w = sq64 [l+1][c-1]) >= KING || w == PAWN)) return true;
    if (l > 0 && c < 7 && (sq64 [l-1][c+1] >= KING)) return true;
    if (l > 0 && c > 0 && (sq64 [l-1][c-1] >= KING)) return true;
 
@@ -243,13 +244,7 @@ bool LCWhiteKingInCheck (TGAME sq64, register int l, register int c) { /* */
    return false;
 }
 
-bool LCkingInCheck (TGAME sq64, int who, int l, int c) { /* */
-   /* vrai si le roi situe case l, c est echec au roi */
-   /* "who" est la couleur du roi qui est attaque */
-   return (who == 1) ? LCBlackKingInCheck (sq64, l, c) : LCWhiteKingInCheck (sq64, l, c);
-}
-
-inline int pushMove (TLISTMOVE listMove, int who, int type, int nList, int l1, int c1, int l2, int c2) { /* */
+inline int pushMove (TLISTMOVE listMove, register int who, register int type, register int nList, register int l1, register int c1, register int l2, register int c2) { /* */
    /* pousse un deplacement dans la liste */
    listMove [nList].type = type;
    listMove [nList].who = who;
@@ -260,15 +255,13 @@ inline int pushMove (TLISTMOVE listMove, int who, int type, int nList, int l1, i
    return nList + 1;
 }
 
-inline uint64_t doMove (TGAME sq64, TMOVE move, uint64_t zobrist) { /* */
+inline uint64_t doMove (TGAME sq64, TMOVE move, register uint64_t zobrist) { /* */
    /* execute le deplacement */
    /* renvoie le nouveau zobrist */
    int base;
-   int sig = (move.who <= WHITE) ? -1 : 1;
-   // if (zobrist != computeHash (sq64)) {printf ("ERR In DoMove 1\n"); exit (0);};
+   move.taken = sq64 [move.l2][move.c2];
    switch (move.type) {
    case STD:
-      move.taken = sq64 [move.l2][move.c2];
       if (move.taken == 0) {
          sq64 [move.l1] [move.c1] = 0;
          zobrist ^= ZobristTable[move.l1][move.c1][indexOf(move.who)]; 
@@ -285,16 +278,15 @@ inline uint64_t doMove (TGAME sq64, TMOVE move, uint64_t zobrist) { /* */
       }
       break;
    case PROMOTION:
-      move.taken = sq64 [move.l2][move.c2];
       if (move.taken == 0) {
          sq64 [move.l1] [move.c1] = 0;
-         zobrist ^= ZobristTable[move.l1][move.c1][indexOf(sig*PAWN)]; 
+         zobrist ^= ZobristTable[move.l1][move.c1][indexOf(SIG(move.who)*PAWN)]; 
          sq64 [move.l2] [move.c2] = move.who;
          zobrist ^= ZobristTable[move.l2][move.c2][indexOf(move.who)]; 
       }
       else {
          sq64 [move.l1] [move.c1] = 0;
-         zobrist ^= ZobristTable[move.l1][move.c1][indexOf(sig*PAWN)]; 
+         zobrist ^= ZobristTable[move.l1][move.c1][indexOf(SIG(move.who)*PAWN)]; 
          sq64 [move.l2] [move.c2] = 0;
          zobrist ^= ZobristTable[move.l2][move.c2][indexOf(move.taken)]; 
          sq64 [move.l2] [move.c2] = move.who;
@@ -302,24 +294,22 @@ inline uint64_t doMove (TGAME sq64, TMOVE move, uint64_t zobrist) { /* */
       }
       break;
    case CHANGEKING:
-      move.taken = sq64 [move.l2][move.c2];
       if (move.taken == 0) {
          sq64 [move.l1] [move.c1] = 0;
          zobrist ^= ZobristTable[move.l1][move.c1][indexOf(move.who)];
-         sq64 [move.l2] [move.c2] = sig * CASTLEKING;
-         zobrist ^= ZobristTable[move.l2][move.c2][indexOf(sig*CASTLEKING)]; 
+         sq64 [move.l2] [move.c2] = SIG(move.who) * CASTLEKING;
+         zobrist ^= ZobristTable[move.l2][move.c2][indexOf(SIG(move.who)*CASTLEKING)]; 
       }
       else {
          sq64 [move.l1] [move.c1] = 0;
          zobrist ^= ZobristTable[move.l1][move.c1][indexOf(move.who)]; 
          sq64 [move.l2] [move.c2] = 0;
          zobrist ^= ZobristTable[move.l2][move.c2][indexOf(move.taken)]; 
-         sq64 [move.l2] [move.c2] = sig * CASTLEKING;
-         zobrist ^= ZobristTable[move.l2][move.c2][indexOf(sig*CASTLEKING)]; 
+         sq64 [move.l2] [move.c2] = SIG(move.who) * CASTLEKING;
+         zobrist ^= ZobristTable[move.l2][move.c2][indexOf(SIG(move.who)*CASTLEKING)]; 
       }
       break;
    case ENPASSANT:
-      move.taken = sq64 [move.l1][move.c2];
       sq64 [move.l1] [move.c1] = 0;
       zobrist ^= ZobristTable[move.l1][move.c1][indexOf(move.who)]; 
       sq64 [move.l2] [move.c2] = move.who;
@@ -330,24 +320,24 @@ inline uint64_t doMove (TGAME sq64, TMOVE move, uint64_t zobrist) { /* */
    case QUEENCASTLESIDE:
       base = (move.who <= WHITE) ? 0 : 7;
       sq64 [base][0] = 0;
-      zobrist ^= ZobristTable[base][0][indexOf(sig*ROOK)]; 
-      sq64 [base][3] = sig * ROOK;
-      zobrist ^= ZobristTable[base][3][indexOf(sig*ROOK)]; 
+      zobrist ^= ZobristTable[base][0][indexOf(SIG(move.who)*ROOK)]; 
+      sq64 [base][3] = SIG(move.who) * ROOK;
+      zobrist ^= ZobristTable[base][3][indexOf(SIG(move.who)*ROOK)]; 
       sq64 [base][4] = 0;
-      zobrist ^= ZobristTable[base][4][indexOf(sig*KING)]; 
-      sq64 [base][2] = sig * CASTLEKING;
-      zobrist ^= ZobristTable[base][2][indexOf(sig*CASTLEKING)];
+      zobrist ^= ZobristTable[base][4][indexOf(SIG(move.who)*KING)]; 
+      sq64 [base][2] = SIG(move.who) * CASTLEKING;
+      zobrist ^= ZobristTable[base][2][indexOf(SIG(move.who)*CASTLEKING)];
       break; 
    case KINGCASTLESIDE:
       base = (move.who <= WHITE) ? 0 : 7;
       sq64 [base][7] = 0;
-      zobrist ^= ZobristTable[base][7][indexOf(sig*ROOK)]; 
-      sq64 [base][5] = sig * ROOK;
-      zobrist ^= ZobristTable[base][5][indexOf(sig*ROOK)]; 
+      zobrist ^= ZobristTable[base][7][indexOf(SIG(move.who)*ROOK)]; 
+      sq64 [base][5] = SIG(move.who) * ROOK;
+      zobrist ^= ZobristTable[base][5][indexOf(SIG(move.who)*ROOK)]; 
       sq64 [base][4] = 0;
-      zobrist ^= ZobristTable[base][4][indexOf(sig*KING)]; 
-      sq64 [base][6] = sig * CASTLEKING;
-      zobrist ^= ZobristTable[base][6][indexOf(sig*CASTLEKING)];
+      zobrist ^= ZobristTable[base][4][indexOf(SIG(move.who)*KING)]; 
+      sq64 [base][6] = SIG(move.who) * CASTLEKING;
+      zobrist ^= ZobristTable[base][6][indexOf(SIG(move.who)*CASTLEKING)];
       break; 
    default:;
    }
@@ -358,7 +348,6 @@ inline uint64_t doMove (TGAME sq64, TMOVE move, uint64_t zobrist) { /* */
 inline void doMove0 (TGAME sq64, TMOVE move) { /* */
    /* execute le deplacement */
    int base;
-   int sig = (move.who <= WHITE) ? -1 : 1;
    switch (move.type) {
    case STD: case PROMOTION:
       sq64 [move.l1] [move.c1] = 0;
@@ -366,7 +355,7 @@ inline void doMove0 (TGAME sq64, TMOVE move) { /* */
       break;
    case CHANGEKING:
       sq64 [move.l1] [move.c1] = 0;
-      sq64 [move.l2] [move.c2] = sig * CASTLEKING;
+      sq64 [move.l2] [move.c2] = SIG(move.who) * CASTLEKING;
       break;
    case ENPASSANT:
       sq64 [move.l2] [move.c2] = move.who;
@@ -376,15 +365,15 @@ inline void doMove0 (TGAME sq64, TMOVE move) { /* */
    case QUEENCASTLESIDE:
       base = (move.who <= WHITE) ? 0 : 7;
       sq64 [base][0] = 0;
-      sq64 [base][2] = sig * CASTLEKING;
-      sq64 [base][3] = sig * ROOK;
+      sq64 [base][2] = SIG(move.who) * CASTLEKING;
+      sq64 [base][3] = SIG(move.who) * ROOK;
       sq64 [base][4] = 0;
       break; 
    case KINGCASTLESIDE:
       base = (move.who <= WHITE) ? 0 : 7;
       sq64 [base][4] = 0;
-      sq64 [base][5] = sig * ROOK;
-      sq64 [base][6] = sig * CASTLEKING;
+      sq64 [base][5] = SIG(move.who) * ROOK;
+      sq64 [base][6] = SIG(move.who) * CASTLEKING;
       sq64 [base][7] = 0; 
       break; 
    default:;
@@ -415,7 +404,7 @@ int buildList (TGAME refJeu, register int who, bool kingSide, bool queenSide, TL
    /* quenSide vrai si roque autorise cote roi */
    register int u, v, w, k, l, c;
    register int nList = 0;
-   int8_t *pr = &refJeu [0][0];
+   register int8_t *pr = &refJeu [0][0];
    int base = (who == WHITE) ? 0 : 7;
    int change;
    // info.nBuildListCall += 1;
@@ -578,7 +567,7 @@ int buildList (TGAME refJeu, register int who, bool kingSide, bool queenSide, TL
    return nList;
 }
 
-bool fKingInCheck (TGAME sq64, register int who) { /* */
+inline bool fKingInCheck (TGAME sq64, register int who) { /* */
    /* retourne vrai si le roi "who" est en echec */
    for (register int l = 0; l < N; l++)
       for (register int c = 0; c < N; c++) 
@@ -607,13 +596,13 @@ bool kingCannotMove (TGAME sq64, register int who) { /* */
    return true;
 }
 
-int evaluation (TGAME sq64, int who, bool *pat) { /* */
+int evaluation (TGAME sq64, register int who, bool *pat) { /* */
    /* fonction d'evaluation retournant MAT si Ordinateur gagne, */
    /* -MAT si joueur gagne, 0 si nul,... */
    /* position le boolean pat si pat */
    register int l, c, v, eval;
-   int8_t *p64 = &sq64 [0][0];
-   int lwho, cwho, ladverse, cadverse, nBBishops, nWBishops;
+   register int8_t *p64 = &sq64 [0][0];
+   register int lwho, cwho, ladverse, cadverse, nBBishops, nWBishops;
    bool kingInCheck;
    *pat = false;
    lwho = cwho = ladverse = cadverse = 0;

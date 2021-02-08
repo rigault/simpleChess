@@ -30,6 +30,7 @@
 #define MATE 10000                           // evaluation du MAT
 
 #define MIN(x,y)      ((x<y)?(x):(y))        // minimum
+#define SIG(x)        ((x <= -1) ? -1 : 1)   // signe
 #define LINE(z)       ((z) >> 3)             // z / 8 (pour trouver ligne)
 #define COL(z)        ((z) & 0x07)           // z % 8 (pour trouver colonne
 
