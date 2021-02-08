@@ -8,8 +8,8 @@ HELP = "usage: ./chess.py -e|-c|-p|-m"
 fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR+w+KQkq+-+0+0"
 curl1 = 'curl -s "http://23.251.143.190/cgi-bin/chess.cgi?reqType=2&level=4&noalea&notrans&fen='
 curl2 = 'curl -s "http://23.251.143.190/cgi-bin/chess.cgi?reqType=2&level=4&noalea&fen='
-level = 3
-exp = 24
+level = 4
+exp = 19
 
 unicode = {"p": "♟", 'n' : "♞", "b":"♝", "r":"♜", "q":"♛", "k":"♚"};
 
@@ -60,11 +60,11 @@ def endurance (fen, level, exp) :
    time2 = 0
    while score == "-" :
       # les blancs jouent
-      t1, fen, score = play ("./chess.cgi -vono " + fen + " " + str(level) + " " + str (exp))
+      t1, fen, score = play ("./chess.cgi -voNo " + fen + " " + str(level) + " " + str (exp))
       time1 += t1
       if score == "-" :
          # les noirs jouent
-         t2, fen, score = play ("./chess.cgi -vono " + fen + " " + str(level) + " " + str (exp))
+         t2, fen, score = play ("./chess.cgi -voNo " + fen + " " + str(level) + " " + str (exp))
          time2 += t2
    return time1 + time2
 
@@ -84,6 +84,7 @@ def comp (fen, level, exp) :
          nEgal += 1
       else : 
          print ("different in chess.py com")
+         exit ()
          nDiff +=1
       fen = fen1
       time1 += t1
@@ -111,7 +112,7 @@ def mesure (fen, level) :
    strRep = ""
 
    #for exp in [18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29] :
-   for exp in range (20, 30) :
+   for exp in range (10, 20) :
       time = endurance (fen, level, exp)
       strRep += "Exp = " + str (exp) + ", Time = " + str (time) + "\n"
    print ("------RESULTAT-Level " + str (level) + "---")

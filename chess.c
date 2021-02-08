@@ -44,11 +44,11 @@ struct {                           // description de la requete emise par le cli
    char fenString [MAXLENGTH];     // le jeu
    int reqType;                    // le type de requete : 0 1 ou 2
    int level;                      // la profondeur de la recherche souhaitee
-   bool alea;                      // vrai si on prend un jeu de facon aleatoire quand plusieurs solutions
+   int alea;      // 1 si on prend un jeu de facon aleatoire quand plusieurs solutions 0 si premier -1 si dernier
    bool trans;                     // vrai si on utilise les tables de transpo
    bool multi;                     // vrai si multithread
    int  exp;                       // nombre de bits a 1 pour le masque masqMaxTransTable = pow (2, exp) - 1;
-} getInfo = {"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR+w+KQkq", 2, 4, true, true, true, 24}; // par defaut
+} getInfo = {"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR+w+KQkq", 2, 4, 1, true, true, 24}; // par defaut
 
 uint64_t masqMaxTransTable;        // idem (2 puissance exp) - 1. Quasi constante initialisee dans computerPlay.
 
@@ -121,25 +121,26 @@ bool LCBlackKingInCheck (TGAME sq64, register int l, register int c) { /* */
    //pthread_mutex_unlock (&mutex);
 
    // roi adverse  menace.  Matche -KING et -CASTLEKING
-   if (l < 7 && (-sq64 [l+1][c] >= KING)) return true;
-   if (l > 0 && (-sq64 [l-1][c] >= KING)) return true;
-   if (c < 7 && (-sq64 [l][c+1] >= KING)) return true;
-   if (c > 0 && (-sq64 [l][c-1] >= KING)) return true;
-   if (l < 7 && c < 7 && (-sq64 [l+1][c+1] >= KING)) return true;
-   if (l < 7 && c > 0 && (-sq64 [l+1][c-1] >= KING)) return true;
-   if (l > 0 && c < 7 && ((w = (-sq64 [l-1][c+1])) >= KING || w == PAWN)) return true;
-   if (l > 0 && c > 0 && ((w = (-sq64 [l-1][c-1])) >= KING || w == PAWN)) return true;
+   if ((l < 7 && (-sq64 [l+1][c] >= KING)) ||
+       (l > 0 && (-sq64 [l-1][c] >= KING)) ||
+       (c < 7 && (-sq64 [l][c+1] >= KING)) ||
+       (c > 0 && (-sq64 [l][c-1] >= KING)) ||
+       (l < 7 && c < 7 && (-sq64 [l+1][c+1] >= KING)) ||
+       (l < 7 && c > 0 && (-sq64 [l+1][c-1] >= KING)) ||
+       (l > 0 && c < 7 && ((w = (-sq64 [l-1][c+1])) >= KING || w == PAWN)) ||
+       (l > 0 && c > 0 && ((w = (-sq64 [l-1][c-1])) >= KING || w == PAWN)) ||
 
    // cavalier menace
-   if (l < 7 && c < 6 && (-sq64 [l+1][c+2] == KNIGHT)) return true;
-   if (l < 7 && c > 1 && (-sq64 [l+1][c-2] == KNIGHT)) return true;
-   if (l < 6 && c < 7 && (-sq64 [l+2][c+1] == KNIGHT)) return true;
-   if (l < 6 && c > 0 && (-sq64 [l+2][c-1] == KNIGHT)) return true;
-   if (l > 0 && c < 6 && (-sq64 [l-1][c+2] == KNIGHT)) return true;
-   if (l > 0 && c > 1 && (-sq64 [l-1][c-2] == KNIGHT)) return true;
-   if (l > 1 && c < 7 && (-sq64 [l-2][c+1] == KNIGHT)) return true;
-   if (l > 1 && c > 0 && (-sq64 [l-2][c-1] == KNIGHT)) return true;
-
+       (l < 7 && c < 6 && (-sq64 [l+1][c+2] == KNIGHT)) ||
+       (l < 7 && c > 1 && (-sq64 [l+1][c-2] == KNIGHT)) ||
+       (l < 6 && c < 7 && (-sq64 [l+2][c+1] == KNIGHT)) ||
+       (l < 6 && c > 0 && (-sq64 [l+2][c-1] == KNIGHT)) ||
+       (l > 0 && c < 6 && (-sq64 [l-1][c+2] == KNIGHT)) ||
+       (l > 0 && c > 1 && (-sq64 [l-1][c-2] == KNIGHT)) ||
+       (l > 1 && c < 7 && (-sq64 [l-2][c+1] == KNIGHT)) ||
+       (l > 1 && c > 0 && (-sq64 [l-2][c-1] == KNIGHT))
+      ) return true;
+   
    // tour ou reine menace
    for (k = l+1; k < N; k++) {
       if ((w = -sq64 [k][c]) == ROOK || w == QUEEN) return true;
@@ -187,24 +188,24 @@ bool LCWhiteKingInCheck (TGAME sq64, register int l, register int c) { /* */
 
    // who : -1
    // roi adverse  menace. >= KING marche KING et CASTLELING
-   if (l < 7 && (sq64 [l+1][c] >= KING)) return true;
-   if (l > 0 && (sq64 [l-1][c] >= KING)) return true;
-   if (c < 7 && (sq64 [l][c+1] >= KING)) return true;
-   if (c > 0 && (sq64 [l][c-1] >= KING)) return true;
-   if (l < 7 && c < 7 && ((w = sq64 [l+1][c+1]) >= KING || w == PAWN)) return true;
-   if (l < 7 && c > 0 && ((w = sq64 [l+1][c-1]) >= KING || w == PAWN)) return true;
-   if (l > 0 && c < 7 && (sq64 [l-1][c+1] >= KING)) return true;
-   if (l > 0 && c > 0 && (sq64 [l-1][c-1] >= KING)) return true;
+   if ((l < 7 && (sq64 [l+1][c] >= KING)) ||
+       (l > 0 && (sq64 [l-1][c] >= KING)) ||
+       (c < 7 && (sq64 [l][c+1] >= KING)) ||
+       (c > 0 && (sq64 [l][c-1] >= KING)) ||
+       (l < 7 && c < 7 && ((w = sq64 [l+1][c+1]) >= KING || w == PAWN)) ||
+       (l < 7 && c > 0 && ((w = sq64 [l+1][c-1]) >= KING || w == PAWN)) ||
+       (l > 0 && c < 7 && (sq64 [l-1][c+1] >= KING)) ||
+       (l > 0 && c > 0 && (sq64 [l-1][c-1] >= KING)) ||
 
    // cavalier menace
-   if (l < 7 && c < 6 && (sq64 [l+1][c+2] == KNIGHT)) return true;
-   if (l < 7 && c > 1 && (sq64 [l+1][c-2] == KNIGHT)) return true;
-   if (l < 6 && c < 7 && (sq64 [l+2][c+1] == KNIGHT)) return true;
-   if (l < 6 && c > 0 && (sq64 [l+2][c-1] == KNIGHT)) return true;
-   if (l > 0 && c < 6 && (sq64 [l-1][c+2] == KNIGHT)) return true;
-   if (l > 0 && c > 1 && (sq64 [l-1][c-2] == KNIGHT)) return true;
-   if (l > 1 && c < 7 && (sq64 [l-2][c+1] == KNIGHT)) return true;
-   if (l > 1 && c > 0 && (sq64 [l-2][c-1] == KNIGHT)) return true;
+       (l < 7 && c < 6 && (sq64 [l+1][c+2] == KNIGHT)) ||
+       (l < 7 && c > 1 && (sq64 [l+1][c-2] == KNIGHT)) ||
+       (l < 6 && c < 7 && (sq64 [l+2][c+1] == KNIGHT)) ||
+       (l < 6 && c > 0 && (sq64 [l+2][c-1] == KNIGHT)) ||
+       (l > 0 && c < 6 && (sq64 [l-1][c+2] == KNIGHT)) ||
+       (l > 0 && c > 1 && (sq64 [l-1][c-2] == KNIGHT)) ||
+       (l > 1 && c < 7 && (sq64 [l-2][c+1] == KNIGHT)) ||
+       (l > 1 && c > 0 && (sq64 [l-2][c-1] == KNIGHT))) return true;
 
    // tour ou reine menace
    for (k = l+1; k < N; k++) {
@@ -573,8 +574,7 @@ inline bool fKingInCheck (TGAME sq64, register int who) { /* */
    for (register int l = 0; l < N; l++)
       for (register int c = 0; c < N; c++) 
          if ((who * sq64 [l][c]) >= KING) { // match KING et CASTLEKING
-            if (LCkingInCheck (sq64, who, l, c)) return true;
-            else return false;
+            return LCkingInCheck (sq64, who, l, c);
 	}
    return false;
 }
@@ -943,10 +943,14 @@ int computerPlay () { /* */
       info.evaluation = bestNote = info.moveList [0].eval;
       i = 0;
       while ((info.moveList[i].eval == bestNote) && (i < nextL)) i += 1; // il y a i meilleurs jeux
-      k = (getInfo.alea) ? rand () % i : (i-1); // indice du jeu choisi au hasard OU premier
       info.nBestNote = i;
-      memcpy (sq64, info.moveList[i-1].jeu, GAMESIZE);
-      moveToStr (info.moveList [i-1].move, info.computerPlayC);
+      switch (getInfo.alea) { 
+         case -1 : k = i-1; break;
+         case 0  : k = 0; break;
+         default : k = rand () % i;
+      }
+      memcpy (sq64, info.moveList[k].jeu, GAMESIZE);
+      moveToStr (info.moveList [k].move, info.computerPlayC);
    }
    if (getInfo.trans) free (trTa);
   
@@ -1024,8 +1028,8 @@ bool cgi () { /* */
    if ((env = getenv ("QUERY_STRING")) == NULL) return false;  // Les variables
 
    if ((str = strstr (env, "nomulti")) != NULL) getInfo.multi = false;
-   if ((str = strstr (env, "noalea")) != NULL) getInfo.alea = false;
-   if ((str = strstr (env, "noalea")) != NULL) getInfo.alea = false;
+   if ((str = strstr (env, "noalea0")) != NULL) getInfo.alea = 0;
+   if ((str = strstr (env, "noalea-1")) != NULL) getInfo.alea = -1;
    if ((str = strstr (env, "notrans")) != NULL) getInfo.trans = false;
    if ((str = strstr (env, "fen=")) != NULL)
       sscanf (str, "fen=%[a-zA-Z0-9+-/]", getInfo.fenString);
@@ -1069,7 +1073,7 @@ int main (int argc, char *argv[]) { /* */
       case 'q': case 'v': // q quiet, v verbose
          printf ("argv1: %s\n", argv [1]);
          if (strlen (argv [1]) > 2) getInfo.trans = (argv [1][2] != 'n');
-         if (strlen (argv [1]) > 3) getInfo.alea = (argv [1][3] != 'n');
+         if (strlen (argv [1]) > 3) getInfo.alea = (argv [1][3] == 'n') ? -1 : ((argv [1][3] == 'N') ? 0 : 1);
          if (strlen (argv [1]) > 4) getInfo.multi = (argv [1][4] != 'n');
          computerPlay ();
          if (argv [1][1] == 'v') 
