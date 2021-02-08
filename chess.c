@@ -28,6 +28,7 @@
 #include <ctype.h>
 #include "chessUtil.h"
 #include "syzygy.h"
+
 #define LCkingInCheck(sq64,who,l,c)    ((who == 1) ? LCBlackKingInCheck (sq64, l, c) : LCWhiteKingInCheck (sq64, l, c))
 
 // valorisation des pieces dans l'ordre PAWN KNIGHT BISHOP ROOK QUEEN KING CASTLEKING
@@ -735,7 +736,6 @@ int alphaBeta (TGAME sq64, int who, int p, int refAlpha, int refBeta, uint64_t z
       return note;
    }
    if (end) return note;
-   // memcpy (localSq64, sq64, GAMESIZE);
    
    // pire des notes a ameliorer
    if (who == 1) {
@@ -818,7 +818,7 @@ int computerPlay () { /* */
    enum {INIT, OUV, ENDGAME, ALPHABETA} status = INIT;
    char fen [MAXBUFFER] = "";
    pthread_t tThread [MAXTHREADS];
-   int bestNote = gamer.color * MATE; // la pire des notes possibleq
+   int bestNote = gamer.color * (MATE + 1); // la pire des notes possibleq
    int i;
    long k;
    TGAME localSq64;
