@@ -1028,8 +1028,6 @@ bool cgi () { /* */
    if ((env = getenv ("QUERY_STRING")) == NULL) return false;  // Les variables
 
    if ((str = strstr (env, "nomulti")) != NULL) getInfo.multi = false;
-   if ((str = strstr (env, "noalea0")) != NULL) getInfo.alea = 0;
-   if ((str = strstr (env, "noalea-1")) != NULL) getInfo.alea = -1;
    if ((str = strstr (env, "notrans")) != NULL) getInfo.trans = false;
    if ((str = strstr (env, "fen=")) != NULL)
       sscanf (str, "fen=%[a-zA-Z0-9+-/]", getInfo.fenString);
@@ -1039,6 +1037,8 @@ bool cgi () { /* */
       sscanf (str, "reqType=%d", &getInfo.reqType);
    if ((str = strstr (env, "exp=")) != NULL)
       sscanf (str, "exp=%d", &getInfo.exp);
+   if ((str = strstr (env, "alea=")) != NULL)
+      sscanf (str, "alea=%d", &getInfo.alea);
  
    if (getInfo.reqType != 0) {                 // on lance le jeu
        gamer.color = -fenToGame (getInfo.fenString, sq64, gamer.ep, &info.cpt50, &info.nb);
