@@ -1,9 +1,10 @@
 /*   Pour produire la doc sur les fonctions : grep "\/\*" chess.c | sed 's/^\([a-zA-Z]\)/\n\1/' */
 /*   Jeu d'echec */
-/*   ./chess.cgi -q |-v [FENGame] [profondeur] [exp] : CLI avec sortie JSON q)uiet v)erbose */
+/*   ./chess.cgi -q |-v [FENstring] [profondeur] [exp] : CLI avec sortie JSON q)uiet v)erbose */
+/*   ./chess.cgi -m | M [Fenstring] [Movestring] : execute le déplacement etrenvoie le jeur */
+/*   ./chess.cgi -d | D [FENstring] : affiche le jeu */
 /*   ./chess.cgi -f : test performance */
 /*   ./chess.cgi -t [FENGame] : test unitaire */
-/*   ./chess.cgi -p [FENGame] [profondeur] [exp] : play mode CLI */
 /*   ./chess.cgi -h : help */
 /*   sans parametre ni option :  CGI gérant une API restful (GET) avec les réponses au format JSON */
 /*   fichiers associes : chess.log, chessB.fen, chessW.fen, chessUtil.c, syzygy.c, tbprobes.c tbcore.c et .h associes  */
@@ -13,9 +14,6 @@
 /*     - nextL est un entier pointant sur le prochain move a inserer dans la liste */
 /*   Noirs : positifs  (Minuscules) */
 /*   Blancs : negatifs  (Majuscules) */
-
-// #define MASQMAXTRANSTABLE 0x0ffffff            // 29 bits a 1 : 2 puissance 29-1 > 500  millions
-// #define MAXTRANSTABLE (MASQMAXTRANSTABLE + 1)
 
 #include <unistd.h>
 #include <stdint.h>
@@ -30,6 +28,7 @@
 #include "syzygy.h"
 
 #define LCkingInCheck(sq64,who,l,c)    ((who == 1) ? LCBlackKingInCheck (sq64, l, c) : LCWhiteKingInCheck (sq64, l, c))
+#define MEMCPY(a,b)   asm volatile ("movl $8, %%ecx; rep movsq" : "+D" (a) : "S"(b) : "ecx", "cc", "memory")
 
 // valorisation des pieces dans l'ordre PAWN KNIGHT BISHOP ROOK QUEEN KING CASTLEKING
 // Le roi qui a deja roque a le code 7, le roi normal a le code 6
@@ -37,7 +36,11 @@
 // le roi n'a pas de valeur. Le roi qui a roque a un bonus
 // Voir fonction d'evaluation
 
-const int val [] = {0, 100, 300, 300, 500, 900, 0, BONUSCASTLE};
+const int valPiece [] = {0, 100, 300, 300, 500, 900, 0, BONUSCASTLE};  // pour fn evaluation
+
+const struct Sprod { int v; int inc;                              // pour fMaxDepth
+} valDepth [] = {{12, 7}, {25, 6}, {50, 5}, {100, 4}, {200, 3}, {400, 2},  {600, 1}};
+
 FILE *flog;
 
 struct {                           // description de la requete emise par le client
@@ -59,7 +62,7 @@ int nextL;                         // nombre total utilisé dans la file
 typedef struct  {                  // tables de transposition
    int16_t eval;                   // derniere eval
    int8_t p;                       // profondeur
-   int8_t used;                    // boolen sur 8 bits. Utilise
+   int8_t used;                    // booleen sur 8 bits. Utilise
    int32_t check;                  // pour verif collisions
 } StrTa;
 StrTa *trTa = NULL;                // Ce pointeur va servir de tableau après l'appel du malloc
@@ -78,7 +81,6 @@ void initTable() { /* */
          for (int k = 0; k < 14; k++) // 14 avec Roque
             ZobristTable[l][c][k] = rand64 ();
 }
-
   
 inline int indexOf (register int v) { /* */
    /* index d'une piece pour transposition table */
@@ -105,11 +107,9 @@ uint64_t computeHash (TGAME sq64) { /* */
 int fMaxDepth (int lev, int nGamerPos, int nComputerPos) { /* */
    /* renvoie la profondeur du jeu en fonction du niveau choisi et */
    /* de l'etat du jeu */
-   const struct { int v; int inc;
-   } val [] = {{12, 7}, {25, 6}, {50, 5}, {100, 4}, {200, 3}, {400, 2},  {600, 1}};
    int prod = nComputerPos * nGamerPos;
-   for (int i = 0; i < 7; i++)
-      if (prod < val [i].v) return val [i].inc + lev;
+   for (int i = 0; i < (sizeof (valDepth)/(2 * sizeof (int))); i++)
+      if (prod < valDepth [i].v) return valDepth [i].inc + lev;
    return lev;
 }
 
@@ -347,39 +347,45 @@ inline uint64_t doMove (TGAME sq64, TMOVE move, register uint64_t zobrist) { /* 
    return zobrist;
 }
 
-inline void doMove0 (TGAME sq64, TMOVE move) { /* */
+inline int doMove0 (TGAME sq64, TMOVE move) { /* */
    /* execute le deplacement */
+   /* renvoie la position du roi qui a bouge sous forme l * 8 + c sinon -1*/
    int base;
    switch (move.type) {
-   case STD: case PROMOTION:
+   case STD:
       sq64 [move.l1] [move.c1] = 0;
       sq64 [move.l2] [move.c2] = move.who;
-      break;
+      return (abs (move.who) >= KING) ? ((move.l2 << 3) + move.c2) : -1;
+   case PROMOTION:
+      sq64 [move.l1] [move.c1] = 0;
+      sq64 [move.l2] [move.c2] = move.who;
+      return -1;
    case CHANGEKING:
       sq64 [move.l1] [move.c1] = 0;
       sq64 [move.l2] [move.c2] = SIG(move.who) * CASTLEKING;
-      break;
+      return (move.l2 << 3) + move.c2;
    case ENPASSANT:
       sq64 [move.l2] [move.c2] = move.who;
       sq64 [move.l1] [move.c1] = 0;
       sq64 [move.l1] [move.c2] = 0;
-      break;
+      return -1;
    case QUEENCASTLESIDE:
       base = (move.who <= WHITE) ? 0 : 7;
       sq64 [base][0] = 0;
       sq64 [base][2] = SIG(move.who) * CASTLEKING;
       sq64 [base][3] = SIG(move.who) * ROOK;
       sq64 [base][4] = 0;
-      break; 
+      return (base << 3) + 2;
    case KINGCASTLESIDE:
       base = (move.who <= WHITE) ? 0 : 7;
       sq64 [base][4] = 0;
       sq64 [base][5] = SIG(move.who) * ROOK;
       sq64 [base][6] = SIG(move.who) * CASTLEKING;
       sq64 [base][7] = 0; 
-      break; 
+      return (base << 3) + 6;
    default:;
    }
+   return -1;
 }
 
 int buildListEnPassant (TGAME refJeu, int who, char *epGamer, TLISTMOVE listMove, int nextL) { /* */
@@ -569,30 +575,21 @@ int buildList (TGAME refJeu, register int who, bool kingSide, bool queenSide, TL
    return nList;
 }
 
-inline bool fKingInCheck (TGAME sq64, register int who) { /* */
-   /* retourne vrai si le roi "who" est en echec */
-   for (register int l = 0; l < N; l++)
-      for (register int c = 0; c < N; c++) 
-         if ((who * sq64 [l][c]) >= KING) { // match KING et CASTLEKING
-            return LCkingInCheck (sq64, who, l, c);
-	}
-   return false;
-}
-
-bool kingCannotMove (TGAME sq64, register int who) { /* */
+bool LCkingCannotMove (TGAME sq64, register int who, register int l, register int c) { /* */
    /* vrai si le roi du joueur "who" ne peut plus bouger sans se mettre echec au roi */
-   /* "who" est la couleur du roi qui est attaque */
+   /* "who" est la couleur du roi qui est attaque, l et c sa position */
    /* on essaye tous les jeux possibles. Si dans tous les cas on est echec au roi */
    /* c'est perdu. Noter que si le roi a le trait et qu'il n'est pas echec au roi il est Pat */
    /* si le roi est echec au roi il est mat */
    TLISTMOVE list;
    TGAME localSq64;
+   register int z;
    register int maxList = buildList (sq64, who, true, true, list);
    if (maxList == 0) return true;
    for (register int k = 0; k < maxList; k++) {
       memcpy (localSq64, sq64, GAMESIZE);
-      doMove0 (localSq64, list [k]);
-      if (! fKingInCheck (localSq64, who)) return false; //CORRIGER
+      z = doMove0 (localSq64, list [k]); // si z != -1 z contient les coord. du roi qui a bouge z = 8*l +c
+      if (! LCkingInCheck (localSq64, who, (z == -1) ? l : LINE (z), (z == -1) ? c : COL (z))) return false;
    }
    return true;
 }
@@ -616,7 +613,7 @@ int evaluation (TGAME sq64, register int who, bool *pat) { /* */
       // v est la valeur courante
       l = LINE (z);
       c = COL (z);
-      eval += ((v > 0) ? val [v] : -val [-v]);
+      eval += ((v > 0) ? valPiece [v] : -valPiece [-v]);
       // bonus si cavalier fou tour reine dans le carre central
       if ((c == 3 || c == 4) && (l == 3 || l == 4)) {
          if (v > PAWN && v < KING) eval += BONUSCENTER;
@@ -682,7 +679,7 @@ int evaluation (TGAME sq64, register int who, bool *pat) { /* */
    if (nWBishops >= 2) eval -= BONUSBISHOP;
    if (LCkingInCheck (sq64, who, lwho, cwho)) return -who * (MATE+1); // who ne peut pas jouer et se mettre en echec
    kingInCheck = LCkingInCheck (sq64, -who, ladverse, cadverse);
-   if (kingCannotMove (sq64, -who)) { 
+   if (LCkingCannotMove (sq64, -who, ladverse, cadverse)) { 
       if (kingInCheck) return who * MATE;
       else {
          *pat = true;
@@ -841,7 +838,7 @@ int computerPlay () { /* */
    
    // check etat du joueur
    if (LCkingInCheck (sq64, gamer.color, lGK, cGK)) {
-      if (kingCannotMove(sq64, gamer.color)) gamer.kingState = ISMATE;
+      if (LCkingCannotMove(sq64, gamer.color, lGK, cGK)) gamer.kingState = ISMATE;
       else gamer.kingState = UNVALIDINCHECK;
       info.score = ERROR;
       return 0; // le joueur n'a pas le droit de se presenter en echec apres avoir joue
@@ -849,7 +846,7 @@ int computerPlay () { /* */
    // check du computer
    if (LCkingInCheck(sq64, -gamer.color, lCK, cCK))
       computer.kingState = ISINCHECK;
-   if (kingCannotMove(sq64, -gamer.color)) {
+   if (LCkingCannotMove(sq64, -gamer.color, lCK, cCK)) {
       if (computer.kingState == ISINCHECK) {
          computer.kingState = ISMATE;
          info.score = (gamer.color == WHITE) ? WHITEWIN : BLACKWIN;
@@ -978,7 +975,7 @@ int computerPlay () { /* */
    info.score = ONGOING;
 
    if (LCkingInCheck (sq64, gamer.color, lGK, cGK)) gamer.kingState = ISINCHECK;
-   if (kingCannotMove (sq64, gamer.color)) {
+   if (LCkingCannotMove (sq64, gamer.color, lGK, cGK)) {
       if (gamer.kingState == ISINCHECK) {
          gamer.kingState = ISMATE;
          info.score = (gamer.color == WHITE) ? BLACKWIN : WHITEWIN;
@@ -1085,11 +1082,24 @@ int main (int argc, char *argv[]) { /* */
          initTable ();
          hashValue = computeHash (sq64); 
          info.nClock = clock ();
-         for (uint64_t i = 0; i < getInfo.level * MILLION; i++) {
-            memcpy (sq64, localSq64, GAMESIZE);
+         for (uint64_t i = 0; i < 2; i++) {
             memcpy (localSq64, sq64, GAMESIZE);
+            sq64 [0][0] = KING;
+            memcpy (sq64, localSq64, GAMESIZE);
          }         
          printf ("memcpy. clock: %ld\n", (clock () - info.nClock));
+         printGame (localSq64, 0);
+         
+         info.nClock = clock ();
+         int8_t *pl = &sq64[0][0]; 
+         int8_t *pl2 = &localSq64[0][0]; 
+         for (uint64_t i = 0; i < 2; i++) {
+            asm volatile ("movl $8, %%ecx; rep movsq" : "+D" (pl2) : "S"(sq64) : "ecx", "cc", "memory");
+            sq64 [0][0] = KING;
+            asm volatile ("movl $8, %%ecx; rep movsq" : "+D" (pl) : "S"(localSq64) : "ecx", "cc", "memory");
+         }         
+         printf ("asmcpy. clock: %ld\n", (clock () - info.nClock));
+         printGame (localSq64, 0);
          break;
       case 't': // tests
          printGame (sq64, evaluation (sq64, -gamer.color, &info.pat));
@@ -1111,13 +1121,13 @@ int main (int argc, char *argv[]) { /* */
          // Move the white king to the left 
          initTable(); 
          hashValue = computeHash (sq64); 
-         printf("The hash value is     : %lu\n", hashValue); 
+         printf ("The hash value is     : %lu\n", hashValue); 
          uint8_t piece = sq64[0][3]; 
          sq64 [0][3] = 0; 
          hashValue ^= ZobristTable[0][3][indexOf(piece)]; 
          sq64 [0][2] = piece; 
          hashValue ^= ZobristTable[0][2][indexOf(piece)]; 
-         printf("The new hash value is : %lu\n", hashValue); 
+         printf ("The new hash value is : %lu\n", hashValue); 
          break;
       default:
          printf ("%s\n", HELP);

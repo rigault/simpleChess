@@ -7,8 +7,8 @@
 #define N 8                                  // nombre de lignes/colonnes
 #define MAXSIZELIST 128                      // taille max liste des jeux
 #define MAXTHREADS 128                       // nombre max de thread. Garder ces deux valeurs egales.
-#define GAMESIZE 64                          // taille du jeu = N * N * sizeeof (int8_t) = 8 * 8 * 1 ATTENTION PORTABILITE
-#define HELP "Synopsys: sudo ./chess.cgi -q|-v|-f|-t|-p|-h [FEN string] [level]\n" \
+#define GAMESIZE 64                          // taille du jeu = N * N * sizeof (int8_t) = 8 * 8 * 1 ATTENTION PORTABILITE
+#define HELP "Synopsys: sudo ./chess.cgi -q|-v|-d|-m|-M|-f|-t|-h [FEN string] [level] [exp]\n" \
     "More help: firefox|google-chrome|lynx ../front/chessdoc.html"
 #define MAXBUFFER 10000                      // tampon de caracteres pour longues chaines
 #define MAXLENGTH 255                        // pour ligne
@@ -91,7 +91,7 @@ struct Sinfo {
    TMOVEINFO moveList [MAXSIZELIST];// liste des move possibles et leur evaluation
 } info;
 
-struct Player {
+struct {
    int color;                       // -1 si joueur blanc (defaut), 1 si joueur noir. Note gamer.color uniquement utilise
    int nValidPos;                   // nombre de positions valides trouvee par buildList
    enum KingState kingState;        // etat roi : NOEXIST, ...

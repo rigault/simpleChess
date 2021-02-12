@@ -6,10 +6,10 @@ WHITE = (-1)
 BLACK = 1
 HELP = "usage: ./chess.py -e|-c|-p|-m"
 fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR+w+KQkq+-+0+0"
-curl1 = 'curl -s "http://23.251.143.190/cgi-bin/chess.cgi?reqType=2&level=4&noalea&notrans&fen='
-curl2 = 'curl -s "http://23.251.143.190/cgi-bin/chess.cgi?reqType=2&level=4&noalea&fen='
-level = 4
-exp = 19
+curl1 = 'curl -s "http://23.251.143.190/cgi-bin/chess.cgi?reqType=2&level=4&alea=0&notrans&fen='
+curl2 = 'curl -s "http://23.251.143.190/cgi-bin/chess.cgi?reqType=2&level=4&alea=0&fen='
+level = 3
+exp = 18
 
 unicode = {"p": "♟", 'n' : "♞", "b":"♝", "r":"♜", "q":"♛", "k":"♚"};
 
@@ -110,8 +110,6 @@ def play2 (fen, leveli, exp) :
 
 def mesure (fen, level) :
    strRep = ""
-
-   #for exp in [18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29] :
    for exp in range (10, 20) :
       time = endurance (fen, level, exp)
       strRep += "Exp = " + str (exp) + ", Time = " + str (time) + "\n"

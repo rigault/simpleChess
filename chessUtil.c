@@ -179,8 +179,8 @@ int fenToGame (char *fenComplete, TGAME sq64, char *ep, int *cpt50, int *nb) { /
       }
       else {
          sq64 [l][c] = charToInt (cChar);
-         if (cChar == 'K' && !bCastleW) sq64 [l][c] = -CASTLEKING; // le roi blanc ne peut plus rioquer
-         if (cChar == 'k' && !bCastleB) sq64 [l][c] = CASTLEKING;  // le roi noir a deja roque
+         if (cChar == 'K' && !bCastleW) sq64 [l][c] = -CASTLEKING; // le roi blanc ne peut plus roquer
+         if (cChar == 'k' && !bCastleB) sq64 [l][c] = CASTLEKING;  // le roi noir ne peut plus roquer
          c += 1;
       }
       if (c == N) {
