@@ -41,6 +41,11 @@ const int valPiece [] = {0, 100, 300, 300, 500, 900, 0, BONUSCASTLE};  // pour f
 const struct Sprod { int v; int inc;                              // pour fMaxDepth
 } valDepth [] = {{12, 7}, {25, 6}, {50, 5}, {100, 4}, {200, 3}, {400, 2},  {600, 1}};
 
+const int8_t BLACKQUEENCASTLESERIE [5] = {0, 0, CASTLEKING, ROOK, 0};
+const int8_t WHITEQUEENCASTLESERIE [5] = {0, 0, -CASTLEKING, -ROOK, 0};
+const int8_t BLACKKINGCASTLESERIE  [4] = {0, ROOK, CASTLEKING, 0};
+const int8_t WHITEKINGCASTLESERIE  [4] = {0, -ROOK, -CASTLEKING, 0};
+
 FILE *flog;
 
 struct {                           // description de la requete emise par le client
@@ -66,11 +71,6 @@ typedef struct  {                  // tables de transposition
    int32_t check;                  // pour verif collisions
 } StrTa;
 StrTa *trTa = NULL;                // Ce pointeur va servir de tableau après l'appel du malloc
-
-int8_t BLACKQUEENCASTLESERIE [5] = {0, 0, CASTLEKING, ROOK, 0};
-int8_t WHITEQUEENCASTLESERIE [5] = {0, 0, -CASTLEKING, -ROOK, 0};
-int8_t BLACKKINGCASTLESERIE  [4] = {0, ROOK, CASTLEKING, 0};
-int8_t WHITEKINGCASTLESERIE  [4] = {0, -ROOK, -CASTLEKING, 0};
 
 uint64_t ZobristTable[8][8][14];   // 14 combinaisons avec RoiRoque
 
@@ -383,16 +383,16 @@ inline int doMove0 (TGAME sq64, TMOVE move) { /* */
          return 2;
       }
       else {
-         memcpy (&sq64[0][0] + 56, BLACKQUEENCASTLESERIE, 4);
+         memcpy (&sq64[7][0], BLACKQUEENCASTLESERIE, 4);
          return (N << 3) + 2;
       } 
    case KINGCASTLESIDE:
       if (move.piece <= WHITE) {
-         memcpy (&sq64[0][0] + 4, WHITEKINGCASTLESERIE, 4);
+         memcpy (&sq64[0][4], WHITEKINGCASTLESERIE, 4);
          return 6;
       }
       else {
-         memcpy (&sq64[0][0] +56 + 4, BLACKKINGCASTLESERIE, 4);
+         memcpy (&sq64[7][4], BLACKKINGCASTLESERIE, 4);
          return (N << 3) + 6;
       } 
    default:;
@@ -1113,9 +1113,6 @@ int main (int argc, char *argv[]) { /* */
          printGame (localSq64, 0);
          break;
       case 't': // tests
-         doQueenCastle (sq64, BLACK);
-         printGame (sq64, evaluation (sq64, -gamer.color, &info.pat));
-         doKingCastle (sq64, BLACK);
          printGame (sq64, evaluation (sq64, -gamer.color, &info.pat));
          break;
       case 'd': // display

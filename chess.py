@@ -8,7 +8,7 @@ HELP = "usage: ./chess.py -e|-c|-p|-m"
 fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR+w+KQkq+-+0+0"
 curl1 = 'curl -s "http://23.251.143.190/cgi-bin/chess.cgi?reqType=2&level=4&alea=0&notrans&fen='
 curl2 = 'curl -s "http://23.251.143.190/cgi-bin/chess.cgi?reqType=2&level=4&alea=0&fen='
-level = 4
+level = 3
 exp = 22
 
 unicode = {"p": "♟", 'n' : "♞", "b":"♝", "r":"♜", "q":"♛", "k":"♚"};
@@ -74,8 +74,8 @@ def comp (fen, level, exp) :
    time1 = 0
    time2 = 0
    while score == "-" :
-      t1, fen1, score = play ("./chess.cgi -vono " + fen + " " + str(level) + " " + str (exp))
-      t2, fen2, score = play ("./chess1.cgi -vono " + fen + " " + str(level) + " " + str (exp))
+      t1, fen1, score = play ("./chess.cgi -vnno " + fen + " " + str(level) + " " + str (exp))
+      t2, fen2, score = play ("./chess1.cgi -vnno " + fen + " " + str(level) + " " + str (exp))
       #t1, fen1, score = play (curl1 + fen + '"')
       #t2, fen2, score = play (curl2 + fen + '"')
       
@@ -84,7 +84,7 @@ def comp (fen, level, exp) :
          nEgal += 1
       else : 
          print ("different in chess.py com")
-         exit ()
+         #exit ()
          nDiff +=1
       fen = fen2
       time1 += t1
