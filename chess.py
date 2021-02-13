@@ -9,7 +9,7 @@ fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR+w+KQkq+-+0+0"
 curl1 = 'curl -s "http://23.251.143.190/cgi-bin/chess.cgi?reqType=2&level=4&alea=0&notrans&fen='
 curl2 = 'curl -s "http://23.251.143.190/cgi-bin/chess.cgi?reqType=2&level=4&alea=0&fen='
 level = 4
-exp = 18
+exp = 22
 
 unicode = {"p": "♟", 'n' : "♞", "b":"♝", "r":"♜", "q":"♛", "k":"♚"};
 
@@ -60,11 +60,11 @@ def endurance (fen, level, exp) :
    time2 = 0
    while score == "-" :
       # les blancs jouent
-      t1, fen, score = play ("./chess.cgi -voNo " + fen + " " + str(level) + " " + str (exp))
+      t1, fen, score = play ("./chess.cgi -vono " + fen + " " + str(level) + " " + str (exp))
       time1 += t1
       if score == "-" :
          # les noirs jouent
-         t2, fen, score = play ("./chess.cgi -voNo " + fen + " " + str(level) + " " + str (exp))
+         t2, fen, score = play ("./chess1.cgi -vono " + fen + " " + str(level) + " " + str (exp))
          time2 += t2
    return time1 + time2
 
@@ -86,7 +86,7 @@ def comp (fen, level, exp) :
          print ("different in chess.py com")
          exit ()
          nDiff +=1
-      fen = fen1
+      fen = fen2
       time1 += t1
       time2 += t2
    print ("nEgal = ", nEgal, " ; nDiff = ", nDiff)

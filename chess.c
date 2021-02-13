@@ -67,11 +67,28 @@ typedef struct  {                  // tables de transposition
 } StrTa;
 StrTa *trTa = NULL;                // Ce pointeur va servir de tableau après l'appel du malloc
 
+int8_t BLACKQUEENCASTLESERIE [5] = {0, 0, CASTLEKING, ROOK, 0};
+int8_t WHITEQUEENCASTLESERIE [5] = {0, 0, -CASTLEKING, -ROOK, 0};
+int8_t BLACKKINGCASTLESERIE  [4] = {0, ROOK, CASTLEKING, 0};
+int8_t WHITEKINGCASTLESERIE  [4] = {0, -ROOK, -CASTLEKING, 0};
+
 uint64_t ZobristTable[8][8][14];   // 14 combinaisons avec RoiRoque
 
 uint64_t rand64 () { /* */
    /* retourne un nb aleatoire sur 64 bits */
    return ((((uint64_t) rand ()) << 34) ^ (((uint64_t) rand ()) << 26) ^ (((uint64_t) rand ()) << 18) ^ (rand ()));
+}
+
+inline int findBlackKing (TGAME sq64) {
+   void *p;
+   if ((p = memchr (sq64, KING, GAMESIZE)) == NULL) p = memchr (sq64, CASTLEKING, GAMESIZE);
+   return ((int8_t *) p - &sq64[0][0]);
+}
+
+inline int findWhiteKing (TGAME sq64) {
+   void *p;
+   if ((p = memchr (sq64, -KING, GAMESIZE)) == NULL) p = memchr (sq64, -CASTLEKING, GAMESIZE);
+   return ((int8_t *) p - &sq64[0][0]);
 }
 
 void initTable() { /* */
@@ -116,10 +133,7 @@ int fMaxDepth (int lev, int nGamerPos, int nComputerPos) { /* */
 bool LCBlackKingInCheck (TGAME sq64, register int l, register int c) { /* */
    /* vrai si le roi Noir situe case l, c est echec au roi */
    register int w, k;
-   //pthread_mutex_lock (&mutex);
    //info.nLCKingInCheckCall += 1;
-   //pthread_mutex_unlock (&mutex);
-
    // roi adverse  menace.  Matche -KING et -CASTLEKING
    if ((l < 7 && (sq64 [l+1][c] <= -KING)) ||
        (l > 0 && (sq64 [l-1][c] <= -KING)) ||
@@ -182,11 +196,7 @@ bool LCBlackKingInCheck (TGAME sq64, register int l, register int c) { /* */
 bool LCWhiteKingInCheck (TGAME sq64, register int l, register int c) { /* */
    /* vrai si le roi Blanc situe case l, c est echec au roi */
    register int w, k;
-   //pthread_mutex_lock (&mutex);
    //info.nLCKingInCheckCall += 1;
-   //pthread_mutex_unlock (&mutex);
-
-   // who : -1
    // roi adverse  menace. >= KING marche KING et CASTLELING
    if ((l < 7 && (sq64 [l+1][c] >= KING)) ||
        (l > 0 && (sq64 [l-1][c] >= KING)) ||
@@ -350,7 +360,6 @@ inline uint64_t doMove (TGAME sq64, TMOVE move, register uint64_t zobrist) { /* 
 inline int doMove0 (TGAME sq64, TMOVE move) { /* */
    /* execute le deplacement */
    /* renvoie la position du roi qui a bouge sous forme l * 8 + c sinon -1*/
-   int base;
    switch (move.type) {
    case STD:
       sq64 [move.l1] [move.c1] = 0;
@@ -366,23 +375,26 @@ inline int doMove0 (TGAME sq64, TMOVE move) { /* */
       return (move.l2 << 3) + move.c2;
    case ENPASSANT:
       sq64 [move.l2] [move.c2] = move.piece;
-      sq64 [move.l1] [move.c1] = 0;
-      sq64 [move.l1] [move.c2] = 0;
+      sq64 [move.l1] [move.c1] = sq64 [move.l1] [move.c2] = 0;
       return -1;
    case QUEENCASTLESIDE:
-      base = (move.piece <= WHITE) ? 0 : 7;
-      sq64 [base][0] = 0;
-      sq64 [base][2] = SIG(move.piece) * CASTLEKING;
-      sq64 [base][3] = SIG(move.piece) * ROOK;
-      sq64 [base][4] = 0;
-      return (base << 3) + 2;
+      if (move.piece <= WHITE) {
+         memcpy (&sq64[0][0], WHITEQUEENCASTLESERIE, 5);
+         return 2;
+      }
+      else {
+         memcpy (&sq64[0][0] + 56, BLACKQUEENCASTLESERIE, 4);
+         return (N << 3) + 2;
+      } 
    case KINGCASTLESIDE:
-      base = (move.piece <= WHITE) ? 0 : 7;
-      sq64 [base][4] = 0;
-      sq64 [base][5] = SIG(move.piece) * ROOK;
-      sq64 [base][6] = SIG(move.piece) * CASTLEKING;
-      sq64 [base][7] = 0; 
-      return (base << 3) + 6;
+      if (move.piece <= WHITE) {
+         memcpy (&sq64[0][0] + 4, WHITEKINGCASTLESERIE, 4);
+         return 6;
+      }
+      else {
+         memcpy (&sq64[0][0] +56 + 4, BLACKKINGCASTLESERIE, 4);
+         return (N << 3) + 6;
+      } 
    default:;
    }
    return -1;
@@ -598,13 +610,31 @@ int evaluation (TGAME sq64, register int who, bool *pat) { /* */
    /* fonction d'evaluation retournant MAT si Ordinateur gagne, */
    /* -MAT si joueur gagne, 0 si nul,... */
    /* position le boolean pat si pat */
-   register int l, c, v, eval;
+   register int l, c, v, z, zAdverse;
    register int8_t *p64 = &sq64 [0][0];
-   register int lwho, cwho, ladverse, cadverse, nBBishops, nWBishops;
+   register int lAdverse, cAdverse, nBBishops, nWBishops;
    bool kingInCheck;
+   register int eval = 0;
+   if (who == BLACK) {
+      z = findBlackKing (sq64);
+      zAdverse = findWhiteKing (sq64);
+   }
+   else {
+      z = findWhiteKing (sq64);
+      zAdverse = findBlackKing (sq64);
+   }
+   if (LCkingInCheck (sq64, who, LINE (z), COL (z))) return -who * (MATE+1); // who ne peut pas jouer et se mettre en echec
+   kingInCheck = LCkingInCheck (sq64, -who, lAdverse = LINE (zAdverse), cAdverse = COL (zAdverse));
+   if (LCkingCannotMove (sq64, -who, lAdverse, cAdverse)) { 
+      if (kingInCheck) return who * MATE;
+      else {
+         *pat = true;
+         return 0;   // Pat a distinguer de "0" avec le boolen pat
+      }
+   }
+   if (kingInCheck) eval += who * KINGINCHECKEVAL;
    *pat = false;
-   lwho = cwho = ladverse = cadverse = 0;
-   eval = 0;
+   // ladverse = cadverse = 0;
    nBBishops = nWBishops = 0;  // nombre ce fous Black, White.
    info.nEvalCall += 1;
    for (register int z = 0; z < GAMESIZE; z++) {
@@ -621,14 +651,6 @@ int evaluation (TGAME sq64, register int who, bool *pat) { /* */
       }
        
       switch (v) {
-      case KING : case CASTLEKING : // on repere ou est le roi
-         if (who == 1) { lwho = l; cwho = c; }
-         else  { ladverse = l; cadverse = c; }
-         break;
-      case -KING: case -CASTLEKING :
-         if (who == 1) { ladverse = l; cadverse = c; }
-         else  {lwho = l; cwho = c;}
-         break;
       case KNIGHT:   // on privilégie cavaliers au centre
          if (c >= 2 && c <= 5 && l >= 2 && l <= 5) eval += BONUSKNIGHT;
          break;
@@ -677,16 +699,6 @@ int evaluation (TGAME sq64, register int who, bool *pat) { /* */
    // printf ("lwho: %d, cwho : %d, ladverse : %d, cadverse : %d\n", lwho, cwho, ladverse, cadverse);
    if (nBBishops >= 2) eval += BONUSBISHOP;
    if (nWBishops >= 2) eval -= BONUSBISHOP;
-   if (LCkingInCheck (sq64, who, lwho, cwho)) return -who * (MATE+1); // who ne peut pas jouer et se mettre en echec
-   kingInCheck = LCkingInCheck (sq64, -who, ladverse, cadverse);
-   if (LCkingCannotMove (sq64, -who, ladverse, cadverse)) { 
-      if (kingInCheck) return who * MATE;
-      else {
-         *pat = true;
-         return 0;   // Pat a distinguer de "0" avec le boolen pat
-      }
-   }
-   if (kingInCheck) eval += who * KINGINCHECKEVAL;
    return eval;
 }
 
@@ -1064,7 +1076,6 @@ int main (int argc, char *argv[]) { /* */
       if (argc > 3) getInfo.level = atoi (argv [3]);
       if (argc > 4) getInfo.exp = atoi (argv [4]);
       masqMaxTransTable  = (1 << getInfo.exp) - 1; // idem (2 puissance exp) - 1
-      printf ("Maxtranstable = %lx\n", masqMaxTransTable + 1);
       gamer.color = -fenToGame (getInfo.fenString, sq64, gamer.ep, &info.cpt50, &info.nb);
       switch (argv [1][1]) {
       case 'q': case 'v': // q quiet, v verbose
@@ -1102,6 +1113,9 @@ int main (int argc, char *argv[]) { /* */
          printGame (localSq64, 0);
          break;
       case 't': // tests
+         doQueenCastle (sq64, BLACK);
+         printGame (sq64, evaluation (sq64, -gamer.color, &info.pat));
+         doKingCastle (sq64, BLACK);
          printGame (sq64, evaluation (sq64, -gamer.color, &info.pat));
          break;
       case 'd': // display
