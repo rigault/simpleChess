@@ -38,7 +38,7 @@ typedef int8_t TGAME [N][N];                 // jeu de 8 x 8 cases codant une pi
 
 typedef struct {
    int8_t type;
-   int8_t who;
+   int8_t piece;
    int8_t l1;
    int8_t c1;
    int8_t l2;

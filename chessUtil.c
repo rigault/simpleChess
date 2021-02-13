@@ -31,7 +31,7 @@ void moveToStr (TMOVE move, char str [MAXSTRMOVE]) { /* */
    /* traduit move en chaine algébrique */
    switch (move.type) {
    case STD: case PROMOTION: case ENPASSANT: case CHANGEKING:
-      str [0] = (move.who == 0) ? '?' : dict [abs(move.who)];
+      str [0] = (move.piece == 0) ? '?' : dict [abs(move.piece)];
       str [1] = move.c1 + 'a';
       str [2] = move.l1 + '1';
       str [3] = (move.taken == 0) ? '-' : 'x';

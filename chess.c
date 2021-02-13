@@ -121,59 +121,59 @@ bool LCBlackKingInCheck (TGAME sq64, register int l, register int c) { /* */
    //pthread_mutex_unlock (&mutex);
 
    // roi adverse  menace.  Matche -KING et -CASTLEKING
-   if ((l < 7 && (-sq64 [l+1][c] >= KING)) ||
-       (l > 0 && (-sq64 [l-1][c] >= KING)) ||
-       (c < 7 && (-sq64 [l][c+1] >= KING)) ||
-       (c > 0 && (-sq64 [l][c-1] >= KING)) ||
-       (l < 7 && c < 7 && (-sq64 [l+1][c+1] >= KING)) ||
-       (l < 7 && c > 0 && (-sq64 [l+1][c-1] >= KING)) ||
-       (l > 0 && c < 7 && ((w = (-sq64 [l-1][c+1])) >= KING || w == PAWN)) ||
-       (l > 0 && c > 0 && ((w = (-sq64 [l-1][c-1])) >= KING || w == PAWN)) ||
+   if ((l < 7 && (sq64 [l+1][c] <= -KING)) ||
+       (l > 0 && (sq64 [l-1][c] <= -KING)) ||
+       (c < 7 && (sq64 [l][c+1] <= -KING)) ||
+       (c > 0 && (sq64 [l][c-1] <= -KING)) ||
+       (l < 7 && c < 7 && (sq64 [l+1][c+1] <= -KING)) ||
+       (l < 7 && c > 0 && (sq64 [l+1][c-1] <= -KING)) ||
+       (l > 0 && c < 7 && ((w = (sq64 [l-1][c+1])) <= -KING || w == -PAWN)) ||
+       (l > 0 && c > 0 && ((w = (sq64 [l-1][c-1])) <= -KING || w == -PAWN)) ||
 
    // cavalier menace
-       (l < 7 && c < 6 && (-sq64 [l+1][c+2] == KNIGHT)) ||
-       (l < 7 && c > 1 && (-sq64 [l+1][c-2] == KNIGHT)) ||
-       (l < 6 && c < 7 && (-sq64 [l+2][c+1] == KNIGHT)) ||
-       (l < 6 && c > 0 && (-sq64 [l+2][c-1] == KNIGHT)) ||
-       (l > 0 && c < 6 && (-sq64 [l-1][c+2] == KNIGHT)) ||
-       (l > 0 && c > 1 && (-sq64 [l-1][c-2] == KNIGHT)) ||
-       (l > 1 && c < 7 && (-sq64 [l-2][c+1] == KNIGHT)) ||
-       (l > 1 && c > 0 && (-sq64 [l-2][c-1] == KNIGHT))
+       (l < 7 && c < 6 && (sq64 [l+1][c+2] == -KNIGHT)) ||
+       (l < 7 && c > 1 && (sq64 [l+1][c-2] == -KNIGHT)) ||
+       (l < 6 && c < 7 && (sq64 [l+2][c+1] == -KNIGHT)) ||
+       (l < 6 && c > 0 && (sq64 [l+2][c-1] == -KNIGHT)) ||
+       (l > 0 && c < 6 && (sq64 [l-1][c+2] == -KNIGHT)) ||
+       (l > 0 && c > 1 && (sq64 [l-1][c-2] == -KNIGHT)) ||
+       (l > 1 && c < 7 && (sq64 [l-2][c+1] == -KNIGHT)) ||
+       (l > 1 && c > 0 && (sq64 [l-2][c-1] == -KNIGHT))
       ) return true;
    
    // tour ou reine menace
    for (k = l+1; k < N; k++) {
-      if ((w = -sq64 [k][c]) == ROOK || w == QUEEN) return true;
+      if ((w = sq64 [k][c]) == -ROOK || w == -QUEEN) return true;
       if (w) break;
    }
    for (k = l-1; k >= 0; k--) {
-      if ((w= -sq64 [k][c]) == ROOK || w == QUEEN) return true;
+      if ((w = sq64 [k][c]) == -ROOK || w == -QUEEN) return true;
       if (w) break;
    }
    for (k = c+1; k < N; k++) {
-      if ((w = -sq64 [l][k]) == ROOK || w == QUEEN) return true;
+      if ((w = sq64 [l][k]) == -ROOK || w == -QUEEN) return true;
       if (w) break;
    }
    for (k = c-1; k >= 0; k--) {
-      if ((w = -sq64 [l][k]) == ROOK || w == QUEEN) return true;
+      if ((w = sq64 [l][k]) == -ROOK || w == -QUEEN) return true;
       if (w) break;
    }
 
    // fou ou reine menace
    for (k = 0; k < MIN (7-l, 7-c); k++) {       // vers haut droit
-      if ((w = -sq64 [l+k+1][c+k+1]) == BISHOP || w == QUEEN) return true;
+      if ((w = sq64 [l+k+1][c+k+1]) == -BISHOP || w == -QUEEN) return true;
       if (w) break;
    }
    for (k = 0; k < MIN (7-l, c); k++) {         // vers haut gauche
-      if ((w = -sq64 [l+k+1][c-k-1]) == BISHOP || w == QUEEN) return true;
+      if ((w = sq64 [l+k+1][c-k-1]) == -BISHOP || w == -QUEEN) return true;
       if (w) break;
    }
    for (k = 0; k < MIN (l, 7-c); k++) {         // vers bas droit
-      if ((w = -sq64 [l-k-1][c+k+1]) == BISHOP || w == QUEEN) return true;
+      if ((w = sq64 [l-k-1][c+k+1]) == -BISHOP || w == -QUEEN) return true;
       if (w) break;
    }
    for (k = 0; k < MIN (l, c); k++) {           // vers bas gauche
-      if ((w = -sq64 [l-k-1] [c-k-1]) == BISHOP || w == QUEEN) return true;
+      if ((w = sq64 [l-k-1] [c-k-1]) == -BISHOP || w == -QUEEN) return true;
       if (w) break;
    }
    return false;
@@ -246,10 +246,10 @@ bool LCWhiteKingInCheck (TGAME sq64, register int l, register int c) { /* */
    return false;
 }
 
-inline int pushMove (TLISTMOVE listMove, register int who, register int type, register int nList, register int l1, register int c1, register int l2, register int c2) { /* */
+inline int pushMove (TLISTMOVE listMove, register int piece, register int type, register int nList, register int l1, register int c1, register int l2, register int c2) { /* */
    /* pousse un deplacement dans la liste */
    listMove [nList].type = type;
-   listMove [nList].who = who;
+   listMove [nList].piece = piece;
    listMove [nList].l1 = l1;
    listMove [nList].c1 = c1;
    listMove [nList].l2 = l2;
@@ -266,80 +266,80 @@ inline uint64_t doMove (TGAME sq64, TMOVE move, register uint64_t zobrist) { /* 
    case STD:
       if (move.taken == 0) {
          sq64 [move.l1] [move.c1] = 0;
-         zobrist ^= ZobristTable[move.l1][move.c1][indexOf(move.who)]; 
-         sq64 [move.l2] [move.c2] = move.who;
-         zobrist ^= ZobristTable[move.l2][move.c2][indexOf(move.who)]; 
+         zobrist ^= ZobristTable[move.l1][move.c1][indexOf(move.piece)]; 
+         sq64 [move.l2] [move.c2] = move.piece;
+         zobrist ^= ZobristTable[move.l2][move.c2][indexOf(move.piece)]; 
       }
       else {
          sq64 [move.l1] [move.c1] = 0;
-         zobrist ^= ZobristTable[move.l1][move.c1][indexOf(move.who)]; 
+         zobrist ^= ZobristTable[move.l1][move.c1][indexOf(move.piece)]; 
          sq64 [move.l2] [move.c2] = 0;
          zobrist ^= ZobristTable[move.l2][move.c2][indexOf(move.taken)]; 
-         sq64 [move.l2] [move.c2] = move.who;
-         zobrist ^= ZobristTable[move.l2][move.c2][indexOf(move.who)]; 
+         sq64 [move.l2] [move.c2] = move.piece;
+         zobrist ^= ZobristTable[move.l2][move.c2][indexOf(move.piece)]; 
       }
       break;
    case PROMOTION:
       if (move.taken == 0) {
          sq64 [move.l1] [move.c1] = 0;
-         zobrist ^= ZobristTable[move.l1][move.c1][indexOf(SIG(move.who)*PAWN)]; 
-         sq64 [move.l2] [move.c2] = move.who;
-         zobrist ^= ZobristTable[move.l2][move.c2][indexOf(move.who)]; 
+         zobrist ^= ZobristTable[move.l1][move.c1][indexOf(SIG(move.piece)*PAWN)]; 
+         sq64 [move.l2] [move.c2] = move.piece;
+         zobrist ^= ZobristTable[move.l2][move.c2][indexOf(move.piece)]; 
       }
       else {
          sq64 [move.l1] [move.c1] = 0;
-         zobrist ^= ZobristTable[move.l1][move.c1][indexOf(SIG(move.who)*PAWN)]; 
+         zobrist ^= ZobristTable[move.l1][move.c1][indexOf(SIG(move.piece)*PAWN)]; 
          sq64 [move.l2] [move.c2] = 0;
          zobrist ^= ZobristTable[move.l2][move.c2][indexOf(move.taken)]; 
-         sq64 [move.l2] [move.c2] = move.who;
-         zobrist ^= ZobristTable[move.l2][move.c2][indexOf(move.who)]; 
+         sq64 [move.l2] [move.c2] = move.piece;
+         zobrist ^= ZobristTable[move.l2][move.c2][indexOf(move.piece)]; 
       }
       break;
    case CHANGEKING:
       if (move.taken == 0) {
          sq64 [move.l1] [move.c1] = 0;
-         zobrist ^= ZobristTable[move.l1][move.c1][indexOf(move.who)];
-         sq64 [move.l2] [move.c2] = SIG(move.who) * CASTLEKING;
-         zobrist ^= ZobristTable[move.l2][move.c2][indexOf(SIG(move.who)*CASTLEKING)]; 
+         zobrist ^= ZobristTable[move.l1][move.c1][indexOf(move.piece)];
+         sq64 [move.l2] [move.c2] = SIG(move.piece) * CASTLEKING;
+         zobrist ^= ZobristTable[move.l2][move.c2][indexOf(SIG(move.piece)*CASTLEKING)]; 
       }
       else {
          sq64 [move.l1] [move.c1] = 0;
-         zobrist ^= ZobristTable[move.l1][move.c1][indexOf(move.who)]; 
+         zobrist ^= ZobristTable[move.l1][move.c1][indexOf(move.piece)]; 
          sq64 [move.l2] [move.c2] = 0;
          zobrist ^= ZobristTable[move.l2][move.c2][indexOf(move.taken)]; 
-         sq64 [move.l2] [move.c2] = SIG(move.who) * CASTLEKING;
-         zobrist ^= ZobristTable[move.l2][move.c2][indexOf(SIG(move.who)*CASTLEKING)]; 
+         sq64 [move.l2] [move.c2] = SIG(move.piece) * CASTLEKING;
+         zobrist ^= ZobristTable[move.l2][move.c2][indexOf(SIG(move.piece)*CASTLEKING)]; 
       }
       break;
    case ENPASSANT:
       sq64 [move.l1] [move.c1] = 0;
-      zobrist ^= ZobristTable[move.l1][move.c1][indexOf(move.who)]; 
-      sq64 [move.l2] [move.c2] = move.who;
-      zobrist ^= ZobristTable[move.l2][move.c2][indexOf(move.who)]; 
+      zobrist ^= ZobristTable[move.l1][move.c1][indexOf(move.piece)]; 
+      sq64 [move.l2] [move.c2] = move.piece;
+      zobrist ^= ZobristTable[move.l2][move.c2][indexOf(move.piece)]; 
       sq64 [move.l1] [move.c2] = 0;
       zobrist ^= ZobristTable[move.l1][move.c2][indexOf(move.taken)]; 
       break;
    case QUEENCASTLESIDE:
-      base = (move.who <= WHITE) ? 0 : 7;
+      base = (move.piece <= WHITE) ? 0 : 7;
       sq64 [base][0] = 0;
-      zobrist ^= ZobristTable[base][0][indexOf(SIG(move.who)*ROOK)]; 
-      sq64 [base][3] = SIG(move.who) * ROOK;
-      zobrist ^= ZobristTable[base][3][indexOf(SIG(move.who)*ROOK)]; 
+      zobrist ^= ZobristTable[base][0][indexOf(SIG(move.piece)*ROOK)]; 
+      sq64 [base][3] = SIG(move.piece) * ROOK;
+      zobrist ^= ZobristTable[base][3][indexOf(SIG(move.piece)*ROOK)]; 
       sq64 [base][4] = 0;
-      zobrist ^= ZobristTable[base][4][indexOf(SIG(move.who)*KING)]; 
-      sq64 [base][2] = SIG(move.who) * CASTLEKING;
-      zobrist ^= ZobristTable[base][2][indexOf(SIG(move.who)*CASTLEKING)];
+      zobrist ^= ZobristTable[base][4][indexOf(SIG(move.piece)*KING)]; 
+      sq64 [base][2] = SIG(move.piece) * CASTLEKING;
+      zobrist ^= ZobristTable[base][2][indexOf(SIG(move.piece)*CASTLEKING)];
       break; 
    case KINGCASTLESIDE:
-      base = (move.who <= WHITE) ? 0 : 7;
+      base = (move.piece <= WHITE) ? 0 : 7;
       sq64 [base][7] = 0;
-      zobrist ^= ZobristTable[base][7][indexOf(SIG(move.who)*ROOK)]; 
-      sq64 [base][5] = SIG(move.who) * ROOK;
-      zobrist ^= ZobristTable[base][5][indexOf(SIG(move.who)*ROOK)]; 
+      zobrist ^= ZobristTable[base][7][indexOf(SIG(move.piece)*ROOK)]; 
+      sq64 [base][5] = SIG(move.piece) * ROOK;
+      zobrist ^= ZobristTable[base][5][indexOf(SIG(move.piece)*ROOK)]; 
       sq64 [base][4] = 0;
-      zobrist ^= ZobristTable[base][4][indexOf(SIG(move.who)*KING)]; 
-      sq64 [base][6] = SIG(move.who) * CASTLEKING;
-      zobrist ^= ZobristTable[base][6][indexOf(SIG(move.who)*CASTLEKING)];
+      zobrist ^= ZobristTable[base][4][indexOf(SIG(move.piece)*KING)]; 
+      sq64 [base][6] = SIG(move.piece) * CASTLEKING;
+      zobrist ^= ZobristTable[base][6][indexOf(SIG(move.piece)*CASTLEKING)];
       break; 
    default:;
    }
@@ -354,33 +354,33 @@ inline int doMove0 (TGAME sq64, TMOVE move) { /* */
    switch (move.type) {
    case STD:
       sq64 [move.l1] [move.c1] = 0;
-      sq64 [move.l2] [move.c2] = move.who;
-      return (abs (move.who) >= KING) ? ((move.l2 << 3) + move.c2) : -1;
+      sq64 [move.l2] [move.c2] = move.piece;
+      return (abs (move.piece) >= KING) ? ((move.l2 << 3) + move.c2) : -1;
    case PROMOTION:
       sq64 [move.l1] [move.c1] = 0;
-      sq64 [move.l2] [move.c2] = move.who;
+      sq64 [move.l2] [move.c2] = move.piece;
       return -1;
    case CHANGEKING:
       sq64 [move.l1] [move.c1] = 0;
-      sq64 [move.l2] [move.c2] = SIG(move.who) * CASTLEKING;
+      sq64 [move.l2] [move.c2] = (move.piece >= BLACK) ? CASTLEKING : -CASTLEKING;
       return (move.l2 << 3) + move.c2;
    case ENPASSANT:
-      sq64 [move.l2] [move.c2] = move.who;
+      sq64 [move.l2] [move.c2] = move.piece;
       sq64 [move.l1] [move.c1] = 0;
       sq64 [move.l1] [move.c2] = 0;
       return -1;
    case QUEENCASTLESIDE:
-      base = (move.who <= WHITE) ? 0 : 7;
+      base = (move.piece <= WHITE) ? 0 : 7;
       sq64 [base][0] = 0;
-      sq64 [base][2] = SIG(move.who) * CASTLEKING;
-      sq64 [base][3] = SIG(move.who) * ROOK;
+      sq64 [base][2] = SIG(move.piece) * CASTLEKING;
+      sq64 [base][3] = SIG(move.piece) * ROOK;
       sq64 [base][4] = 0;
       return (base << 3) + 2;
    case KINGCASTLESIDE:
-      base = (move.who <= WHITE) ? 0 : 7;
+      base = (move.piece <= WHITE) ? 0 : 7;
       sq64 [base][4] = 0;
-      sq64 [base][5] = SIG(move.who) * ROOK;
-      sq64 [base][6] = SIG(move.who) * CASTLEKING;
+      sq64 [base][5] = SIG(move.piece) * ROOK;
+      sq64 [base][6] = SIG(move.piece) * CASTLEKING;
       sq64 [base][7] = 0; 
       return (base << 3) + 6;
    default:;
