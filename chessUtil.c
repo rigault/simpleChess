@@ -444,9 +444,6 @@ void sendGame (bool http, const char *fen, int reqType) { /* */
       printf ("\"computerStatus\" : \"%d : %s\",\n", computer.kingState, strStatus [computer.kingState]);
       printf ("\"playerStatus\" : \"%d : %s\",\n", gamer.kingState, strStatus [gamer.kingState]);
       printf ("\"fen\" : \"%s\",\n", fen);
-      if (info.lastCapturedByComputer >= ' ' && info.lastCapturedByComputer <= 'z')
-         printf ("\"lastTake\" : \"%c\",\n", info.lastCapturedByComputer);
-      else printf ("\"lastTake\" : \"%c\",\n", ' ');
       printf ("\"comment\" : \"%s\",\n", info.comment);
       printf ("\"wdl\" : %d,\n", info.wdl);
       printf ("\"move\" : \"%s\",\n", info.computerPlayC);
@@ -468,11 +465,9 @@ void sendGame (bool http, const char *fen, int reqType) { /* */
       printf ("\"nBestNote\" : %d, ", info.nBestNote);
       printf ("\"nValidGamerPos\" : %d, ", gamer.nValidPos);
       printf ("\"nValidComputerPos\" : %d,\n   ", computer.nValidPos);
-      printf ("\"nDoMove\" : %d, ", info.nDoMove);
       printf ("\"nTrTa\" : %d, ", info.nbTrTa);
       printf ("\"nMatchTrans\" : %d, ", info.nbMatchTrans);
       printf ("\"nCollision\" : %d, ", info.nbColl);
-      printf ("\"nCallfHash\" : %d, ", info.nbCallfHash);
       printf ("\"nLCKingInCheck\" : %d, ", info.nLCKingInCheckCall);
       printf ("\"nBuildList\" : %d\n", info.nBuildListCall);
       printf ("}");

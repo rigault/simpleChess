@@ -75,8 +75,6 @@ struct Sinfo {
    int evaluation;                  // evaluation rendue par la fonction d evaluation
    char computerPlayC [MAXSTRMOVE]; // dernier jeu ordi. Notation Alg. complete
    char computerPlayA [MAXSTRMOVE]; // dernier jeu ordi. Notation Alg. abegee
-   char lastCapturedByComputer;     // derniere piece prise par Ordi
-   int calculatedMaxDepth;          // profondeur max atteinte
    char comment [MAXBUFFER];        // nom de l'ouverture si trouvee ou fin de partie
    long computeTime;                // temps de calcul
    clock_t nClock;                  // utilisation du processeur
@@ -86,9 +84,7 @@ struct Sinfo {
    int  nBestNote;                  // nombre de possibilites ayant la meilleure eval
    int nbTrTa;                      // nombre de positions occupees dans la table de transposition
    int nbColl;                      // nombre de collisions
-   int nbCallfHash;                 // nombre appels fn de hachage.
    int nbMatchTrans;                // nombre de matching transposition  
-   int nDoMove;                     // nombre d'appls a doMove  
    TMOVEINFO moveList [MAXSIZELIST];// liste des move possibles et leur evaluation
 } info;
 

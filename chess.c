@@ -270,7 +270,6 @@ inline int pushMove (TLISTMOVE listMove, register int piece, register int type, 
 inline uint64_t doMove (TGAME sq64, TMOVE move, register uint64_t zobrist) { /* */
    /* execute le deplacement */
    /* renvoie le nouveau zobrist */
-   /* modife move.taken */
    int base;
    move.taken = sq64 [move.l2][move.c2];
    switch (move.type) {
@@ -361,7 +360,6 @@ inline uint64_t doMove (TGAME sq64, TMOVE move, register uint64_t zobrist) { /* 
 inline int doMove0 (TGAME sq64, TMOVE move) { /* */
    /* execute le deplacement */
    /* renvoie la position du roi qui a bouge sous forme l * 8 + c sinon -1*/
-   // move.taken = sq64 [move.l2][move.c2];
    switch (move.type) {
    case STD:
       sq64 [move.l1] [move.c1] = 0;
@@ -719,7 +717,6 @@ int alphaBeta (TGAME sq64, int who, int p, int refAlpha, int refBeta, uint64_t z
    uint32_t hash = 0, check = 0;
    bool end = false;
    // uint64_t zobrist = computeHash (sq64);
-   if (info.calculatedMaxDepth < p) info.calculatedMaxDepth = p;
    if (getInfo.trans) {
       hash = zobrist & masqMaxTransTable;
       check = zobrist >> 32; 
@@ -766,7 +763,7 @@ int alphaBeta (TGAME sq64, int who, int p, int refAlpha, int refBeta, uint64_t z
    else {
    // recherche du maximum
       val = -MATE;
-      maxList = buildList (sq64, 1, true, true, list);//CORRIGER
+      maxList = buildList (sq64, 1, true, true, list);
       for (k = 0; k < maxList; k++) {
          memcpy (localSq64, sq64, GAMESIZE);
          if (getInfo.trans) newZobrist = doMove (localSq64, list [k], zobrist);
