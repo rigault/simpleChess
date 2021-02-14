@@ -84,7 +84,7 @@ def comp (fen, level, exp) :
          nEgal += 1
       else : 
          print ("different in chess.py com")
-         #exit ()
+         exit ()
          nDiff +=1
       fen = fen2
       time1 += t1

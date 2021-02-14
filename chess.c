@@ -270,6 +270,7 @@ inline int pushMove (TLISTMOVE listMove, register int piece, register int type, 
 inline uint64_t doMove (TGAME sq64, TMOVE move, register uint64_t zobrist) { /* */
    /* execute le deplacement */
    /* renvoie le nouveau zobrist */
+   /* modife move.taken */
    int base;
    move.taken = sq64 [move.l2][move.c2];
    switch (move.type) {
@@ -360,6 +361,7 @@ inline uint64_t doMove (TGAME sq64, TMOVE move, register uint64_t zobrist) { /* 
 inline int doMove0 (TGAME sq64, TMOVE move) { /* */
    /* execute le deplacement */
    /* renvoie la position du roi qui a bouge sous forme l * 8 + c sinon -1*/
+   // move.taken = sq64 [move.l2][move.c2];
    switch (move.type) {
    case STD:
       sq64 [move.l1] [move.c1] = 0;
@@ -883,8 +885,8 @@ int computerPlay () { /* */
    }
    for (k = 0; k < nextL; k++) { // enregistrement des move possibles au niveau 0 dans info
       memcpy (&info.moveList [k].move, &listMove [k], sizeof (TMOVE));
-      info.moveList [k].move.taken = sq64 [listMove [k].l2][listMove [k].c2]; 
-      moveToStr (info.moveList [k].move, info.moveList [k].strMove);
+      info.moveList [k].taken = sq64 [listMove [k].l2][listMove [k].c2]; 
+      moveToStr (info.moveList [k].move, info.moveList [k].strMove, info.moveList [k].taken);
    }
    
    info.maxDepth = fMaxDepth (getInfo.level, gamer.nValidPos, computer.nValidPos);
@@ -959,7 +961,7 @@ int computerPlay () { /* */
          default : k = rand () % i;
       }
       memcpy (sq64, info.moveList[k].jeu, GAMESIZE);
-      moveToStr (info.moveList [k].move, info.computerPlayC);
+      moveToStr (info.moveList [k].move, info.computerPlayC, info.moveList [k].taken);
    }
    if (getInfo.trans) free (trTa);
   

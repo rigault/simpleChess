@@ -51,6 +51,7 @@ typedef TMOVE TLISTMOVE [MAXSIZELIST];
 typedef struct {                             // structure decrivant un deplacement, le jeu resultant et son evaluation.
    TGAME jeu;
    TMOVE move;
+   int taken;
    char strMove [MAXSTRMOVE];
    int eval;
    uint64_t zobrist;
@@ -100,7 +101,7 @@ struct {
    char ep [3];                     // en passant au format c3
 } gamer, computer;
 
-extern void moveToStr (TMOVE move, char str [MAXSTRMOVE]);
+extern void moveToStr (TMOVE move, char str [MAXSTRMOVE], int taken);
 extern int fenToGame (char *fenComplete, TGAME sq64, char *ep, int *cpt50, int *nb);
 extern char *gameToFen (TGAME sq64, char *fen, int color, char sep, bool complete, char *ep, int cpt50, int nb);
 extern bool openingAll (const char *dir, const char *filter, char *gameFen, char *sComment, char *move);

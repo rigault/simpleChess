@@ -27,14 +27,14 @@ int charToInt (int c) { /* */
    return 0;
 }
 
-void moveToStr (TMOVE move, char str [MAXSTRMOVE]) { /* */
+void moveToStr (TMOVE move, char str [MAXSTRMOVE], int taken) { /* */
    /* traduit move en chaine algébrique */
    switch (move.type) {
    case STD: case PROMOTION: case ENPASSANT: case CHANGEKING:
       str [0] = (move.piece == 0) ? '?' : dict [abs(move.piece)];
       str [1] = move.c1 + 'a';
       str [2] = move.l1 + '1';
-      str [3] = (move.taken == 0) ? '-' : 'x';
+      str [3] = (taken == 0) ? '-' : 'x';
       str [4] = move.c2 + 'a';
       str [5] = move.l2 + '1';
       str [6] = '\0';
