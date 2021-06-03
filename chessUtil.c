@@ -19,16 +19,16 @@ static const char *unicode [] = {" ", "♟", "♞", "♝", "♜", "♛", "♚", 
 static const char *strStatus [] = {"NO_EXIST", "EXIST", "IS_IN_CHECK", "UNVALID_IN_CHECK", "IS_MATE", "IS_PAT"};
 static const char *scoreToStr [] = {"ERROR", "-", "0-1","1/2-1/2","1-0"};
 
+/*! traduit la piece au format RNBQK... en nombre entier */
 int charToInt (int c) { /* */
-   /* traduit la piece au format RNBQK... en nombre entier */
    int sign = islower (c) ? 1 : -1;
    for (unsigned int i = 0; i < sizeof (dict); i++)
       if (toupper (c) == dict [i]) return sign * i;
    return 0;
 }
 
+/*! traduit move en chaine algébrique */
 void moveToStr (TMOVE move, char str [MAXSTRMOVE], int taken) { /* */
-   /* traduit move en chaine algébrique */
    switch (move.type) {
    case STD: case PROMOTION: case ENPASSANT: case CHANGEKING:
       str [0] = (move.piece == 0) ? '?' : dict [abs(move.piece)];
@@ -56,8 +56,8 @@ void moveToStr (TMOVE move, char str [MAXSTRMOVE], int taken) { /* */
    }
 }
 
+/*! imprime le jeu a la console pour Debug */
 void printGame (TGAME jeu, int eval) { /* */
-   /* imprime le jeu a la console pour Debug */
    int l, c;
    int v;
    bool normal = true;
@@ -77,10 +77,10 @@ void printGame (TGAME jeu, int eval) { /* */
    printf ("%s\n", NORMAL);
 }
 
+/*! traduit booleen decrivant les possibilites de roque en string
+ * \li modifie : gamer et computer
+ * \li renvoie str de la forme KQkq */
 char *castleToStr (bool whiteIsCastled, bool blackIsCastled, char *str) { /* */
-   /* traduit booleen decrivant les possibilites de roque en string */
-   /* modifie : gamer et computer */
-   /* renvoie str de la forme KQkq */
    strcpy (str, "");
 
    if (((whiteIsCastled) && (gamer.color == WHITE)) || ((blackIsCastled) && (gamer.color == BLACK))) { 
@@ -106,9 +106,9 @@ char *castleToStr (bool whiteIsCastled, bool blackIsCastled, char *str) { /* */
    return str;
 }
 
+/*! traduit les possibilites de roque en booleens
+ * \li modifie : gamer et computer */
 void strToCastle (char *str, int color, bool *whiteCanCastle, bool *blackCanCastle) { /* */
-   /* traduit les possibilites de roque en booleens */
-   /* modifie : gamer et computer */
    char car;
    *whiteCanCastle = false;
    *blackCanCastle = false;
@@ -136,15 +136,15 @@ void strToCastle (char *str, int color, bool *whiteCanCastle, bool *blackCanCast
    }
 }
 
+/*! Traduit le jeu au format FEN Forsyth–Edwards Notation en structure interne
+ * \li ex : 3kq3/8/8/8/8/3K4/+w+--
+ * \li le jeu est recu sous la forme d'une chaine de caracteres du navigateur au format fen
+ * \li fenToGame traduit cette chaine et renvoie l'objet TGAME sq64  ainsi que la couleur
+ * \li retour 1 si noir, -1 si blanc
+ * \li le roque est contenu dans la valeur du roi : KING ou CASTLEKING
+ * \li les valeurs : en passant, cpt 50 coups et nb de coups sont renvoyées
+ * \li les separateurs acceptés entre les differents champs sont : + et Espace */
 int fenToGame (char *fenComplete, TGAME sq64, char *ep, int *cpt50, int *nb) { /* */
-   /* Forsyth–Edwards Notation */
-   /* ex : 3kq3/8/8/8/8/3K4/+w+-- */
-   /* le jeu est recu sous la forme d'une chaine de caracteres du navigateur au format fen */
-   /* fenToGame traduit cette chaine et renvoie l'objet TGAME sq64  ainsi que la couleur */
-   /* retour 1 si noir, -1 si blanc */
-   /* le roque est contenu dans la valeur du roi : KING ou CASTLEKING */
-   /* les valeurs : en passant, cpt 50 coups et nb de coups sont renvoyées */
-   /* les separateurs acceptés entre les differents champs sont : + et Espace */ 
    int k, l = 7, c = 0;
    char *fen, cChar;
    char *sColor, *sCastle, *strNb, *str50, *strEp;
@@ -191,12 +191,12 @@ int fenToGame (char *fenComplete, TGAME sq64, char *ep, int *cpt50, int *nb) { /
    return activeColor;
 }
 
+/*! traduit le jei des structures interne en chaine au format FEN Forsyth–Edwards Notation 
+ * \li genere le jeu sous la forme d'une chaine de caracteres au format FEN 
+ * \li le separateur est donne en parametre : normalement soit espace soit "+"
+ * \li si le boolean "complete" est vrai alors on transmet le roque, la valeur en passant,
+ * \li le compteur des 50 coups et le nb de coups */
 char *gameToFen (TGAME sq64, char *fen, int color, char sep, bool complete, char *ep, int cpt50, int nb) { /* */
-   /* Forsyth–Edwards Notation */
-   /* genere le jeu sous la forme d'une chaine de caracteres au format FEN */
-   /* le separateur est donne en parametre : normalement soit espace soit "+" */
-   /* si le boolean "complete" est vrai alors on transmet le roque, la valeur en passant, */
-   /* le compteur des 50 coups et le nb de coups */
    int n, v;
    int i = 0;
    char strCastle [4];
@@ -227,10 +227,10 @@ char *gameToFen (TGAME sq64, char *fen, int color, char sep, bool complete, char
    return fen;
 }
 
+/*! modifie jeu avec le deplacement move
+ * \li move en notation algébrique Pa2-a4 ou Pa2xc3
+ * \li tolere e2e4 e2-e4 e:e4 e2xe4 */
 void moveGame (TGAME sq64, int color, char *move) { /* */
-   /* modifie jeu avec le deplacement move */
-   /* move en notation algébrique Pa2-a4 ou Pa2xc3 */
-   /* tolere e2e4 e2-e4 e:e4 e2xe4 */
    int base = (color == WHITE) ? 0 : 7;       // Roque non teste
    int cDep, lDep, cDest, lDest, i, j;
    
@@ -261,13 +261,13 @@ void moveGame (TGAME sq64, int color, char *move) { /* */
    sq64 [lDep][cDep] = 0;
 }
 
+/*! lit le fichier des ouvertures et produit le jeu final
+ * \li ce fichier est au format CSV : FENstring ; dep ; commentaire
+ * \li dep contient le deplacement en notation algebrique complete Xe2:e4[Y] | O-O | O-O-O
+ * \li X : piece joue. Y : promotion,  O-O : petit roque,  O-O-O : grand roque
+ * \li renseigne la chaine move (deplacement choisi) et le commentaire associe
+ * \li renvoie vrai si ouverture trouvee dans le fichier, faux sinon */
 bool opening (const char *fileName, char *gameFen, char *sComment, char *move) { /* */
-   /* lit le fichier des ouvertures et produit le jeu final */
-   /* ce fichier est au format CSV : FENstring ; dep ; commentaire */
-   /* dep contient le deplacement en notation algebrique complete Xe2:e4[Y] | O-O | O-O-O */
-   /* X : piece joue. Y : promotion,  O-O : petit roque,  O-O-O : grand roque */
-   /* renseigne la chaine move (deplacement choisi) et le commentaire associe */
-   /* renvoie vrai si ouverture trouvee dans le fichier, faux sinon */
    FILE *fe;
    char line [MAXBUFFER];
    char *ptComment = sComment;
@@ -290,12 +290,12 @@ bool opening (const char *fileName, char *gameFen, char *sComment, char *move) {
    return false;
 }
 
+/*! liste les fichier du repertoire dir contenant la chaine filter
+ * \li fichier dans l'ordre alphabetique 
+ * \li donc nommer les fichiers les plus prioritaires en debut d'alphabet
+ * \li appelle opening sur les fichiers listes jusqu'a trouver
+ * \li renvoie vrai si gameFen est trouvee dans l'un des fichiers faux sinon */
 bool openingAll (const char *dir, const char *filter, char *gameFen, char *sComment, char *move) {
-   /* liste les fichier du repertoire dir contenant la chaine filter */
-   /* fichier dans l'ordre alphabetique */
-   /* donc nommer les fichiers les plus prioritaires en debut d'alphabet */
-   /* appelle opening sur les fichiers listes jusqu'a trouver */
-   /* renvoie vrai si gameFen est trouvee dans l'un des fichiers faux sinon */
    struct dirent **namelist;
    int n;
    char fileName [MAXBUFFER];
@@ -316,20 +316,20 @@ bool openingAll (const char *dir, const char *filter, char *gameFen, char *sComm
    return false;
 }
 
+/*! vraie si il y a une piece egale a celle pointee par l1, c1 dans le symetrique par rapport a la colonne cDest */
 bool symetryV (TGAME sq64, int l1, int c1, int cDest) { /* */ 
-   /* vraie si il y a une piece egale a celle pointee par l1, c1 dans le symetrique par rapport a la colonne cDest */
    int cSym = cDest + cDest - c1;
    return (cSym >= 0 && cSym < N) ? (sq64 [l1][c1] == sq64 [l1][cSym]) : false;
 }
 
+/*! vraie si il y a une piece egale a celle pointee par l1, c1 dans le symetrique par rapport a la ligne lDest */
 bool symetryH (TGAME sq64, int l1, int c1, int lDest) { /* */ 
-   /* vraie si il y a une piece egale a celle pointee par l1, c1 dans le symetrique par rapport a la ligne lDest */
    int lSym = lDest + lDest - l1;
    return (lSym >= 0 && lSym < N) ? (sq64 [l1][c1] == sq64 [lSym][c1]): false;
 }
 
+/*! transforme la specif algebriqe complete en abregee */
 char *abbrev (TGAME sq64, char *complete, char *abbr) { /* */ 
-   /* transforme la specif algebriqe complete en abregee */
    char cCharPiece = complete [0];
    int c1 = complete [1] - 'a';
    int l1 = complete [2] - '1';
@@ -410,9 +410,8 @@ char *abbrev (TGAME sq64, char *complete, char *abbr) { /* */
    return abbr;
 }
 
+/*! renvoie les coordonnees eventuelles de la case en passant au format e5 sinon renvoie "-" */
 char *enPassant (int color, char *complete, char *strEp) { /* */
-   /* renvoie les coordonnees eventuelles de la case en passant au format e5 */
-   /* sinon renvoie "-" */
    int c1 = complete [1] - 'a';
    int l1 = complete [2] - '1';
    int c2 = complete [4] - 'a';
@@ -423,8 +422,8 @@ char *enPassant (int color, char *complete, char *strEp) { /* */
    return strEp;
 }
 
+/*! envoie le jeu decrit par fen et les struct computer et info au format JSON */
 void sendGame (bool http, const char *fen, int reqType) { /* */
-   /* envoie le jeu decrit par fen et les struct computer et info au format JSON */
    int k;
    if (http) {
       printf ("Access-Control-Allow-Origin: *\n"); // obligatoire !

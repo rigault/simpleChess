@@ -1,19 +1,25 @@
-/*   Pour produire la doc sur les fonctions : grep "\/\*" chess.c | sed 's/^\([a-zA-Z]\)/\n\1/' */
-/*   Jeu d'echec */
-/*   ./chess.cgi -q |-v [FENstring] [profondeur] [exp] : CLI avec sortie JSON q)uiet v)erbose */
-/*   ./chess.cgi -m | M [Fenstring] [Movestring] : execute le déplacement etrenvoie le jeur */
-/*   ./chess.cgi -d | D [FENstring] : affiche le jeu */
-/*   ./chess.cgi -f : test performance */
-/*   ./chess.cgi -t [FENGame] : test unitaire */
-/*   ./chess.cgi -h : help */
-/*   sans parametre ni option :  CGI gérant une API restful (GET) avec les réponses au format JSON */
-/*   fichiers associes : chess.log, chessB.fen, chessW.fen, chessUtil.c, syzygy.c, tbprobes.c tbcore.c et .h associes  */
-/*   Structures de donnees essentielles */
-/*     - jeu represente dans un table a 2 dimensions : TGAME sq64 */
-/*     - liste des deplacement qui est un tableau de move : */
-/*     - nextL est un entier pointant sur le prochain move a inserer dans la liste */
-/*   Noirs : positifs  (Minuscules) */
-/*   Blancs : negatifs  (Majuscules) */
+/*! \mainpage Jeu d'echec
+ * \section Usage
+ * \li  ./chess.cgi -q |-v [FENstring] [profondeur] [exp] : CLI avec sortie JSON q)uiet v)erbose
+ * \li  ./chess.cgi -m | M [Fenstring] [Movestring] : execute le déplacement et renvoie le jeu
+ * \li  ./chess.cgi -d | D [FENstring] : affiche le jeu
+ * \li  ./chess.cgi -f : test performance
+ * \li  ./chess.cgi -t [FENGame] : test unitaire
+ * \li  ./chess.cgi -h : help
+ * \li  sans parametre ni option :  CGI gérant une API restful (GET) avec les réponses au format JSON
+ * \section Compilation
+ * voir fichier Makefile
+ * \section Documentation
+ * Doxygen
+ * \section Description
+ * \subsection Fichiers
+ * chess.log, chessB.fen, chessW.fen, chessUtil.c, syzygy.c, tbprobes.c tbcore.c et .h associes
+ * \subsection Structures
+ * \li jeu represente dans un table a 2 dimensions : TGAME sq64
+ * \li liste des deplacement qui est un tableau de move :
+ * \li nextL est un entier pointant sur le prochain move a inserer dans la liste
+ * \li Noirs : positifs  (Minuscules)
+ * \li Blancs : negatifs  (Majuscules) */
 
 #include <unistd.h>
 #include <stdint.h>
@@ -74,38 +80,40 @@ StrTa *trTa = NULL;                // Ce pointeur va servir de tableau après l'
 
 uint64_t ZobristTable[8][8][14];   // 14 combinaisons avec RoiRoque
 
+/*! retourne un nb aleatoire sur 64 bits */
 uint64_t rand64 () { /* */
-   /* retourne un nb aleatoire sur 64 bits */
    return ((((uint64_t) rand ()) << 34) ^ (((uint64_t) rand ()) << 26) ^ (((uint64_t) rand ()) << 18) ^ (rand ()));
 }
 
+/*! retourne coordonnes du roi noir */
 inline int findBlackKing (TGAME sq64) {
    void *p;
    if ((p = memchr (sq64, KING, GAMESIZE)) == NULL) p = memchr (sq64, CASTLEKING, GAMESIZE);
    return ((int8_t *) p - &sq64[0][0]);
 }
 
+/*! retourne coordonnes du roi blanc */
 inline int findWhiteKing (TGAME sq64) {
    void *p;
    if ((p = memchr (sq64, -KING, GAMESIZE)) == NULL) p = memchr (sq64, -CASTLEKING, GAMESIZE);
    return ((int8_t *) p - &sq64[0][0]);
 }
 
+/*! Initializes the table Zobrist*/
 void initTable() { /* */
-   /* Initializes the table Zobrist*/
    for (int l = 0; l < N; l++)
       for (int c = 0; c < N; c++)
          for (int k = 0; k < 14; k++) // 14 avec Roque
             ZobristTable[l][c][k] = rand64 ();
 }
   
+/*! index d'une piece pour transposition table */
 inline int indexOf (register int v) { /* */
-   /* index d'une piece pour transposition table */
    return (v > 0) ? v - 1 : (-v + 6); // 0=pion noir, 13=roiroque blanc
 }
 
+/*! Computes the hashvalue of a given game. Zobrist */
 uint64_t computeHash (TGAME sq64) { /* */
-   /* Computes the hashvalue of a given game. Zobrist */
    int v;     // valeurs de -7 a 7. Case vide = 0. Pieces neg : blanches. Pos : noires.
    int piece; // valeurs de piece de 0 a 13. Case vide non representee
    uint64_t h = 0;
@@ -121,17 +129,16 @@ uint64_t computeHash (TGAME sq64) { /* */
     return (h); 
 }
   
+/*! renvoie la profondeur du jeu en fonction du niveau choisi et de l'etat du jeu */
 int fMaxDepth (int lev, int nGamerPos, int nComputerPos) { /* */
-   /* renvoie la profondeur du jeu en fonction du niveau choisi et */
-   /* de l'etat du jeu */
    int prod = nComputerPos * nGamerPos;
    for (int i = 0; i < (sizeof (valDepth)/(2 * sizeof (int))); i++)
       if (prod < valDepth [i].v) return valDepth [i].inc + lev;
    return lev;
 }
 
+/*! vrai si le roi Noir situe case l, c est echec au roi */
 bool LCBlackKingInCheck (TGAME sq64, register int l, register int c) { /* */
-   /* vrai si le roi Noir situe case l, c est echec au roi */
    register int w, k;
    //info.nLCKingInCheckCall += 1;
    // roi adverse  menace.  Matche -KING et -CASTLEKING
@@ -193,8 +200,8 @@ bool LCBlackKingInCheck (TGAME sq64, register int l, register int c) { /* */
    return false;
 }
 
+/*! vrai si le roi Blanc situe case l, c est echec au roi */
 bool LCWhiteKingInCheck (TGAME sq64, register int l, register int c) { /* */
-   /* vrai si le roi Blanc situe case l, c est echec au roi */
    register int w, k;
    //info.nLCKingInCheckCall += 1;
    // roi adverse  menace. >= KING marche KING et CASTLELING
@@ -256,8 +263,8 @@ bool LCWhiteKingInCheck (TGAME sq64, register int l, register int c) { /* */
    return false;
 }
 
+/*! pousse un deplacement dans la liste */
 inline int pushMove (TLISTMOVE listMove, register int piece, register int type, register int nList, register int l1, register int c1, register int l2, register int c2) { /* */
-   /* pousse un deplacement dans la liste */
    listMove [nList].type = type;
    listMove [nList].piece = piece;
    listMove [nList].l1 = l1;
@@ -267,9 +274,8 @@ inline int pushMove (TLISTMOVE listMove, register int piece, register int type, 
    return nList + 1;
 }
 
+/*! execute le deplacement et renvoie le nouveau zobrist */
 inline uint64_t doMove (TGAME sq64, TMOVE move, register uint64_t zobrist) { /* */
-   /* execute le deplacement */
-   /* renvoie le nouveau zobrist */
    int base;
    move.taken = sq64 [move.l2][move.c2];
    switch (move.type) {
@@ -357,9 +363,8 @@ inline uint64_t doMove (TGAME sq64, TMOVE move, register uint64_t zobrist) { /* 
    return zobrist;
 }
 
+/*! execute le deplacement renvoie la position du roi qui a bouge sous forme l * 8 + c sinon -1*/
 inline int doMove0 (TGAME sq64, TMOVE move) { /* */
-   /* execute le deplacement */
-   /* renvoie la position du roi qui a bouge sous forme l * 8 + c sinon -1*/
    switch (move.type) {
    case STD:
       sq64 [move.l1] [move.c1] = 0;
@@ -400,8 +405,8 @@ inline int doMove0 (TGAME sq64, TMOVE move) { /* */
    return -1;
 }
 
+/*! apporte le complement de positions a buildList prenant en compte en Passant suggere par le joueur */
 int buildListEnPassant (TGAME refJeu, int who, char *epGamer, TLISTMOVE listMove, int nextL) { /* */
-   /* apporte le complement de positions a buildList prenant en compte en Passant suggere par le joueur */
    int nList = nextL;
    if (epGamer [0] == '-') return nList;
    int lEp = epGamer [1] - '1';
@@ -417,11 +422,11 @@ int buildListEnPassant (TGAME refJeu, int who, char *epGamer, TLISTMOVE listMove
    return nList;
 }
 
+/*! construit la liste des jeux possibles a partir de jeu.
+ * \li 'who' joue 
+ * \li kingSide vrai si roque autorise cote roi
+ * \li quenSide vrai si roque autorise cote roi */
 int buildList (TGAME refJeu, register int who, bool kingSide, bool queenSide, TLISTMOVE listMove) { /* */
-   /* construit la liste des jeux possibles a partir de jeu. */
-   /* 'who' joue */
-   /* kingSide vrai si roque autorise cote roi */
-   /* quenSide vrai si roque autorise cote roi */
    register int u, v, w, k, l, c;
    register int nList = 0;
    register int8_t *pr = &refJeu [0][0];
@@ -587,12 +592,12 @@ int buildList (TGAME refJeu, register int who, bool kingSide, bool queenSide, TL
    return nList;
 }
 
+/*! vrai si le roi du joueur "who" ne peut plus bouger sans se mettre echec au roi
+ * \li "who" est la couleur du roi qui est attaque, l et c sa position
+ * \li on essaye tous les jeux possibles. Si dans tous les cas on est echec au roi
+ * \li c'est perdu. Noter que si le roi a le trait et qu'il n'est pas echec au roi il est Pat
+ * \li si le roi est echec au roi il est mat */
 bool LCkingCannotMove (TGAME sq64, register int who, register int l, register int c) { /* */
-   /* vrai si le roi du joueur "who" ne peut plus bouger sans se mettre echec au roi */
-   /* "who" est la couleur du roi qui est attaque, l et c sa position */
-   /* on essaye tous les jeux possibles. Si dans tous les cas on est echec au roi */
-   /* c'est perdu. Noter que si le roi a le trait et qu'il n'est pas echec au roi il est Pat */
-   /* si le roi est echec au roi il est mat */
    TLISTMOVE list;
    TGAME localSq64;
    register int z;
@@ -606,10 +611,11 @@ bool LCkingCannotMove (TGAME sq64, register int who, register int l, register in
    return true;
 }
 
+/*! fonction d'evaluation retournant 
+ * \li MAT si Ordinateur gagne,
+ * \li -MAT si joueur gagne, 0 si nul,...
+ * \li positionne le boolean pat*/
 int evaluation (TGAME sq64, register int who, bool *pat) { /* */
-   /* fonction d'evaluation retournant MAT si Ordinateur gagne, */
-   /* -MAT si joueur gagne, 0 si nul,... */
-   /* position le boolean pat si pat */
    register int l, c, v, z, zAdverse;
    register int8_t *p64 = &sq64 [0][0];
    register int lAdverse, cAdverse, nBBishops, nWBishops;
@@ -702,8 +708,8 @@ int evaluation (TGAME sq64, register int who, bool *pat) { /* */
    return eval;
 }
 
+/*! le coeur du programme */
 int alphaBeta (TGAME sq64, int who, int p, int refAlpha, int refBeta, uint64_t zobrist) { /* */
-   /* le coeur du programme */
    info.nAlphaBeta += 1;
    TLISTMOVE list;
    TGAME localSq64;
@@ -778,23 +784,22 @@ int alphaBeta (TGAME sq64, int who, int p, int refAlpha, int refBeta, uint64_t z
    return val;
 }
 
+/*! association des thread a alphabeta */
 void *fThread (void *arg) { /* */
-   /* association des thread a alphabeta */
    long k = (long) arg;
    info.moveList[k].eval = alphaBeta (info.moveList [k].jeu, -gamer.color, 0, -MATE, MATE, info.moveList [k].zobrist);
    pthread_exit (NULL);
 }
 
+/*! comparaison evaluation de deux move pour tri croissant si couleur gamer blanche, decroissante sinon */
 int comp (const void *a, const void *b) {
-   /*comparaison evaluation de deux move pour tri croissant si couleur gamer blanche, decroissante sinon */
    const TMOVEINFO *pa = a;
    const TMOVEINFO *pb = b;
    return (gamer.color == WHITE) ? pb->eval - pa->eval : pa -> eval - pb -> eval;
 }
 
+/*! localise les rois et renvoie le nombre de pieces totales */
 int whereKings (TGAME sq64, int gamerColor, int *lGK, int *cGK, int *lCK, int *cCK) { /* */
-   /* localise les rois */
-   /* renvoie le nombre de pieces totales */
    *lGK = *cGK = *lCK = *cCK = -1;
    int v;
    int n = 0;
@@ -815,14 +820,13 @@ int whereKings (TGAME sq64, int gamerColor, int *lGK, int *cGK, int *lCK, int *c
    }
    return n;
 }
-
+/*! retourne 0 ou indication status
+ * \li sq64 est le jeu en variable globale
+ * \li construit la liste des jeux possibles et selon le cas
+ * \li appel de la biblio ouverture openingAll
+ * \li appel des tables de fin de jeux syzygy 
+ * \li appel alphaBeta en multithread */
 int computerPlay () { /* */
-   /* retourne 0 ou indication status */
-   /* sq64 est le jeu en variable globale */
-   /* construit la liste des jeux possibles et selon le cas */
-   /* appel de la biblio ouverture openingAll */
-   /* appel des tables de fin de jeux syzygy */
-   /* appel alphaBeta en multithread */
    enum {INIT, OUV, ENDGAME, ALPHABETA} status = INIT;
    char fen [MAXBUFFER] = "";
    pthread_t tThread [MAXTHREADS];
@@ -1005,12 +1009,12 @@ int computerPlay () { /* */
    return status;
 }
 
+/*! MODE CGI 
+ * \li gere le fichier log 
+ * \li lit les variables d'environnement, lance computerPlay 
+ * \li vrai si on peut lire les variables d'environnement
+ * \li faux sinon */
 bool cgi () { /* */
-   /* MODE CGI */
-   /* gere le fichier log */
-   /* lit les variables d'environnement, lance computerPlay */
-   /* vrai si on peut lire les variables d'environnement */
-   /* faux sinon */
    char fen [MAXLENGTH];
    char temp [MAXBUFFER];
    char *str;
@@ -1061,10 +1065,10 @@ bool cgi () { /* */
    return true;
 }
 
+/*! lit la ligne de commande
+ * \li si une option "-x" existe on l'execute
+ * \li si pas d'argument alors CGI */
 int main (int argc, char *argv[]) { /* */
-   /* lit la ligne de commande */
-   /* si une option "-x" existe on l'execute */
-   /* si pas d'argument alors CGI */
    char fen [MAXLENGTH];
    srand (time (NULL));             // initialise le generateur aleatoire
    TGAME localSq64;

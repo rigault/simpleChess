@@ -1,6 +1,6 @@
-/*   Pour produire la doc sur les fonctions : grep "\/\*" playfen.c | sed 's/^\([a-zA-Z]\)/\n\1/' */
-/*   Rejoue un jeu a partir des logs Attention premier champ : fen */
-/*   ./playfen <fichier log> */
+/*! \mainpage Rejoue un jeu a partir des logs Attention premier champ : fen
+ * \section usage
+ ./playfen <fichier log> */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -11,11 +11,11 @@
 #define SEP ";"
 #include "chessUtil.h"
 
+/*! lit le fichier FEN
+ * ce fichier est au format CSV : FENstring ; dep ; commentaire
+ * dep contient le deplacement en notation algebrique complete Xe2-e4[=Y] | O-O | O-O-O
+ * X : piece joue. Y : promotion,  O-O : petit roque,  O-O-O : grand roque */
 void process (FILE *fe) { /* */
-   /* lit le fichier FEN */
-   /* ce fichier est au format CSV : FENstring ; dep ; commentaire */
-   /* dep contient le deplacement en notation algebrique complete Xe2-e4[=Y] | O-O | O-O-O */
-   /* X : piece joue. Y : promotion,  O-O : petit roque,  O-O-O : grand roque */
    char line [MAXLENGTH];
    char *sFEN, *ptDep, *ptEval, *ptComment;
    int cpt50, nb;
@@ -41,6 +41,7 @@ void process (FILE *fe) { /* */
    }
 }
 
+/*! programme principal plafen. Lit le fichier en argument et lance process */
 int main (int argc, char *argv []) { /* */
    FILE *fe;
    if (argc != 2) {

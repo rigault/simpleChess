@@ -1,4 +1,4 @@
-/* inspire de Fathom, adapte par RENE RIGAULT */
+/*! \mainpage inspire de Fathom, adapte par RENE RIGAULT */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -30,9 +30,8 @@ struct pos {
    uint16_t move;
 };
 
+/*! traduit la chaine au format FEN en une structure pos. ATTENTION DOUTE SUR CASTLING */
 static bool parseFEN (struct pos *pos, const char *fen) { /* */
-   /* traduit la chaine au format FEN en une structure pos */
-   /* ATTENTION DOUTE SUR CASTLING */
    uint64_t white = 0, black = 0;
    uint64_t kings, queens, rooks, bishops, knights, pawns;
    bool turn;
@@ -149,8 +148,8 @@ static bool parseFEN (struct pos *pos, const char *fen) { /* */
    return true;
 }
 
+/*! Converti un deplacement en une chaine str au format algebrique complet. Ex :  Pe2-e4 */
 static void moveToStr (const struct pos *pos, unsigned move, char *str) { /* */
-   /* Converti un deplacement en une chaine str au format algebrique complet. Ex :  Pe2-e4 */
    uint64_t occ = pos->black | pos->white;
    unsigned from = TB_GET_FROM(move);
    unsigned to = TB_GET_TO(move);
@@ -183,11 +182,11 @@ static void moveToStr (const struct pos *pos, unsigned move, char *str) { /* */
    *str++ = '\0';
 }
 
+/*! recherche dans la tablebase sygyzy situee dans path le jeu decrit en notation FEN par fen. 
+ * \li Renvoie le deplacement au format algebrique complet dans bestMove
+ * \li le commentaire contient ce deplacement et les valeur WIN WDL DTZ
+ * \li retourne vrai si trouve, faux si erreur */
 bool syzygyRR (const char* path, const char *fen, int *wdl, char *bestMove, char *comment) { /* */
-   /* recherche dans la tablebase sygyzy situee dans path le jeu decrit en notation */
-   /* FEN par fen. Renvoie le deplacement au format algebrique complet dans bestMove */
-   /* le commentaire contient ce deplacement et les valeur WIN WDL DTZ */
-   /* vrai si trouve, faux si erreur */
    struct pos pos0;
    struct pos *pos = &pos0;
    unsigned move;

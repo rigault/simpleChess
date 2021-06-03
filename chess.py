@@ -60,11 +60,11 @@ def endurance (fen, level, exp) :
    time2 = 0
    while score == "-" :
       # les blancs jouent
-      t1, fen, score = play ("./chess.cgi -vono " + fen + " " + str(level) + " " + str (exp))
+      t1, fen, score = play ("./chess.cgi -vnno " + fen + " " + str(level) + " " + str (exp))
       time1 += t1
       if score == "-" :
          # les noirs jouent
-         t2, fen, score = play ("./chess1.cgi -vono " + fen + " " + str(level) + " " + str (exp))
+         t2, fen, score = play ("./chess.cgi -vono " + fen + " " + str(level) + " " + str (exp))
          time2 += t2
    return time1 + time2
 
@@ -74,8 +74,8 @@ def comp (fen, level, exp) :
    time1 = 0
    time2 = 0
    while score == "-" :
-      t1, fen1, score = play ("./chess.cgi -vono " + fen + " " + str(level) + " " + str (exp))
-      t2, fen2, score = play ("./chess1.cgi -vono " + fen + " " + str(level) + " " + str (exp))
+      t1, fen1, score = play ("./chess1.cgi -vono " + fen + " " + str(level) + " " + str (exp))
+      t2, fen2, score = play ("./chess.cgi -vono " + fen + " " + str(level) + " " + str (exp))
       #t1, fen1, score = play (curl1 + fen + '"')
       #t2, fen2, score = play (curl2 + fen + '"')
       
