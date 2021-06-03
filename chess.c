@@ -1,4 +1,8 @@
 /*! \mainpage Jeu d'echec
+ * \brief jeu d'echec proposant une API rest sur serveur cgi.
+ * \author Rene Rigault
+ * \version 2.1
+ * \date 2021 
  * \section Usage
  * \li  ./chess.cgi -q |-v [FENstring] [profondeur] [exp] : CLI avec sortie JSON q)uiet v)erbose
  * \li  ./chess.cgi -m | M [Fenstring] [Movestring] : execute le déplacement et renvoie le jeu
@@ -13,7 +17,7 @@
  * Doxygen
  * \section Description
  * \subsection Fichiers
- * chess.log, chessB.fen, chessW.fen, chessUtil.c, syzygy.c, tbprobes.c tbcore.c et .h associes
+ * chess.log, chessB.fen, chessW.fen, chessUtil.c, syzygy.c, tbprobe.c tbchess.c et .h associes
  * \subsection Structures
  * \li jeu represente dans un table a 2 dimensions : TGAME sq64
  * \li liste des deplacement qui est un tableau de move :

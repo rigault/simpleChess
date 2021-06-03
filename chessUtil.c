@@ -191,7 +191,7 @@ int fenToGame (char *fenComplete, TGAME sq64, char *ep, int *cpt50, int *nb) { /
    return activeColor;
 }
 
-/*! traduit le jei des structures interne en chaine au format FEN Forsyth–Edwards Notation 
+/*! traduit le jeu des structures interne en chaine au format FEN Forsyth–Edwards Notation 
  * \li genere le jeu sous la forme d'une chaine de caracteres au format FEN 
  * \li le separateur est donne en parametre : normalement soit espace soit "+"
  * \li si le boolean "complete" est vrai alors on transmet le roque, la valeur en passant,
