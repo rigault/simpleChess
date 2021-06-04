@@ -2,12 +2,12 @@
  * \section usage
  ./playfen <fichier log> */
 
-#include <stdio.h>
-#include <stdint.h>
-#include <stdlib.h>
-#include <string.h>
 #include <ctype.h>
 #include <stdbool.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 #define SEP ";"
 #include "chessUtil.h"
@@ -22,7 +22,7 @@ static void process (FILE *fe) { /* */
    int cpt50, nb;
    int eval = 0;
    char ep [3];
-   TGAME jeu;
+   tGame_t jeu;
    int len;
    while (fgets (line, MAXLENGTH, fe) != NULL) {
       len = strlen (line);
