@@ -3,6 +3,7 @@
  ./playfen <fichier log> */
 
 #include <stdio.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
@@ -15,7 +16,7 @@
  * ce fichier est au format CSV : FENstring ; dep ; commentaire
  * dep contient le deplacement en notation algebrique complete Xe2-e4[=Y] | O-O | O-O-O
  * X : piece joue. Y : promotion,  O-O : petit roque,  O-O-O : grand roque */
-void process (FILE *fe) { /* */
+static void process (FILE *fe) { /* */
    char line [MAXLENGTH];
    char *sFEN, *ptDep, *ptEval, *ptComment;
    int cpt50, nb;

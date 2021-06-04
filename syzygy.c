@@ -3,18 +3,20 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
 #include "tbprobe.h"
+#include "syzygy.h"
 
 #define BOARD_RANK_1  0x00000000000000FFull
 #define BOARD_FILE_A  0x8080808080808080ull
-#define square(r, f)  (8 * (r) + (f))
-#define rank(s)       ((s) >> 3)
-#define file(s)       ((s) & 0x07)
-#define board(s)      ((uint64_t)1 << (s))
+#define SQUARE(r, f)  (8 * (r) + (f))
+#define RANK(s)       ((s) >> 3)
+#define FILE_(s)      ((s) & 0x07)
+#define BOARD(s)      ((uint64_t)1 << (s))
 
-static const char *wdl_to_str[] = { "0-1", "1/2-1/2", "1/2-1/2", "1/2-1/2", "1-0" };
+static const char *WDL_TO_STR[] = { "0-1", "1/2-1/2", "1/2-1/2", "1/2-1/2", "1-0" };
 
-struct pos {
+struct Pos {
    uint64_t white;
    uint64_t black;
    uint64_t kings;
@@ -31,15 +33,17 @@ struct pos {
 };
 
 /*! traduit la chaine au format FEN en une structure pos. ATTENTION DOUTE SUR CASTLING */
-static bool parseFEN (struct pos *pos, const char *fen) { /* */
+static bool parseFEN (struct Pos *pos, const char *fen) { /* */
    uint64_t white = 0, black = 0;
    uint64_t kings, queens, rooks, bishops, knights, pawns;
    bool turn;
    unsigned rule50 = 0, move = 1;
    unsigned ep = 0;
    unsigned castling = 0;
+   unsigned file, rank;
    char c;
    int r, f;
+   char clk[4];
    kings = queens = rooks = bishops = knights = pawns = 0;
 
    if (fen == NULL) return false;
@@ -47,7 +51,7 @@ static bool parseFEN (struct pos *pos, const char *fen) { /* */
    for (r = 7; r >= 0; r--) {
       for (f = 0; f <= 7; f++) {
          unsigned s = (r * 8) + f;
-         uint64_t b = board(s);
+         uint64_t b = BOARD(s);
          c = *fen++;
          switch (c) {
             case 'k': kings |= b; black |= b; continue;
@@ -101,11 +105,11 @@ static bool parseFEN (struct pos *pos, const char *fen) { /* */
    if (c != ' ') return false;
    c = *fen++;
    if (c >= 'a' && c <= 'h') {
-      unsigned file = c - 'a';
+      file = c - 'a';
       c = *fen++;
       if (c != '3' && c != '6') return false;
-      unsigned rank = c - '1';
-      ep = square(rank, file);
+      rank = c - '1';
+      ep = SQUARE(rank, file);
       if (rank == 2 && turn) return false;
       if (rank == 5 && !turn) return false;
       if (rank == 2 && ((tb_pawn_attacks(ep, true) & (black & pawns)) == 0)) ep = 0;
@@ -114,7 +118,6 @@ static bool parseFEN (struct pos *pos, const char *fen) { /* */
    else if (c != '-') return false;
    c = *fen++;
    if (c != ' ') return false;
-   char clk[4];
    clk[0] = *fen++;
    if (clk[0] < '0' || clk[0] > '9') return false;
    clk[1] = *fen++;
@@ -149,15 +152,15 @@ static bool parseFEN (struct pos *pos, const char *fen) { /* */
 }
 
 /*! Converti un deplacement en une chaine str au format algebrique complet. Ex :  Pe2-e4 */
-static void moveToStr (const struct pos *pos, unsigned move, char *str) { /* */
+static void moveToStr (const struct Pos *pos, unsigned move, char *str) { /* */
    uint64_t occ = pos->black | pos->white;
    unsigned from = TB_GET_FROM(move);
    unsigned to = TB_GET_TO(move);
-   unsigned r = rank(from);
-   unsigned f = file(from);
+   unsigned r = RANK(from);
+   unsigned f = FILE_(from);
    unsigned promotes = TB_GET_PROMOTES(move);
-   bool capture  = (occ & board(to)) != 0 || (TB_GET_EP(move) != 0);
-   uint64_t b = board(from);
+   bool capture  = (occ & BOARD(to)) != 0 || (TB_GET_EP(move) != 0);
+   uint64_t b = BOARD(from);
    
    if (b & pos->kings) *str++ = 'K';
    else if (b & pos->queens) *str++ = 'Q';
@@ -168,8 +171,8 @@ static void moveToStr (const struct pos *pos, unsigned move, char *str) { /* */
    *str++ = 'a' + f; 
    *str++ = '1' + r; 
    *str++ = (capture) ? 'x' : '-';
-   *str++ = 'a' + file(to);
-   *str++ = '1' + rank(to);
+   *str++ = 'a' + FILE_(to);
+   *str++ = '1' + RANK(to);
    if (promotes != TB_PROMOTES_NONE) {
       *str++ = '='; 
       switch (promotes) {
@@ -187,8 +190,8 @@ static void moveToStr (const struct pos *pos, unsigned move, char *str) { /* */
  * \li le commentaire contient ce deplacement et les valeur WIN WDL DTZ
  * \li retourne vrai si trouve, faux si erreur */
 bool syzygyRR (const char* path, const char *fen, int *wdl, char *bestMove, char *comment) { /* */
-   struct pos pos0;
-   struct pos *pos = &pos0;
+   struct Pos pos0;
+   struct Pos *pos = &pos0;
    unsigned move;
 
    // init
@@ -230,6 +233,6 @@ bool syzygyRR (const char* path, const char *fen, int *wdl, char *bestMove, char
    // Output
    moveToStr (pos, move, bestMove);
    sprintf (comment, "WIN: %s; BESTMOVE: %s; WDL: %u; DTZ: %u", 
-      wdl_to_str[(pos->turn? *wdl: 4-*wdl)], bestMove, *wdl, TB_GET_DTZ(move));
+      WDL_TO_STR[(pos->turn? *wdl: 4-*wdl)], bestMove, *wdl, TB_GET_DTZ(move));
    return true;
 }

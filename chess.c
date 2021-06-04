@@ -19,26 +19,26 @@
  * \subsection Fichiers
  * chess.log, chessB.fen, chessW.fen, chessUtil.c, syzygy.c, tbprobe.c tbchess.c et .h associes
  * \subsection Structures
- * \li jeu represente dans un table a 2 dimensions : TGAME sq64
+ * \li jeu represente dans un table a 2 dimensions : tGame_t sq64
  * \li liste des deplacement qui est un tableau de move :
  * \li nextL est un entier pointant sur le prochain move a inserer dans la liste
  * \li Noirs : positifs  (Minuscules)
  * \li Blancs : negatifs  (Majuscules) */
 
-#include <unistd.h>
+#include <ctype.h>
+#include <pthread.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/time.h>
-#include <pthread.h>
-#include <stdbool.h>
-#include <ctype.h>
+#include <unistd.h>
+
 #include "chessUtil.h"
 #include "syzygy.h"
 
-#define LCkingInCheck(sq64,who,l,c)    ((who == 1) ? LCBlackKingInCheck (sq64, l, c) : LCWhiteKingInCheck (sq64, l, c))
-#define MEMCPY(a,b)   asm volatile ("movl $8, %%ecx; rep movsq" : "+D" (a) : "S"(b) : "ecx", "cc", "memory")
+// #define MEMCPY(a,b)   asm volatile ("movl $8, %%ecx; rep movsq" : "+D" (a) : "S"(b) : "ecx", "cc", "memory")
 
 // valorisation des pieces dans l'ordre PAWN KNIGHT BISHOP ROOK QUEEN KING CASTLEKING
 // Le roi qui a deja roque a le code 7, le roi normal a le code 6
@@ -46,78 +46,79 @@
 // le roi n'a pas de valeur. Le roi qui a roque a un bonus
 // Voir fonction d'evaluation
 
-const int valPiece [] = {0, 100, 300, 300, 500, 900, 0, BONUSCASTLE};  // pour fn evaluation
+static const int VAL_PIECE [] = {0, 100, 300, 300, 500, 900, 0, BONUSCASTLE};  // pour fn evaluation
 
-const struct Sprod { int v; int inc;                              // pour fMaxDepth
-} valDepth [] = {{12, 7}, {25, 6}, {50, 5}, {100, 4}, {200, 3}, {400, 2},  {600, 1}};
+static const struct { int v; int inc;                                          // pour fMaxDepth
+} VAL_DEPTH [] = {{12, 7}, {25, 6}, {50, 5}, {100, 4}, {200, 3}, {400, 2},  {600, 1}};
 
-const int8_t BLACKQUEENCASTLESERIE [5] = {0, 0, CASTLEKING, ROOK, 0};
-const int8_t WHITEQUEENCASTLESERIE [5] = {0, 0, -CASTLEKING, -ROOK, 0};
-const int8_t BLACKKINGCASTLESERIE  [4] = {0, ROOK, CASTLEKING, 0};
-const int8_t WHITEKINGCASTLESERIE  [4] = {0, -ROOK, -CASTLEKING, 0};
+static const int8_t BLACKQUEENCASTLESERIE [5] = {0, 0, CASTLEKING, ROOK, 0};
+static const int8_t WHITEQUEENCASTLESERIE [5] = {0, 0, -CASTLEKING, -ROOK, 0};
+static const int8_t BLACKKINGCASTLESERIE  [4] = {0, ROOK, CASTLEKING, 0};
+static const int8_t WHITEKINGCASTLESERIE  [4] = {0, -ROOK, -CASTLEKING, 0};
 
-FILE *flog;
+static FILE *fLog;
 
-struct {                           // description de la requete emise par le client
+static struct {                    // description de la requete emise par le client
    char fenString [MAXLENGTH];     // le jeu
    int reqType;                    // le type de requete : 0 1 ou 2
    int level;                      // la profondeur de la recherche souhaitee
-   int alea;      // 1 si on prend un jeu de facon aleatoire quand plusieurs solutions 0 si premier -1 si dernier
+   int alea;                       // 1 si on prend un jeu de facon aleatoire quand plusieurs solutions 0 si premier -1 si dernier
    bool trans;                     // vrai si on utilise les tables de transpo
    bool multi;                     // vrai si multithread
    int  exp;                       // nombre de bits a 1 pour le masque masqMaxTransTable = pow (2, exp) - 1;
 } getInfo = {"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR+w+KQkq", 2, 4, 1, true, true, 24}; // par defaut
 
-uint64_t masqMaxTransTable;        // idem (2 puissance exp) - 1. Quasi constante initialisee dans computerPlay.
+static uint64_t masqMaxTransTable; // idem (2 puissance exp) - 1. Quasi constante initialisee dans computerPlay.
 
-TGAME sq64;
-TLISTMOVE listMove;
-int nextL;                         // nombre total utilisé dans la file
+static tGame_t sq64;
+static tListMove_t listMove;
+static int nextL;                  // nombre total utilisé dans la file
 
 typedef struct  {                  // tables de transposition
    int16_t eval;                   // derniere eval
    int8_t p;                       // profondeur
    int8_t used;                    // booleen sur 8 bits. Utilise
-   int32_t check;                  // pour verif collisions
-} StrTa;
-StrTa *trTa = NULL;                // Ce pointeur va servir de tableau après l'appel du malloc
+   uint32_t check;                  // pour verif collisions
+} trTa_t;
 
-uint64_t ZobristTable[8][8][14];   // 14 combinaisons avec RoiRoque
+static trTa_t *trTa = NULL;                // Ce pointeur va servir de tableau après l'appel du malloc
+
+static uint64_t zobristTable[8][8][14];   // 14 combinaisons avec RoiRoque
 
 /*! retourne un nb aleatoire sur 64 bits */
-uint64_t rand64 () { /* */
+static uint64_t rand64 (void) { /* */
    return ((((uint64_t) rand ()) << 34) ^ (((uint64_t) rand ()) << 26) ^ (((uint64_t) rand ()) << 18) ^ (rand ()));
 }
 
 /*! retourne coordonnes du roi noir */
-inline int findBlackKing (TGAME sq64) {
+static inline int findBlackKing (tGame_t sq64) {
    void *p;
    if ((p = memchr (sq64, KING, GAMESIZE)) == NULL) p = memchr (sq64, CASTLEKING, GAMESIZE);
    return ((int8_t *) p - &sq64[0][0]);
 }
 
 /*! retourne coordonnes du roi blanc */
-inline int findWhiteKing (TGAME sq64) {
+static inline int findWhiteKing (tGame_t sq64) {
    void *p;
    if ((p = memchr (sq64, -KING, GAMESIZE)) == NULL) p = memchr (sq64, -CASTLEKING, GAMESIZE);
    return ((int8_t *) p - &sq64[0][0]);
 }
 
 /*! Initializes the table Zobrist*/
-void initTable() { /* */
+static void initTable(void) { /* */
    for (int l = 0; l < N; l++)
       for (int c = 0; c < N; c++)
          for (int k = 0; k < 14; k++) // 14 avec Roque
-            ZobristTable[l][c][k] = rand64 ();
+            zobristTable[l][c][k] = rand64 ();
 }
   
 /*! index d'une piece pour transposition table */
-inline int indexOf (register int v) { /* */
+static inline int indexOf (register int v) { /* */
    return (v > 0) ? v - 1 : (-v + 6); // 0=pion noir, 13=roiroque blanc
 }
 
 /*! Computes the hashvalue of a given game. Zobrist */
-uint64_t computeHash (TGAME sq64) { /* */
+static uint64_t computeHash (tGame_t sq64) { /* */
    int v;     // valeurs de -7 a 7. Case vide = 0. Pieces neg : blanches. Pos : noires.
    int piece; // valeurs de piece de 0 a 13. Case vide non representee
    uint64_t h = 0;
@@ -125,7 +126,7 @@ uint64_t computeHash (TGAME sq64) { /* */
       for (int l = 0; l < 8; l++) {
          if ((v = sq64[l][c]) != 0) { // Case vide non prise en compte
             piece = indexOf (v); // 0=pion noir, 13=roiroque blanc
-            h ^= ZobristTable[l][c][piece];
+            h ^= zobristTable[l][c][piece];
           }
        }
     }
@@ -134,15 +135,15 @@ uint64_t computeHash (TGAME sq64) { /* */
 }
   
 /*! renvoie la profondeur du jeu en fonction du niveau choisi et de l'etat du jeu */
-int fMaxDepth (int lev, int nGamerPos, int nComputerPos) { /* */
+static int fMaxDepth (int lev, int nGamerPos, int nComputerPos) { /* */
    int prod = nComputerPos * nGamerPos;
-   for (int i = 0; i < (sizeof (valDepth)/(2 * sizeof (int))); i++)
-      if (prod < valDepth [i].v) return valDepth [i].inc + lev;
+   for (unsigned int i = 0; i < (sizeof (VAL_DEPTH)/(2 * sizeof (unsigned int))); i++)
+      if (prod < VAL_DEPTH [i].v) return VAL_DEPTH [i].inc + lev;
    return lev;
 }
 
 /*! vrai si le roi Noir situe case l, c est echec au roi */
-bool LCBlackKingInCheck (TGAME sq64, register int l, register int c) { /* */
+static bool LCBlackKingInCheck (tGame_t sq64, register int l, register int c) { /* */
    register int w, k;
    //info.nLCKingInCheckCall += 1;
    // roi adverse  menace.  Matche -KING et -CASTLEKING
@@ -205,7 +206,7 @@ bool LCBlackKingInCheck (TGAME sq64, register int l, register int c) { /* */
 }
 
 /*! vrai si le roi Blanc situe case l, c est echec au roi */
-bool LCWhiteKingInCheck (TGAME sq64, register int l, register int c) { /* */
+static bool LCWhiteKingInCheck (tGame_t sq64, register int l, register int c) { /* */
    register int w, k;
    //info.nLCKingInCheckCall += 1;
    // roi adverse  menace. >= KING marche KING et CASTLELING
@@ -267,8 +268,13 @@ bool LCWhiteKingInCheck (TGAME sq64, register int l, register int c) { /* */
    return false;
 }
 
+/*! vrai si le roi de couleur who situe case l, c est echec au roi */
+static bool LCkingInCheck (tGame_t sq64, int who, int l, int c) { /* */
+   return ((who == 1) ? LCBlackKingInCheck (sq64, l, c) : LCWhiteKingInCheck (sq64, l, c));
+}
+
 /*! pousse un deplacement dans la liste */
-inline int pushMove (TLISTMOVE listMove, register int piece, register int type, register int nList, register int l1, register int c1, register int l2, register int c2) { /* */
+static inline int pushMove (tListMove_t listMove, register int piece, register int type, register int nList, register int l1, register int c1, register int l2, register int c2) { /* */
    listMove [nList].type = type;
    listMove [nList].piece = piece;
    listMove [nList].l1 = l1;
@@ -279,87 +285,87 @@ inline int pushMove (TLISTMOVE listMove, register int piece, register int type, 
 }
 
 /*! execute le deplacement et renvoie le nouveau zobrist */
-inline uint64_t doMove (TGAME sq64, TMOVE move, register uint64_t zobrist) { /* */
+static inline uint64_t doMove (tGame_t sq64, tMove_t move, register uint64_t zobrist) { /* */
    int base;
    move.taken = sq64 [move.l2][move.c2];
    switch (move.type) {
    case STD:
       if (move.taken == 0) {
          sq64 [move.l1] [move.c1] = 0;
-         zobrist ^= ZobristTable[move.l1][move.c1][indexOf(move.piece)]; 
+         zobrist ^= zobristTable[move.l1][move.c1][indexOf(move.piece)]; 
          sq64 [move.l2] [move.c2] = move.piece;
-         zobrist ^= ZobristTable[move.l2][move.c2][indexOf(move.piece)]; 
+         zobrist ^= zobristTable[move.l2][move.c2][indexOf(move.piece)]; 
       }
       else {
          sq64 [move.l1] [move.c1] = 0;
-         zobrist ^= ZobristTable[move.l1][move.c1][indexOf(move.piece)]; 
+         zobrist ^= zobristTable[move.l1][move.c1][indexOf(move.piece)]; 
          sq64 [move.l2] [move.c2] = 0;
-         zobrist ^= ZobristTable[move.l2][move.c2][indexOf(move.taken)]; 
+         zobrist ^= zobristTable[move.l2][move.c2][indexOf(move.taken)]; 
          sq64 [move.l2] [move.c2] = move.piece;
-         zobrist ^= ZobristTable[move.l2][move.c2][indexOf(move.piece)]; 
+         zobrist ^= zobristTable[move.l2][move.c2][indexOf(move.piece)]; 
       }
       break;
    case PROMOTION:
       if (move.taken == 0) {
          sq64 [move.l1] [move.c1] = 0;
-         zobrist ^= ZobristTable[move.l1][move.c1][indexOf(SIG(move.piece)*PAWN)]; 
+         zobrist ^= zobristTable[move.l1][move.c1][indexOf(SIG(move.piece)*PAWN)]; 
          sq64 [move.l2] [move.c2] = move.piece;
-         zobrist ^= ZobristTable[move.l2][move.c2][indexOf(move.piece)]; 
+         zobrist ^= zobristTable[move.l2][move.c2][indexOf(move.piece)]; 
       }
       else {
          sq64 [move.l1] [move.c1] = 0;
-         zobrist ^= ZobristTable[move.l1][move.c1][indexOf(SIG(move.piece)*PAWN)]; 
+         zobrist ^= zobristTable[move.l1][move.c1][indexOf(SIG(move.piece)*PAWN)]; 
          sq64 [move.l2] [move.c2] = 0;
-         zobrist ^= ZobristTable[move.l2][move.c2][indexOf(move.taken)]; 
+         zobrist ^= zobristTable[move.l2][move.c2][indexOf(move.taken)]; 
          sq64 [move.l2] [move.c2] = move.piece;
-         zobrist ^= ZobristTable[move.l2][move.c2][indexOf(move.piece)]; 
+         zobrist ^= zobristTable[move.l2][move.c2][indexOf(move.piece)]; 
       }
       break;
    case CHANGEKING:
       if (move.taken == 0) {
          sq64 [move.l1] [move.c1] = 0;
-         zobrist ^= ZobristTable[move.l1][move.c1][indexOf(move.piece)];
+         zobrist ^= zobristTable[move.l1][move.c1][indexOf(move.piece)];
          sq64 [move.l2] [move.c2] = SIG(move.piece) * CASTLEKING;
-         zobrist ^= ZobristTable[move.l2][move.c2][indexOf(SIG(move.piece)*CASTLEKING)]; 
+         zobrist ^= zobristTable[move.l2][move.c2][indexOf(SIG(move.piece)*CASTLEKING)]; 
       }
       else {
          sq64 [move.l1] [move.c1] = 0;
-         zobrist ^= ZobristTable[move.l1][move.c1][indexOf(move.piece)]; 
+         zobrist ^= zobristTable[move.l1][move.c1][indexOf(move.piece)]; 
          sq64 [move.l2] [move.c2] = 0;
-         zobrist ^= ZobristTable[move.l2][move.c2][indexOf(move.taken)]; 
+         zobrist ^= zobristTable[move.l2][move.c2][indexOf(move.taken)]; 
          sq64 [move.l2] [move.c2] = SIG(move.piece) * CASTLEKING;
-         zobrist ^= ZobristTable[move.l2][move.c2][indexOf(SIG(move.piece)*CASTLEKING)]; 
+         zobrist ^= zobristTable[move.l2][move.c2][indexOf(SIG(move.piece)*CASTLEKING)]; 
       }
       break;
    case ENPASSANT:
       sq64 [move.l1] [move.c1] = 0;
-      zobrist ^= ZobristTable[move.l1][move.c1][indexOf(move.piece)]; 
+      zobrist ^= zobristTable[move.l1][move.c1][indexOf(move.piece)]; 
       sq64 [move.l2] [move.c2] = move.piece;
-      zobrist ^= ZobristTable[move.l2][move.c2][indexOf(move.piece)]; 
+      zobrist ^= zobristTable[move.l2][move.c2][indexOf(move.piece)]; 
       sq64 [move.l1] [move.c2] = 0;
-      zobrist ^= ZobristTable[move.l1][move.c2][indexOf(move.taken)]; 
+      zobrist ^= zobristTable[move.l1][move.c2][indexOf(move.taken)]; 
       break;
    case QUEENCASTLESIDE:
       base = (move.piece <= WHITE) ? 0 : 7;
       sq64 [base][0] = 0;
-      zobrist ^= ZobristTable[base][0][indexOf(SIG(move.piece)*ROOK)]; 
+      zobrist ^= zobristTable[base][0][indexOf(SIG(move.piece)*ROOK)]; 
       sq64 [base][3] = SIG(move.piece) * ROOK;
-      zobrist ^= ZobristTable[base][3][indexOf(SIG(move.piece)*ROOK)]; 
+      zobrist ^= zobristTable[base][3][indexOf(SIG(move.piece)*ROOK)]; 
       sq64 [base][4] = 0;
-      zobrist ^= ZobristTable[base][4][indexOf(SIG(move.piece)*KING)]; 
+      zobrist ^= zobristTable[base][4][indexOf(SIG(move.piece)*KING)]; 
       sq64 [base][2] = SIG(move.piece) * CASTLEKING;
-      zobrist ^= ZobristTable[base][2][indexOf(SIG(move.piece)*CASTLEKING)];
+      zobrist ^= zobristTable[base][2][indexOf(SIG(move.piece)*CASTLEKING)];
       break; 
    case KINGCASTLESIDE:
       base = (move.piece <= WHITE) ? 0 : 7;
       sq64 [base][7] = 0;
-      zobrist ^= ZobristTable[base][7][indexOf(SIG(move.piece)*ROOK)]; 
+      zobrist ^= zobristTable[base][7][indexOf(SIG(move.piece)*ROOK)]; 
       sq64 [base][5] = SIG(move.piece) * ROOK;
-      zobrist ^= ZobristTable[base][5][indexOf(SIG(move.piece)*ROOK)]; 
+      zobrist ^= zobristTable[base][5][indexOf(SIG(move.piece)*ROOK)]; 
       sq64 [base][4] = 0;
-      zobrist ^= ZobristTable[base][4][indexOf(SIG(move.piece)*KING)]; 
+      zobrist ^= zobristTable[base][4][indexOf(SIG(move.piece)*KING)]; 
       sq64 [base][6] = SIG(move.piece) * CASTLEKING;
-      zobrist ^= ZobristTable[base][6][indexOf(SIG(move.piece)*CASTLEKING)];
+      zobrist ^= zobristTable[base][6][indexOf(SIG(move.piece)*CASTLEKING)];
       break; 
    default:;
    }
@@ -368,7 +374,7 @@ inline uint64_t doMove (TGAME sq64, TMOVE move, register uint64_t zobrist) { /* 
 }
 
 /*! execute le deplacement renvoie la position du roi qui a bouge sous forme l * 8 + c sinon -1*/
-inline int doMove0 (TGAME sq64, TMOVE move) { /* */
+static inline int doMove0 (tGame_t sq64, tMove_t move) { /* */
    switch (move.type) {
    case STD:
       sq64 [move.l1] [move.c1] = 0;
@@ -410,11 +416,11 @@ inline int doMove0 (TGAME sq64, TMOVE move) { /* */
 }
 
 /*! apporte le complement de positions a buildList prenant en compte en Passant suggere par le joueur */
-int buildListEnPassant (TGAME refJeu, int who, char *epGamer, TLISTMOVE listMove, int nextL) { /* */
+static int buildListEnPassant (tGame_t refJeu, int who, char *epGamer, tListMove_t listMove, int nextL) { /* */
    int nList = nextL;
-   if (epGamer [0] == '-') return nList;
    int lEp = epGamer [1] - '1';
    int cEp = epGamer [0] - 'a';
+   if (epGamer [0] == '-') return nList;
    if ((cEp > 0) && (refJeu [lEp+who][cEp-1] == who * PAWN) &&      // vers droite
       (refJeu[lEp][cEp] == 0) && (refJeu [lEp+who][cEp] == -who * PAWN)) {
       nList = pushMove (listMove, who * PAWN, ENPASSANT, nList, lEp+who, cEp-1, lEp, cEp);
@@ -430,7 +436,7 @@ int buildListEnPassant (TGAME refJeu, int who, char *epGamer, TLISTMOVE listMove
  * \li 'who' joue 
  * \li kingSide vrai si roque autorise cote roi
  * \li quenSide vrai si roque autorise cote roi */
-int buildList (TGAME refJeu, register int who, bool kingSide, bool queenSide, TLISTMOVE listMove) { /* */
+static int buildList (tGame_t refJeu, register int who, bool kingSide, bool queenSide, tListMove_t listMove) { /* */
    register int u, v, w, k, l, c;
    register int nList = 0;
    register int8_t *pr = &refJeu [0][0];
@@ -601,9 +607,9 @@ int buildList (TGAME refJeu, register int who, bool kingSide, bool queenSide, TL
  * \li on essaye tous les jeux possibles. Si dans tous les cas on est echec au roi
  * \li c'est perdu. Noter que si le roi a le trait et qu'il n'est pas echec au roi il est Pat
  * \li si le roi est echec au roi il est mat */
-bool LCkingCannotMove (TGAME sq64, register int who, register int l, register int c) { /* */
-   TLISTMOVE list;
-   TGAME localSq64;
+static bool LCkingCannotMove (tGame_t sq64, register int who, register int l, register int c) { /* */
+   tListMove_t list;
+   tGame_t localSq64;
    register int z;
    register int maxList = buildList (sq64, who, true, true, list);
    if (maxList == 0) return true;
@@ -619,7 +625,7 @@ bool LCkingCannotMove (TGAME sq64, register int who, register int l, register in
  * \li MAT si Ordinateur gagne,
  * \li -MAT si joueur gagne, 0 si nul,...
  * \li positionne le boolean pat*/
-int evaluation (TGAME sq64, register int who, bool *pat) { /* */
+static int evaluation (tGame_t sq64, register int who, bool *pat) { /* */
    register int l, c, v, z, zAdverse;
    register int8_t *p64 = &sq64 [0][0];
    register int lAdverse, cAdverse, nBBishops, nWBishops;
@@ -647,13 +653,13 @@ int evaluation (TGAME sq64, register int who, bool *pat) { /* */
    // ladverse = cadverse = 0;
    nBBishops = nWBishops = 0;  // nombre ce fous Black, White.
    info.nEvalCall += 1;
-   for (register int z = 0; z < GAMESIZE; z++) {
+   for (z = 0; z < GAMESIZE; z++) {
       // eval des pieces
       if ((v = (*p64++)) == 0) continue;
       // v est la valeur courante
       l = LINE (z);
       c = COL (z);
-      eval += ((v > 0) ? valPiece [v] : -valPiece [-v]);
+      eval += ((v > 0) ? VAL_PIECE [v] : -VAL_PIECE [-v]);
       // bonus si cavalier fou tour reine dans le carre central
       if ((c == 3 || c == 4) && (l == 3 || l == 4)) {
          if (v > PAWN && v < KING) eval += BONUSCENTER;
@@ -713,10 +719,9 @@ int evaluation (TGAME sq64, register int who, bool *pat) { /* */
 }
 
 /*! le coeur du programme */
-int alphaBeta (TGAME sq64, int who, int p, int refAlpha, int refBeta, uint64_t zobrist) { /* */
-   info.nAlphaBeta += 1;
-   TLISTMOVE list;
-   TGAME localSq64;
+static int alphaBeta (tGame_t sq64, int who, int p, int refAlpha, int refBeta, uint64_t zobrist) { /* */
+   tListMove_t list;
+   tGame_t localSq64;
    int maxList = 0;
    int k, note;
    bool pat = false;
@@ -726,6 +731,7 @@ int alphaBeta (TGAME sq64, int who, int p, int refAlpha, int refBeta, uint64_t z
    uint64_t newZobrist = 0;
    uint32_t hash = 0, check = 0;
    bool end = false;
+   info.nAlphaBeta += 1;
    // uint64_t zobrist = computeHash (sq64);
    if (getInfo.trans) {
       hash = zobrist & masqMaxTransTable;
@@ -789,24 +795,24 @@ int alphaBeta (TGAME sq64, int who, int p, int refAlpha, int refBeta, uint64_t z
 }
 
 /*! association des thread a alphabeta */
-void *fThread (void *arg) { /* */
+static void *fThread (void *arg) { /* */
    long k = (long) arg;
    info.moveList[k].eval = alphaBeta (info.moveList [k].jeu, -gamer.color, 0, -MATE, MATE, info.moveList [k].zobrist);
    pthread_exit (NULL);
 }
 
 /*! comparaison evaluation de deux move pour tri croissant si couleur gamer blanche, decroissante sinon */
-int comp (const void *a, const void *b) {
-   const TMOVEINFO *pa = a;
-   const TMOVEINFO *pb = b;
+static int comp (const void *a, const void *b) {
+   const tMoveInfo_t *pa = a;
+   const tMoveInfo_t *pb = b;
    return (gamer.color == WHITE) ? pb->eval - pa->eval : pa -> eval - pb -> eval;
 }
 
 /*! localise les rois et renvoie le nombre de pieces totales */
-int whereKings (TGAME sq64, int gamerColor, int *lGK, int *cGK, int *lCK, int *cCK) { /* */
-   *lGK = *cGK = *lCK = *cCK = -1;
+static int whereKings (tGame_t sq64, int gamerColor, int *lGK, int *cGK, int *lCK, int *cCK) { /* */
    int v;
    int n = 0;
+   *lGK = *cGK = *lCK = *cCK = -1;
    for (int l = 0; l < N; l++) {
       for (int c = 0; c < N; c++) {
          v = - sq64 [l][c] * gamerColor;
@@ -830,14 +836,14 @@ int whereKings (TGAME sq64, int gamerColor, int *lGK, int *cGK, int *lCK, int *c
  * \li appel de la biblio ouverture openingAll
  * \li appel des tables de fin de jeux syzygy 
  * \li appel alphaBeta en multithread */
-int computerPlay () { /* */
+static int computerPlay (void) { /* */
    enum {INIT, OUV, ENDGAME, ALPHABETA} status = INIT;
    char fen [MAXBUFFER] = "";
    pthread_t tThread [MAXTHREADS];
    int bestNote = gamer.color * (MATE + 1); // la pire des notes possibleq
    int i;
    long k;
-   TGAME localSq64;
+   tGame_t localSq64;
    struct timeval tRef;
    int lGK, cGK, lCK, cCK; // ligne colonnes Gamer et Computer King 
    uint64_t zobrist = 0;
@@ -889,7 +895,7 @@ int computerPlay () { /* */
       return 0; // impossible de jouer... Bizarre
    }
    for (k = 0; k < nextL; k++) { // enregistrement des move possibles au niveau 0 dans info
-      memcpy (&info.moveList [k].move, &listMove [k], sizeof (TMOVE));
+      memcpy (&info.moveList [k].move, &listMove [k], sizeof (tMove_t));
       info.moveList [k].taken = sq64 [listMove [k].l2][listMove [k].c2]; 
       moveToStr (info.moveList [k].move, info.moveList [k].strMove, info.moveList [k].taken);
    }
@@ -917,7 +923,7 @@ int computerPlay () { /* */
    if (status == INIT) {
       if (getInfo.trans) {
          masqMaxTransTable  = (1 << getInfo.exp) - 1; // idem (2 puissance exp) - 1
-         if ((trTa = calloc (masqMaxTransTable + 1, sizeof (StrTa))) == NULL) {
+         if ((trTa = calloc (masqMaxTransTable + 1, sizeof (trTa_t))) == NULL) {
             strcpy (info.comment, "ERR: malloc in computerPlay ()\n");
             return 0;
          }
@@ -955,7 +961,7 @@ int computerPlay () { /* */
       // info.moveList contient les évaluations de toutes les possibilites
       // recherche de la meilleure note
       status = ALPHABETA;
-      qsort (info.moveList, nextL, sizeof (TMOVEINFO), comp); // tri croisant ou decroissant selon couleur gamer
+      qsort (info.moveList, nextL, sizeof (tMoveInfo_t), comp); // tri croisant ou decroissant selon couleur gamer
       info.evaluation = bestNote = info.moveList [0].eval;
       i = 0;
       while ((info.moveList[i].eval == bestNote) && (i < nextL)) i += 1; // il y a i meilleurs jeux
@@ -1018,26 +1024,25 @@ int computerPlay () { /* */
  * \li lit les variables d'environnement, lance computerPlay 
  * \li vrai si on peut lire les variables d'environnement
  * \li faux sinon */
-bool cgi () { /* */
+static bool cgi (void) { /* */
    char fen [MAXLENGTH];
    char temp [MAXBUFFER];
-   char *str;
+   char *str = temp;
    char *env;
-   str = temp;
    char buffer [80] = "";
    
    // log date heure et adresse IP du joueur
    time_t now = time (NULL); // pour .log
    struct tm *timeNow = localtime (&now);
-   flog = fopen (F_LOG, "a");                // preparation du fichier log 
+   fLog = fopen (F_LOG, "a");                // preparation du fichier log 
    if ((env = getenv ("REMOTE_ADDR")) == NULL) return false;
    strftime (buffer, 80, "%F; %T", timeNow);
-   fprintf (flog, "%s; ", buffer);           // log de la date et du temps
+   fprintf (fLog, "%s; ", buffer);           // log de la date et du temps
    env = buffer;
-   fprintf (flog, "%s; ", env);              // log de l'address IP distante
+   fprintf (fLog, "%s; ", env);              // log de l'address IP distante
    if ((env = getenv ("HTTP_USER_AGENT")) == NULL) return false;
    if (strlen (env) > 8) *(env + 8) = '\0';  // tronque a x caracteres
-   fprintf (flog, "%s; ", env);              // log du user agent distant
+   fprintf (fLog, "%s; ", env);              // log du user agent distant
 
    // Lecture de la chaine de caractere representant le jeu via la methode post
 
@@ -1061,11 +1066,11 @@ bool cgi () { /* */
        computerPlay ();
        gameToFen (sq64, fen, gamer.color, '+', true, computer.ep, info.cpt50, info.nb);
        sendGame (true, fen, getInfo.reqType);
-       fprintf (flog, "%2d; %s; %s; %d", getInfo.level, getInfo.fenString, info.computerPlayC, info.evaluation);
+       fprintf (fLog, "%2d; %s; %s; %d", getInfo.level, getInfo.fenString, info.computerPlayC, info.evaluation);
    }
    else sendGame (true, "", getInfo.reqType);
-   fprintf (flog, "\n");
-   fclose (flog);
+   fprintf (fLog, "\n");
+   fclose (fLog);
    return true;
 }
 
@@ -1074,9 +1079,10 @@ bool cgi () { /* */
  * \li si pas d'argument alors CGI */
 int main (int argc, char *argv[]) { /* */
    char fen [MAXLENGTH];
+   tGame_t localSq64;
+   uint64_t hashValue;
+   uint8_t piece;
    srand (time (NULL));             // initialise le generateur aleatoire
-   TGAME localSq64;
-   uint64_t hashValue; 
    // si pas de parametres on va au cgi (fin de main)
    if (argc >= 2 && argv [1][0] == '-') { // si il y a des parametres. On choidi un test
       if (argc > 2) strcpy (getInfo.fenString, argv [2]);
@@ -1107,17 +1113,6 @@ int main (int argc, char *argv[]) { /* */
          }         
          printf ("memcpy. clock: %ld\n", (clock () - info.nClock));
          printGame (localSq64, 0);
-         
-         info.nClock = clock ();
-         int8_t *pl = &sq64[0][0]; 
-         int8_t *pl2 = &localSq64[0][0]; 
-         for (uint64_t i = 0; i < 2; i++) {
-            asm volatile ("movl $8, %%ecx; rep movsq" : "+D" (pl2) : "S"(sq64) : "ecx", "cc", "memory");
-            sq64 [0][0] = KING;
-            asm volatile ("movl $8, %%ecx; rep movsq" : "+D" (pl) : "S"(localSq64) : "ecx", "cc", "memory");
-         }         
-         printf ("asmcpy. clock: %ld\n", (clock () - info.nClock));
-         printGame (localSq64, 0);
          break;
       case 't': // tests
          printGame (sq64, evaluation (sq64, -gamer.color, &info.pat));
@@ -1140,11 +1135,11 @@ int main (int argc, char *argv[]) { /* */
          initTable(); 
          hashValue = computeHash (sq64); 
          printf ("The hash value is     : %lu\n", hashValue); 
-         uint8_t piece = sq64[0][3]; 
+         piece = sq64[0][3]; 
          sq64 [0][3] = 0; 
-         hashValue ^= ZobristTable[0][3][indexOf(piece)]; 
+         hashValue ^= zobristTable[0][3][indexOf(piece)]; 
          sq64 [0][2] = piece; 
-         hashValue ^= ZobristTable[0][2][indexOf(piece)]; 
+         hashValue ^= zobristTable[0][2][indexOf(piece)]; 
          printf ("The new hash value is : %lu\n", hashValue); 
          break;
       default:

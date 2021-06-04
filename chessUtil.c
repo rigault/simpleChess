@@ -1,12 +1,12 @@
 #define _DEFAULT_SOURCE // pour scandir
+#include <ctype.h>
+#include <dirent.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include <ctype.h>
-#include <stdbool.h>
-#include <dirent.h>
 
 #include "chessUtil.h"
 #include "vt100.h"
@@ -14,24 +14,24 @@
 // Pawn, kNight, Bishop, Rook, Queen, King, rOckking
 // White : Majuscules, negatives. Black: Minuscules, positives. 
 
-static const char dict [] = {'-', 'P', 'N', 'B', 'R', 'Q', 'K', 'K'};
-static const char *unicode [] = {" ", "♟", "♞", "♝", "♜", "♛", "♚", "♚"};
-static const char *strStatus [] = {"NO_EXIST", "EXIST", "IS_IN_CHECK", "UNVALID_IN_CHECK", "IS_MATE", "IS_PAT"};
-static const char *scoreToStr [] = {"ERROR", "-", "0-1","1/2-1/2","1-0"};
+static const char DICT [] = {'-', 'P', 'N', 'B', 'R', 'Q', 'K', 'K'};
+static const char *UNICODE [] = {" ", "♟", "♞", "♝", "♜", "♛", "♚", "♚"};
+static const char *STR_STATUS [] = {"NO_EXIST", "EXIST", "IS_IN_CHECK", "UNVALID_IN_CHECK", "IS_MATE", "IS_PAT"};
+static const char *SCORE_TO_STR [] = {"ERROR", "-", "0-1","1/2-1/2","1-0"};
 
 /*! traduit la piece au format RNBQK... en nombre entier */
-int charToInt (int c) { /* */
+static int charToInt (int c) { /* */
    int sign = islower (c) ? 1 : -1;
-   for (unsigned int i = 0; i < sizeof (dict); i++)
-      if (toupper (c) == dict [i]) return sign * i;
+   for (unsigned int i = 0; i < sizeof (DICT); i++)
+      if (toupper (c) == DICT [i]) return sign * i;
    return 0;
 }
 
 /*! traduit move en chaine algébrique */
-void moveToStr (TMOVE move, char str [MAXSTRMOVE], int taken) { /* */
+void moveToStr (tMove_t move, char str [MAXSTRMOVE], int taken) { /* */
    switch (move.type) {
    case STD: case PROMOTION: case ENPASSANT: case CHANGEKING:
-      str [0] = (move.piece == 0) ? '?' : dict [abs(move.piece)];
+      str [0] = (move.piece == 0) ? '?' : DICT [abs(move.piece)];
       str [1] = move.c1 + 'a';
       str [2] = move.l1 + '1';
       str [3] = (taken == 0) ? '-' : 'x';
@@ -57,11 +57,11 @@ void moveToStr (TMOVE move, char str [MAXSTRMOVE], int taken) { /* */
 }
 
 /*! imprime le jeu a la console pour Debug */
-void printGame (TGAME jeu, int eval) { /* */
+void printGame (tGame_t jeu, int eval) { /* */
    int l, c;
    int v;
    bool normal = true;
-   for (int c = 'a'; c <= 'h'; c++) printf (" %c ", c);
+   for (int k = 'a'; k <= 'h'; k++) printf (" %c ", k);
    printf ("   --> : %d\n", eval);
    for (l = 7; l >= 0; l--) {
       for (c = 0; c < N; c++) {
@@ -69,7 +69,7 @@ void printGame (TGAME jeu, int eval) { /* */
          normal =! normal; 
          v = jeu [l][c];
          if ((v < -CASTLEKING) || v > CASTLEKING) printf ("Error: l c v = %d %d %d\n ", l, c, v); 
-         else printf ("%s %s %s",  (v > 0) ? C_RED : C_WHITE, unicode [abs (v)], DEFAULT_COLOR);
+         else printf ("%s %s %s",  (v > 0) ? C_RED : C_WHITE, UNICODE [abs (v)], DEFAULT_COLOR);
       }
       printf ("  %d\n", l+1);
       normal =! normal; 
@@ -80,9 +80,8 @@ void printGame (TGAME jeu, int eval) { /* */
 /*! traduit booleen decrivant les possibilites de roque en string
  * \li modifie : gamer et computer
  * \li renvoie str de la forme KQkq */
-char *castleToStr (bool whiteIsCastled, bool blackIsCastled, char *str) { /* */
+static char *castleToStr (bool whiteIsCastled, bool blackIsCastled, char *str) { /* */
    strcpy (str, "");
-
    if (((whiteIsCastled) && (gamer.color == WHITE)) || ((blackIsCastled) && (gamer.color == BLACK))) { 
       gamer.kingCastleOK = gamer.queenCastleOK = false;
    }
@@ -108,7 +107,7 @@ char *castleToStr (bool whiteIsCastled, bool blackIsCastled, char *str) { /* */
 
 /*! traduit les possibilites de roque en booleens
  * \li modifie : gamer et computer */
-void strToCastle (char *str, int color, bool *whiteCanCastle, bool *blackCanCastle) { /* */
+static void strToCastle (const char *str, int color, bool *whiteCanCastle, bool *blackCanCastle) { /* */
    char car;
    *whiteCanCastle = false;
    *blackCanCastle = false;
@@ -139,12 +138,12 @@ void strToCastle (char *str, int color, bool *whiteCanCastle, bool *blackCanCast
 /*! Traduit le jeu au format FEN Forsyth–Edwards Notation en structure interne
  * \li ex : 3kq3/8/8/8/8/3K4/+w+--
  * \li le jeu est recu sous la forme d'une chaine de caracteres du navigateur au format fen
- * \li fenToGame traduit cette chaine et renvoie l'objet TGAME sq64  ainsi que la couleur
+ * \li fenToGame traduit cette chaine et renvoie l'objet tGame_t sq64  ainsi que la couleur
  * \li retour 1 si noir, -1 si blanc
  * \li le roque est contenu dans la valeur du roi : KING ou CASTLEKING
  * \li les valeurs : en passant, cpt 50 coups et nb de coups sont renvoyées
  * \li les separateurs acceptés entre les differents champs sont : + et Espace */
-int fenToGame (char *fenComplete, TGAME sq64, char *ep, int *cpt50, int *nb) { /* */
+int fenToGame (char *fenComplete, tGame_t sq64, char *ep, int *cpt50, int *nb) { /* */
    int k, l = 7, c = 0;
    char *fen, cChar;
    char *sColor, *sCastle, *strNb, *str50, *strEp;
@@ -196,10 +195,10 @@ int fenToGame (char *fenComplete, TGAME sq64, char *ep, int *cpt50, int *nb) { /
  * \li le separateur est donne en parametre : normalement soit espace soit "+"
  * \li si le boolean "complete" est vrai alors on transmet le roque, la valeur en passant,
  * \li le compteur des 50 coups et le nb de coups */
-char *gameToFen (TGAME sq64, char *fen, int color, char sep, bool complete, char *ep, int cpt50, int nb) { /* */
+char *gameToFen (tGame_t sq64, char *fen, int color, char sep, bool complete, char *ep, int cpt50, int nb) { /* */
    int n, v;
    int i = 0;
-   char strCastle [4];
+   char strCastle [5];
    bool whiteIsCastled = false;
    bool blackIsCastled = false;
    for (int l = N-1; l >=  0; l--) {
@@ -207,7 +206,7 @@ char *gameToFen (TGAME sq64, char *fen, int color, char sep, bool complete, char
          if ((v = sq64 [l][c]) != 0) {
             if (v == CASTLEKING) blackIsCastled = true;
             if (v == -CASTLEKING) whiteIsCastled = true;
-            fen [i++] = (v >= 0) ? tolower (dict [v]) : dict [-v];
+            fen [i++] = (v >= 0) ? tolower (DICT [v]) : DICT [-v];
          }
          else {
             for (n = 0; (c+n < N) && (sq64 [l][c+n] == 0); n++);
@@ -230,7 +229,7 @@ char *gameToFen (TGAME sq64, char *fen, int color, char sep, bool complete, char
 /*! modifie jeu avec le deplacement move
  * \li move en notation algébrique Pa2-a4 ou Pa2xc3
  * \li tolere e2e4 e2-e4 e:e4 e2xe4 */
-void moveGame (TGAME sq64, int color, char *move) { /* */
+void moveGame (tGame_t sq64, int color, char *move) { /* */
    int base = (color == WHITE) ? 0 : 7;       // Roque non teste
    int cDep, lDep, cDest, lDest, i, j;
    
@@ -267,7 +266,7 @@ void moveGame (TGAME sq64, int color, char *move) { /* */
  * \li X : piece joue. Y : promotion,  O-O : petit roque,  O-O-O : grand roque
  * \li renseigne la chaine move (deplacement choisi) et le commentaire associe
  * \li renvoie vrai si ouverture trouvee dans le fichier, faux sinon */
-bool opening (const char *fileName, char *gameFen, char *sComment, char *move) { /* */
+static bool opening (const char *fileName, char *gameFen, char *sComment, char *move) { /* */
    FILE *fe;
    char line [MAXBUFFER];
    char *ptComment = sComment;
@@ -300,7 +299,7 @@ bool openingAll (const char *dir, const char *filter, char *gameFen, char *sComm
    int n;
    char fileName [MAXBUFFER];
    char comment [MAXBUFFER];
-   n = scandir (dir, &namelist, 0, alphasort);
+   n = scandir (dir, &namelist, NULL, alphasort);
    if (n < 0) return false;
    for (int i = 0; i < n; i++) {
       if (strstr (namelist [i]->d_name, filter) != NULL) {
@@ -317,19 +316,19 @@ bool openingAll (const char *dir, const char *filter, char *gameFen, char *sComm
 }
 
 /*! vraie si il y a une piece egale a celle pointee par l1, c1 dans le symetrique par rapport a la colonne cDest */
-bool symetryV (TGAME sq64, int l1, int c1, int cDest) { /* */ 
+static bool symetryV (tGame_t sq64, int l1, int c1, int cDest) { /* */ 
    int cSym = cDest + cDest - c1;
    return (cSym >= 0 && cSym < N) ? (sq64 [l1][c1] == sq64 [l1][cSym]) : false;
 }
 
 /*! vraie si il y a une piece egale a celle pointee par l1, c1 dans le symetrique par rapport a la ligne lDest */
-bool symetryH (TGAME sq64, int l1, int c1, int lDest) { /* */ 
+static bool symetryH (tGame_t sq64, int l1, int c1, int lDest) { /* */ 
    int lSym = lDest + lDest - l1;
    return (lSym >= 0 && lSym < N) ? (sq64 [l1][c1] == sq64 [lSym][c1]): false;
 }
 
 /*! transforme la specif algebriqe complete en abregee */
-char *abbrev (TGAME sq64, char *complete, char *abbr) { /* */ 
+char *abbrev (tGame_t sq64, char *complete, char *abbr) { /* */ 
    char cCharPiece = complete [0];
    int c1 = complete [1] - 'a';
    int l1 = complete [2] - '1';
@@ -440,14 +439,14 @@ void sendGame (bool http, const char *fen, int reqType) { /* */
       printf ("\"time\" : %lf,\n", (double) info.computeTime/MILLION);
       printf ("\"nbThread\" : %d,\n", info.nbThread);
       printf ("\"eval\" : %d,\n", info.evaluation);
-      printf ("\"computerStatus\" : \"%d : %s\",\n", computer.kingState, strStatus [computer.kingState]);
-      printf ("\"playerStatus\" : \"%d : %s\",\n", gamer.kingState, strStatus [gamer.kingState]);
+      printf ("\"computerStatus\" : \"%d : %s\",\n", computer.kingState, STR_STATUS [computer.kingState]);
+      printf ("\"playerStatus\" : \"%d : %s\",\n", gamer.kingState, STR_STATUS [gamer.kingState]);
       printf ("\"fen\" : \"%s\",\n", fen);
       printf ("\"comment\" : \"%s\",\n", info.comment);
       printf ("\"wdl\" : %d,\n", info.wdl);
       printf ("\"move\" : \"%s\",\n", info.computerPlayC);
       printf ("\"moveA\" : \"%s\",\n", info.computerPlayA);      
-      printf ("\"score\" : \"%s\",\n", scoreToStr [info.score]);
+      printf ("\"score\" : \"%s\",\n", SCORE_TO_STR [info.score]);
       printf ("\"moveList\" : [");
       for (k = 0; k < computer.nValidPos - 1; k++) {
          if ((k % 7) == 0) printf ("\n   ");

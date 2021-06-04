@@ -34,7 +34,7 @@
 #define LINE(z)       ((z) >> 3)             //!< z / 8 (pour trouver ligne)
 #define COL(z)        ((z) & 0x07)           //!< z % 8 (pour trouver colonne
 
-typedef int8_t TGAME [N][N];                 //!< jeu de 8 x 8 cases codant une piece sur un entier 8 bits avec signe
+typedef int8_t tGame_t [N][N];                 //!< jeu de 8 x 8 cases codant une piece sur un entier 8 bits avec signe
 
 typedef struct {
    int8_t type;
@@ -44,18 +44,18 @@ typedef struct {
    int8_t l2;
    int8_t c2;
    int8_t taken;
-} TMOVE;
+} tMove_t;
 
-typedef TMOVE TLISTMOVE [MAXSIZELIST]; 
+typedef tMove_t tListMove_t [MAXSIZELIST]; 
 
 typedef struct {                             //!< structure decrivant un deplacement, le jeu resultant et son evaluation.
-   TGAME jeu;
-   TMOVE move;
+   tGame_t jeu;
+   tMove_t move;
    int taken;
    char strMove [MAXSTRMOVE];
    int eval;
    uint64_t zobrist;
-} TMOVEINFO;
+} tMoveInfo_t;
 
 enum {VOID, PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING, CASTLEKING};            //!< VOID car PAWN = 1, ...
 enum KingState {NOEXIST, EXIST, ISINCHECK, UNVALIDINCHECK, ISMATE, ISPAT};   //!< type etat  
@@ -85,7 +85,7 @@ struct Sinfo {
    int nbTrTa;                      // nombre de positions occupees dans la table de transposition
    int nbColl;                      // nombre de collisions
    int nbMatchTrans;                // nombre de matching transposition  
-   TMOVEINFO moveList [MAXSIZELIST];// liste des move possibles et leur evaluation
+   tMoveInfo_t moveList [MAXSIZELIST];// liste des move possibles et leur evaluation
 } info;
 
 struct {
@@ -97,13 +97,13 @@ struct {
    char ep [3];                     // en passant au format c3
 } gamer, computer;
 
-extern void moveToStr (TMOVE move, char str [MAXSTRMOVE], int taken);
-extern int fenToGame (char *fenComplete, TGAME sq64, char *ep, int *cpt50, int *nb);
-extern char *gameToFen (TGAME sq64, char *fen, int color, char sep, bool complete, char *ep, int cpt50, int nb);
+extern void moveToStr (tMove_t move, char str [MAXSTRMOVE], int taken);
+extern int fenToGame (char *fenComplete, tGame_t sq64, char *ep, int *cpt50, int *nb);
+extern char *gameToFen (tGame_t sq64, char *fen, int color, char sep, bool complete, char *ep, int cpt50, int nb);
 extern bool openingAll (const char *dir, const char *filter, char *gameFen, char *sComment, char *move);
 extern char *enPassant (int color, char *complete, char *strEp);
-extern char *abbrev (TGAME sq64, char *complete, char *abbr);
+extern char *abbrev (tGame_t sq64, char *complete, char *abbr);
 extern void sendGame (bool http, const char *fen, int reqType);
-extern void moveGame (TGAME jeu, int color, char *move);
-extern void printGame (TGAME jeu, int eval);
+extern void moveGame (tGame_t jeu, int color, char *move);
+extern void printGame (tGame_t jeu, int eval);
 
