@@ -88,7 +88,7 @@ struct Sinfo {
    tMoveInfo_t moveList [MAXSIZELIST];// liste des move possibles et leur evaluation
 } info;
 
-struct {
+struct GamerOrComputer {
    int color;                       // -1 si joueur blanc (defaut), 1 si joueur noir. Note gamer.color uniquement utilise
    int nValidPos;                   // nombre de positions valides trouvee par buildList
    enum KingState kingState;        // etat roi : NOEXIST, ...

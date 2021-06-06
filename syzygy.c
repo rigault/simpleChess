@@ -32,7 +32,7 @@ struct Pos {
    uint16_t move;
 };
 
-/*! traduit la chaine au format FEN en une structure pos. ATTENTION DOUTE SUR CASTLING */
+/*! Traduit la chaine au format FEN en une structure pos. ATTENTION DOUTE SUR CASTLING */
 static bool parseFEN (struct Pos *pos, const char *fen) { /* */
    uint64_t white = 0, black = 0;
    uint64_t kings, queens, rooks, bishops, knights, pawns;
@@ -185,7 +185,7 @@ static void moveToStr (const struct Pos *pos, unsigned move, char *str) { /* */
    *str++ = '\0';
 }
 
-/*! recherche dans la tablebase sygyzy situee dans path le jeu decrit en notation FEN par fen. 
+/*! Pecherche dans la tablebase sygyzy situee dans path le jeu decrit en notation FEN par fen. 
  * \li Renvoie le deplacement au format algebrique complet dans bestMove
  * \li le commentaire contient ce deplacement et les valeur WIN WDL DTZ
  * \li retourne vrai si trouve, faux si erreur */
