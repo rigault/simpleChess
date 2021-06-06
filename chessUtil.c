@@ -472,3 +472,40 @@ void sendGame (bool http, const char *fen, int reqType) { /* */
    }
    printf ("\n}\n");
 }
+
+/*! Lit le fichier FEN
+ * \li ce fichier est au format CSV : FENstring ; dep ; commentaire
+ * \li dep contient le deplacement en notation algebrique complete Xe2-e4[=Y] | O-O | O-O-O
+ * \li X : piece jouee. Y : promotion,  O-O : petit roque,  O-O-O : grand roque
+ * \li ignore les col-1 premieres colonnes */
+bool processLog (const char *fileName, int col) { /* */
+   char line [MAXLENGTH];
+   char *sFEN, *ptDep, *ptEval, *ptComment = "";
+   int cpt50, nb;
+   int eval = 0;
+   int nLine = 0;
+   char ep [3];
+   FILE *fe;
+   tGame_t jeu;
+   if ((fe = fopen (fileName, "r")) == NULL) return false;
+   while (fgets (line, MAXLENGTH, fe) != NULL) {
+      nLine += 1;
+      sFEN = strtok (line, ";");
+      if (sFEN == NULL) continue;
+      for (int i = 1; i < col && (sFEN != NULL); i++) sFEN = strtok (NULL, ";");   
+      if (sFEN == NULL) continue;
+      if ((ptDep = strtok (NULL, ";")) != NULL) {
+         if ((ptEval = strtok (NULL, ";")) != NULL) {
+            eval = strtol (ptEval, NULL, 10);
+            ptComment = strtok (NULL, "\n");
+         }
+      }
+      fenToGame (sFEN, jeu, ep, &cpt50, &nb);
+      printf ("line: %d\n", nLine);
+      printGame (jeu, eval);
+      printf ("dep: %s\n", ptDep);
+      printf ("Comment: %s\n", (ptComment != NULL) ? ptComment : "");
+   }
+   return true;
+}
+

@@ -8,7 +8,7 @@
 #define MAXSIZELIST 128                      //!< taille max liste des jeux
 #define MAXTHREADS 128                       //!< nombre max de thread. Garder ces deux valeurs egales.
 #define GAMESIZE 64                          //!< taille du jeu = N * N * sizeof (int8_t) = 8 * 8 * 1 ATTENTION PORTABILITE
-#define HELP "Synopsys: sudo ./chess.cgi -q|-v|-d|-m|-M|-f|-t|-h [FEN string] [level] [exp]\n" \
+#define HELP "Synopsys: sudo ./chess.cgi (-q|-v|-d|-m|-M|-f|-t|-h [FEN string] [level] [exp]) | (-l <logFile> [col])\n" \
     "More help: firefox|google-chrome|lynx ../front/chessdoc.html"
 #define MAXBUFFER 10000                      //!< tampon de caracteres pour longues chaines
 #define MAXLENGTH 255                        //!< pour ligne
@@ -106,4 +106,6 @@ extern char *abbrev (tGame_t sq64, char *complete, char *abbr);
 extern void sendGame (bool http, const char *fen, int reqType);
 extern void moveGame (tGame_t jeu, int color, char *move);
 extern void printGame (tGame_t jeu, int eval);
+extern bool processLog (const char *nameFile, int col);
+
 

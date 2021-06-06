@@ -10,6 +10,7 @@
  * \li  ./chess.cgi -f : test performance
  * \li  ./chess.cgi -t [FENGame] : test unitaire
  * \li  ./chess.cgi -h : help
+ * \li  ./chess.cgi -l <logfile> [col] : rejour le logfile. Ignore les col-1 premiers champs.
  * \li  sans parametre ni option :  CGI gérant une API restful (GET) avec les réponses au format JSON
  * \section Compilation
  * voir fichier Makefile
@@ -1093,6 +1094,14 @@ int main (int argc, char *argv[]) { /* */
       masqMaxTransTable  = (1 << getInfo.exp) - 1; // idem (2 puissance exp) - 1
       gamer.color = -fenToGame (getInfo.fenString, sq64, gamer.ep, &info.cpt50, &info.nb);
       switch (argv [1][1]) {
+      case 'l':
+         if ((argc != 3) && (argc != 4)) {
+            printf ("%s\n", HELP);
+            exit (EXIT_FAILURE);
+         }
+         if (! processLog (argv [2], ((argc == 4) ? strtol (argv [3], NULL, 10) : 1)))
+            fprintf (stderr, "File %s unknown\n", argv [2]);
+         break;
       case 'q': case 'v': // q quiet, v verbose
          printf ("argv1: %s\n", argv [1]);
          if (strlen (argv [1]) > 2) getInfo.trans = (argv [1][2] != 'n');
